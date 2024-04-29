@@ -1,0 +1,14 @@
+{
+  "name": "supaverse",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "dependencies": {
+    "prettier": "^3.2.5"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  }
+}
