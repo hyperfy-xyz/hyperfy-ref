@@ -1,22 +1,30 @@
 import { Node } from './Node'
 
 export class Script extends Node {
-  constructor(entity, parent, data) {
-    super(entity, parent, data)
-    try {
-      const Class = this.space.compartment.evaluate(data.code)
-      this.script = new Class()
-    } catch (err) {
-      console.error(err)
-    }
+  constructor(entity, data) {
+    super(entity, data)
+    this.code = data.code
+    this.script = null
+  }
+
+  init() {
+    const fn = this.space.compartment.evaluate(this.code)
+    const Instance = fn(this.entity.getProxy())
+    this.script = new Instance()
+    this.script.init?.()
   }
 
   start() {
-    if (!this.script) return
-    this.unregister = this.space.scripts.register(this)
+    this.script?.start?.()
   }
 
-  stop() {
-    this.unregister?.()
+  getProxy() {
+    if (!this.proxy) {
+      const proxy = {
+        ...super.getProxy(),
+      }
+      this.proxy = proxy
+    }
+    return this.proxy
   }
 }

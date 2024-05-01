@@ -2,6 +2,9 @@ import * as THREE from 'three'
 
 import { System } from './System'
 
+// THREE.Object3D.DEFAULT_MATRIX_AUTO_UPDATE = false
+// THREE.Object3D.DEFAULT_MATRIX_WORLD_AUTO_UPDATE = false
+
 export class Graphics extends System {
   constructor(space) {
     super(space)
@@ -10,6 +13,8 @@ export class Graphics extends System {
 
   async init() {
     this.scene = new THREE.Scene()
+    // this.scene.matrixAutoUpdate = false
+    // this.scene.matrixWorldAutoUpdate = false
     this.camera = new THREE.PerspectiveCamera(
       75,
       this.viewport.offsetWidth / this.viewport.offsetHeight,

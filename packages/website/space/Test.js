@@ -104,7 +104,7 @@ export class Test extends System {
       desc.triangles.count = triangles.size() / 3
       desc.triangles.stride = 12 // size of uint32 in bytes, assuming indices are 32-bit
       desc.triangles.data = triangles.data()
-      console.log('val?', desc.isValid())
+      // console.log('val?', desc.isValid())
 
       const physics = this.space.physics.physics
       const cookingParams = physics.cookingParams
@@ -112,7 +112,7 @@ export class Test extends System {
         cookingParams,
         desc
       )
-      console.log('mesh', mesh)
+      // console.log('mesh', mesh)
 
       const scale = new PHYSX.PxMeshScale(
         new PHYSX.PxVec3(1, 1, 1),

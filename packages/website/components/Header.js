@@ -29,7 +29,7 @@ export function Header({ inSpace = false }) {
         }
       `}
     >
-      <div className='header-logo'>Hypex</div>
+      <div className='header-logo'>SumVerse</div>
       <div className='header-gap' />
       <AuthWidget />
     </div>

@@ -1,24 +1,169 @@
-import * as nodes from './'
+import * as THREE from 'three'
 
 export class Node {
-  constructor(entity, parent, data) {
-    this.space = entity.space
+  constructor(entity, data) {
     this.entity = entity
-    this.parent = parent
-    this.children = data.children.map(data => {
-      const Node = nodes[data.type]
-      return new Node(entity, this, data)
+    this.space = entity.space
+    this.type = data.type
+    this.name = data.name
+    this.parent = null
+    this.children = []
+    this.position = new THREE.Vector3()
+    this.rotation = new THREE.Euler()
+    this.quaternion = new THREE.Quaternion()
+    this.scale = new THREE.Vector3(1, 1, 1)
+    this.rotation._onChange(() => {
+      this.quaternion.setFromEuler(this.rotation, false)
+    })
+    this.quaternion._onChange(() => {
+      this.rotation.setFromQuaternion(this.quaternion, undefined, false)
+    })
+    this.position.fromArray(data.position)
+    this.quaternion.fromArray(data.quaternion)
+    this.scale.fromArray(data.scale)
+    this.matrix = new THREE.Matrix4()
+    this.matrixWorld = new THREE.Matrix4()
+    this.isDirty = true
+    this.mounted = false
+  }
+
+  add(node) {
+    if (node.parent) {
+      node.parent.remove(node)
+    }
+    node.parent = this
+    this.children.push(node)
+    if (this.mounted) {
+      node.project()
+      node.traverse(node => {
+        node.mounted = true
+        node.mount()
+      })
+    }
+    return this
+  }
+
+  remove(node) {
+    const idx = this.children.indexOf(node)
+    if (idx === -1) return
+    node.traverse(node => {
+      node.mounted = false
+      node.unmount()
+    })
+    node.parent = null
+    this.children.splice(idx, 1)
+    return this
+  }
+
+  detach(node) {
+    const idx = this.children.indexOf(node)
+    if (idx === -1) return
+    node.parent = null
+    this.children.splice(idx, 1)
+    node.matrix.copy(node.matrixWorld)
+    node.matrix.decompose(node.position, node.quaternion, node.scale)
+    node.project()
+    node.update()
+  }
+
+  dirty() {
+    // TODO:
+    this.isDirty = true
+    this.space.entities.dirtyNodes.push(this)
+  }
+
+  apply() {
+    if (!this.isDirty) return
+    let curr = this
+    let highestDirty = null
+    while (curr.parent !== null) {
+      if (curr.isDirty) {
+        highestDirty = curr
+      }
+      curr = curr.parent
+    }
+    if (curr.isDirty) {
+      highestDirty = curr
+    }
+    highestDirty.project()
+    highestDirty.traverse(node => {
+      node.update()
     })
   }
 
-  start() {
+  mount() {
     // ...
+  }
+
+  update() {
+    // ...
+  }
+
+  unmount() {
+    // ...
+  }
+
+  project() {
+    if (this.isDirty) {
+      this.matrix.compose(this.position, this.quaternion, this.scale)
+      this.isDirty = false
+    }
+    if (!this.parent) {
+      this.matrixWorld.copy(this.matrix)
+    } else {
+      this.matrixWorld.multiplyMatrices(this.parent.matrixWorld, this.matrix)
+    }
+    const children = this.children
+    for (let i = 0, l = children.length; i < l; i++) {
+      children[i].project()
+    }
   }
 
   traverse(callback) {
     callback(this)
-    this.children.forEach(node => {
-      node.traverse(callback)
-    })
+    const children = this.children
+    for (let i = 0, l = children.length; i < l; i++) {
+      children[i].traverse(callback)
+    }
+  }
+
+  getProxy() {
+    if (!this.proxy) {
+      const self = this
+      const proxy = {
+        name: self.name,
+        position: self.position,
+        rotation: self.rotation,
+        quaternion: self.quaternion,
+        dirty() {
+          self.dirty()
+        },
+      }
+      this.proxy = proxy
+    }
+    return this.proxy
   }
 }
+
+// export class Node {
+//   constructor(entity, parent, data) {
+//     this.space = entity.space
+//     this.entity = entity
+//     this.parent = parent
+//     this.children = data.children.map(data => {
+//       const Node = nodes[data.type]
+//       return new Node(entity, this, data)
+//     })
+//   }
+
+//   start() {
+//     // ...
+//   }
+
+//   traverse(callback) {
+//     callback(this)
+//     this.children.forEach(node => {
+//       node.traverse(callback)
+//     })
+//   }
+// }

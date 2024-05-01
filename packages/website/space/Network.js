@@ -83,13 +83,27 @@ export class Network extends System {
       id: this.makeId(),
       type: 'avatar',
       authority: client.id,
-      position: [0, 0, 0],
+      active: true,
+      position: [num(-1, 1, 2), 0, 0],
       quaternion: [0, 0, 0, 1],
+      scale: [1, 1, 1],
       state: {},
       nodes: [
         {
           type: 'script',
+          name: 'my-script',
+          position: [0, 0, 0],
+          quaternion: [0, 0, 0, 1],
+          scale: [1, 1, 1],
           code: TEMP_SCRIPT,
+          children: [],
+        },
+        {
+          type: 'box',
+          name: 'my-box',
+          position: [0, 0, 0],
+          quaternion: [0, 0, 0, 1],
+          scale: [1, 1, 1],
           children: [],
         },
       ],
@@ -175,6 +189,60 @@ class Client {
 }
 
 const TEMP_SCRIPT = `
+(function() {
+  return entity => {
+    return class Script {
+      init() {
+        this.box = entity.find('my-box')
+      }
+      start() {
+        // ...
+      }
+      update(delta) {
+        this.box.rotation.y += delta * 0.5
+        this.box.rotation.x += delta * 0.5
+        this.box.dirty()
+      }
+    }
+  }
+})()
+`
+
+const TEMP_SCRIPT_3 = `
+(function() {
+  return entity => {
+    return class Script {
+      setup() {
+        this.boxes = []
+        for (let i = 0; i < 10; i++) {
+          const box = entity.create({
+            type: 'box',
+            name: 'box' + i,
+            position: [num(-3, 3, 2), num(-3, 3, 2), num(-3, 3, 2)],
+            quaternion: [0, 0, 0, 1],
+            scale: [1, 1, 1],
+            children: [],
+          })
+          entity.add(box)
+          this.boxes.push(box)
+        }
+      }
+      start() {
+        // ...
+      }
+      update(delta) {
+        for (const box of this.boxes) {
+          box.rotation.y += delta * 0.5
+          box.rotation.x += delta * 0.5
+          box.dirty()
+        }
+      }
+    }
+  }
+})()
+`
+
+const TEMP_SCRIPT_2 = `
 (function() {
   return entity => {
     const avatar = entity.create({

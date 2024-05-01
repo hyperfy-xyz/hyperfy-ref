@@ -7,6 +7,7 @@ import { Graphics } from './Graphics'
 import { Entities } from './Entities'
 import { Loader } from './Loader'
 import { Scripts } from './Scripts'
+import { num } from '@/utils/rand'
 
 const FIXED_TIMESTEP = 1 / 60 // 60Hz
 
@@ -26,6 +27,7 @@ export class Space extends EventEmitter {
       eval: undefined,
       harden: undefined,
       lockdown: undefined,
+      num: num,
     })
     this.network = new Network(this)
     this.entities = new Entities(this)
