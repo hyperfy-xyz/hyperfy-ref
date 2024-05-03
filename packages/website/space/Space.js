@@ -1,13 +1,20 @@
+import * as THREE from 'three'
 import EventEmitter from 'eventemitter3'
+import Stats from 'stats-gl'
 
-import { Network } from './Network'
-import { Test } from './Test'
-import { Physics } from './Physics'
-import { Graphics } from './Graphics'
-import { Entities } from './Entities'
-import { Loader } from './Loader'
-import { Scripts } from './Scripts'
 import { num } from '@/utils/rand'
+import { DEG2RAD, RAD2DEG } from '@/utils/3d'
+
+import { extendThree } from './extras/extendThree'
+
+import { Test } from './Test'
+import { Control } from './Control'
+import { Loader } from './Loader'
+import { Network } from './Network'
+import { Physics } from './Physics'
+import { Entities } from './Entities'
+import { Graphics } from './Graphics'
+import { Scripts } from './Scripts'
 
 const FIXED_TIMESTEP = 1 / 60 // 60Hz
 
@@ -28,13 +35,30 @@ export class Space extends EventEmitter {
       harden: undefined,
       lockdown: undefined,
       num: num,
+      Quaternion: THREE.Quaternion,
+      Vector3: THREE.Vector3,
+      Euler: THREE.Euler,
+      Matrix4: THREE.Matrix4,
+      DEG2RAD: DEG2RAD,
+      RAD2DEG: RAD2DEG,
     })
+    this.stats = new Stats({
+      logsPerSecond: 20,
+      samplesLog: 100,
+      samplesGraph: 10,
+      precision: 2,
+      horizontal: true,
+      minimal: false,
+      mode: 0,
+    })
+    document.body.appendChild(this.stats.dom)
+    // this.test = new Test(this)
+    this.control = new Control(this)
+    this.loader = new Loader(this)
     this.network = new Network(this)
+    this.physics = new Physics(this)
     this.entities = new Entities(this)
     this.scripts = new Scripts(this)
-    this.loader = new Loader(this)
-    this.test = new Test(this)
-    this.physics = new Physics(this)
     this.graphics = new Graphics(this)
     this.time = 0
     this.fixedTime = 0
@@ -43,24 +67,28 @@ export class Space extends EventEmitter {
   }
 
   async init() {
+    // await this.test.init()
+    // await this.control.init()
+    await this.loader.init()
     await this.network.init()
+    await this.physics.init()
+    extendThree()
     await this.entities.init()
     await this.scripts.init()
-    await this.loader.init()
-    await this.test.init()
-    await this.physics.init()
     await this.graphics.init()
     this.start()
   }
 
   start() {
+    // this.test.start()
+    this.control.start()
+    this.loader.start()
     this.network.start()
+    this.physics.start()
     this.entities.start()
     this.scripts.start()
-    this.loader.start()
-    this.test.start()
-    this.physics.start()
     this.graphics.start()
+    this.stats.init(this.graphics.renderer)
     this.graphics.renderer.setAnimationLoop(this.tick)
   }
 
@@ -74,36 +102,40 @@ export class Space extends EventEmitter {
   }
 
   update(delta) {
+    // this.test.update(delta)
+    this.control.update(delta)
+    this.loader.update(delta)
     this.network.update(delta)
+    this.physics.update(delta)
     this.entities.update(delta)
     this.scripts.update(delta)
-    this.loader.update(delta)
-    this.test.update(delta)
-    this.physics.update(delta)
     this.graphics.update(delta)
+    this.stats.update()
   }
 
   fixedUpdate(delta) {
     this.fixedTime += delta
     while (this.fixedTime >= FIXED_TIMESTEP) {
       this.fixedTime -= FIXED_TIMESTEP
+      // this.test.fixedUpdate(FIXED_TIMESTEP)
+      // this.control.fixedUpdate(FIXED_TIMESTEP)
+      this.loader.fixedUpdate(FIXED_TIMESTEP)
       this.network.fixedUpdate(FIXED_TIMESTEP)
+      this.physics.fixedUpdate(FIXED_TIMESTEP)
       this.entities.fixedUpdate(FIXED_TIMESTEP)
       this.scripts.fixedUpdate(FIXED_TIMESTEP)
-      this.loader.fixedUpdate(FIXED_TIMESTEP)
-      this.test.fixedUpdate(FIXED_TIMESTEP)
-      this.physics.fixedUpdate(FIXED_TIMESTEP)
       this.graphics.fixedUpdate(FIXED_TIMESTEP)
     }
   }
 
   lateUpdate(delta) {
+    // this.test.lateUpdate(delta)
+    // this.control.lateUpdate(delta)
+    this.loader.lateUpdate(delta)
     this.network.lateUpdate(delta)
+    this.physics.lateUpdate(delta)
     this.entities.lateUpdate(delta)
     this.scripts.lateUpdate(delta)
-    this.loader.lateUpdate(delta)
-    this.physics.lateUpdate(delta)
-    this.test.lateUpdate(delta)
     this.graphics.lateUpdate(delta)
   }
 
@@ -119,12 +151,13 @@ export class Space extends EventEmitter {
   destroy() {
     console.log('destroy')
     this.stop()
+    // this.test.destroy()
+    // this.control.destroy()
+    this.loader.destroy()
     this.network.destroy()
+    this.physics.destroy()
     this.entities.destroy()
     this.scripts.destroy()
-    this.loader.destroy()
-    this.physics.destroy()
-    this.test.destroy()
     this.graphics.destroy()
   }
 }

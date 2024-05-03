@@ -51,7 +51,9 @@ export class Entity {
     for (const data of nodes) {
       const node = this.createNode(data)
       parent.add(node)
-      this.buildNodes(node, data.children)
+      if (data.children) {
+        this.buildNodes(node, data.children)
+      }
     }
   }
 
@@ -69,7 +71,11 @@ export class Entity {
   getProxy() {
     if (!this.proxy) {
       const entity = this
+      const space = this.space
       const proxy = {
+        isAuthority() {
+          return entity.authority === space.network.client.id
+        },
         find(name) {
           const node = entity.nodes.get(name)
           if (!node) return null
@@ -88,6 +94,15 @@ export class Entity {
           const node = entity.nodes.get(pNode.name)
           entity.root.remove(node)
           return proxy
+        },
+        requestControl() {
+          space.control.request(entity)
+        },
+        getControl() {
+          return space.control.get(entity)
+        },
+        releaseControl() {
+          return space.control.release(entity)
         },
       }
       this.proxy = proxy

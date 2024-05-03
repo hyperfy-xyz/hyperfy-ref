@@ -1,5 +1,13 @@
 import * as THREE from 'three'
 
+const DEFAULT_POSITION = [0, 0, 0]
+const DEFAULT_QUATERNION = [0, 0, 0, 1]
+const DEFAULT_SCALE = [1, 1, 1]
+
+const _v1 = new THREE.Vector3()
+const _v2 = new THREE.Vector3()
+const _q1 = new THREE.Quaternion()
+
 export class Node {
   constructor(entity, data) {
     this.entity = entity
@@ -11,16 +19,16 @@ export class Node {
     this.position = new THREE.Vector3()
     this.rotation = new THREE.Euler()
     this.quaternion = new THREE.Quaternion()
-    this.scale = new THREE.Vector3(1, 1, 1)
+    this.scale = new THREE.Vector3()
     this.rotation._onChange(() => {
       this.quaternion.setFromEuler(this.rotation, false)
     })
     this.quaternion._onChange(() => {
       this.rotation.setFromQuaternion(this.quaternion, undefined, false)
     })
-    this.position.fromArray(data.position)
-    this.quaternion.fromArray(data.quaternion)
-    this.scale.fromArray(data.scale)
+    this.position.fromArray(data.position || DEFAULT_POSITION)
+    this.quaternion.fromArray(data.quaternion || DEFAULT_QUATERNION)
+    this.scale.fromArray(data.scale || DEFAULT_SCALE)
     this.matrix = new THREE.Matrix4()
     this.matrixWorld = new THREE.Matrix4()
     this.isDirty = true
@@ -127,6 +135,11 @@ export class Node {
     }
   }
 
+  getWorldPosition(vec3 = _v1) {
+    this.matrixWorld.decompose(vec3, _q1, _v2)
+    return vec3
+  }
+
   getProxy() {
     if (!this.proxy) {
       const self = this
@@ -137,6 +150,12 @@ export class Node {
         quaternion: self.quaternion,
         dirty() {
           self.dirty()
+        },
+        add(pNode) {
+          const node = self.entity.nodes.get(pNode.name)
+          console.log('SELF', self, node)
+          self.add(node)
+          return this
         },
       }
       this.proxy = proxy

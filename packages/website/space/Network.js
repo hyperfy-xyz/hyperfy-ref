@@ -84,7 +84,7 @@ export class Network extends System {
       type: 'avatar',
       authority: client.id,
       active: true,
-      position: [num(-1, 1, 2), 0, 0],
+      position: [num(-1, 1, 2), 3, 0],
       quaternion: [0, 0, 0, 1],
       scale: [1, 1, 1],
       state: {},
@@ -92,20 +92,16 @@ export class Network extends System {
         {
           type: 'script',
           name: 'my-script',
-          position: [0, 0, 0],
-          quaternion: [0, 0, 0, 1],
-          scale: [1, 1, 1],
-          code: TEMP_SCRIPT,
-          children: [],
+          code: AVATAR_SCRIPT,
         },
-        {
-          type: 'box',
-          name: 'my-box',
-          position: [0, 0, 0],
-          quaternion: [0, 0, 0, 1],
-          scale: [1, 1, 1],
-          children: [],
-        },
+        // {
+        //   type: 'box',
+        //   name: 'my-box',
+        //   position: [0, 0, 0],
+        //   quaternion: [0, 0, 0, 1],
+        //   scale: [1, 1, 1],
+        //   children: [],
+        // },
       ],
     })
   }
@@ -188,7 +184,104 @@ class Client {
   }
 }
 
-const TEMP_SCRIPT = `
+const AVATAR_SCRIPT = `
+(function() {
+  return entity => {
+    return class Script {
+      init() {
+        this.box = entity.create({
+          type: 'box',
+          name: 'box',
+          // position: [1, 0, 0],
+          // quaternion: new Quaternion().setFromEuler(new Euler(0, 0, DEG2RAD * 20)).toArray(),
+          size: [1, 1, 1],
+          physics: 'dynamic',
+          visible: true,
+        })
+        entity.add(this.box)
+
+        if (entity.isAuthority()) {
+          this.jumpHeight = 1.5
+          this.moveSpeed = 5
+          this.displacement = new Vector3(0, 0, 0)
+          this.gravity = 20 // 9.81
+          this.isJumping = false
+          this.isGrounded = false
+          this.velocity = new Vector3()
+          this.hasControl = false
+
+          this.dirEul = new Euler()
+          this.dirQuat = new Quaternion()
+          
+          this.character = entity.create({
+            type: 'character',
+            name: 'character',
+            radius: 0.4,
+            height: 1,
+          })
+          this.vrm = entity.create({
+            type: 'box',
+            name: 'vrm',
+            size: [1, 1.8, 1],
+            position: [0, 1.8 / 2 , 0]
+          })
+          this.character.add(this.vrm)
+          entity.add(this.character)
+        } else {
+          this.vrm = entity.create({
+            type: 'box',
+            name: 'vrm',
+            size: [1, 1.8, 1],
+            position: [0, 1.8 / 2 , 0]
+          })
+          entity.add(this.vrm)
+        }
+      }
+      start() {
+        if (entity.isAuthority()) {
+          entity.requestControl()
+        }
+      }
+      update(delta) {
+        if (entity.isAuthority()) {
+          const control = entity.getControl()
+          if (this.isGrounded) {
+            this.velocity.y = -this.gravity * delta
+          } else {
+            this.velocity.y -= this.gravity * delta
+          }
+          if (control?.getJump() && this.isGrounded) {
+            this.velocity.y = Math.sqrt(2 * this.gravity * this.jumpHeight)
+          }
+          if (control) {
+            this.displacement.set(control.move.x, 0, control.move.z).multiplyScalar(this.moveSpeed * delta)
+            this.dirEul.copy(control.look.rotation)
+            this.dirEul.x = 0
+            this.dirEul.z = 0
+            this.dirQuat.setFromEuler(this.dirEul)
+            this.displacement.applyQuaternion(this.dirQuat)
+          } else {
+            this.displacement.set(0, 0, 0)
+          }
+          this.displacement.y = this.velocity.y * delta
+          this.character.move(this.displacement)
+          this.isGrounded = this.character.isGrounded()
+          if (control) {
+            control.camera.position.copy(this.character.position)
+            control.camera.rotation.copy(control.look.rotation)
+            control.camera.distance = control.distance * 10
+          }
+          this.character.dirty()
+        } else {
+          // todo: interpolate updates
+        }
+      }
+    }
+  }
+})()
+`
+
+const TEMP_SCRIPT_4 = `
 (function() {
   return entity => {
     return class Script {

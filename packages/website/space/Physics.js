@@ -29,12 +29,15 @@ export class Physics extends System {
     sceneDesc.set_cpuDispatcher(PHYSX.DefaultCpuDispatcherCreate(0))
     sceneDesc.set_filterShader(PHYSX.DefaultFilterShader())
     this.scene = this.physics.createScene(sceneDesc)
+    this.bindings = new Set()
+    this.controllerManager = PHYSX.PxTopLevelFunctions.prototype.CreateControllerManager(this.scene) // prettier-ignore
+    this.controllerFilters = new PHYSX.PxControllerFilters()
   }
 
   start() {
     // ground
+    const geometry = new PHYSX.PxBoxGeometry(1000 / 2, 1 / 2, 1000 / 2)
     const material = this.physics.createMaterial(0.5, 0.5, 0.5)
-    const geometry = new PHYSX.PxBoxGeometry(500, 0.5, 500)
     const flags = new PHYSX.PxShapeFlags(
       PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE |
         PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE |
@@ -44,15 +47,30 @@ export class Physics extends System {
     const shape = this.physics.createShape(geometry, material, true, flags)
     shape.setSimulationFilterData(tmpFilterData)
     const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
-    transform.p.y = -3
+    transform.p.y = -0.5
     const body = this.physics.createRigidStatic(transform)
     body.attachShape(shape)
     this.scene.addActor(body)
   }
 
+  bind(body, node) {
+    const binding = { body, node }
+    this.bindings.add(binding)
+    return () => {
+      this.bindings.delete(binding)
+    }
+  }
+
   fixedUpdate(delta) {
     this.scene.simulate(delta)
     this.scene.fetchResults(true)
+    for (const binding of this.bindings) {
+      if (binding.body.isSleeping()) continue
+      const pose = binding.body.getGlobalPose()
+      binding.node.position.copy(pose.p)
+      binding.node.quaternion.copy(pose.q)
+      binding.node.dirty()
+    }
   }
 }
 
