@@ -1,6 +1,6 @@
 import { System } from './System'
 import { SockClient } from './SockClient'
-import { num } from '@/utils/rand'
+import { num } from '@/utils/num'
 
 const SEND_RATE = 1 / 5 // 5Hz (5 times per second)
 
@@ -138,8 +138,11 @@ export class Network extends System {
   }
 
   onUpdateEntity = data => {
-    this.log('update-entity', data)
-    // ...
+    // this.log('update-entity', data)
+    const entity = this.space.entities.get(data.id)
+    if (data.state) {
+      entity.onRemoteState(data.state)
+    }
   }
 
   onRemoveEntity = id => {
@@ -187,6 +190,8 @@ class Client {
 const AVATAR_SCRIPT = `
 (function() {
   return entity => {
+    const PUSH_RATE = 1 / 5 // 5Hz (times per second)
+
     return class Script {
       init() {
         this.box = entity.create({
@@ -194,8 +199,8 @@ const AVATAR_SCRIPT = `
           name: 'box',
           // position: [1, 0, 0],
           // quaternion: new Quaternion().setFromEuler(new Euler(0, 0, DEG2RAD * 20)).toArray(),
-          size: [1, 1, 1],
-          physics: 'dynamic',
+          size: [1, 1, 10],
+          physics: 'static',
           visible: true,
         })
         entity.add(this.box)
@@ -209,6 +214,7 @@ const AVATAR_SCRIPT = `
           this.isGrounded = false
           this.velocity = new Vector3()
           this.hasControl = false
+          this.lastPush = 0
 
           this.dirEul = new Euler()
           this.dirQuat = new Quaternion()
@@ -228,13 +234,20 @@ const AVATAR_SCRIPT = `
           this.character.add(this.vrm)
           entity.add(this.character)
         } else {
+          this.base = entity.create({
+            type: 'group',
+            name: 'base',
+          })
           this.vrm = entity.create({
             type: 'box',
             name: 'vrm',
             size: [1, 1.8, 1],
             position: [0, 1.8 / 2 , 0]
           })
-          entity.add(this.vrm)
+          this.base.add(this.vrm)
+          entity.add(this.base)
+          this.remotePosition = new Vector3Lerp(this.base.position, PUSH_RATE)
+          this.remoteQuaternion = new QuaternionLerp(this.base.quaternion, PUSH_RATE)
         }
       }
       start() {
@@ -266,116 +279,39 @@ const AVATAR_SCRIPT = `
           this.displacement.y = this.velocity.y * delta
           this.character.move(this.displacement)
           this.isGrounded = this.character.isGrounded()
+          this.isCeiling = this.character.isCeiling()
+          if (this.isCeiling && this.velocity.y > 0) {
+            this.velocity.y = -this.gravity * delta
+          }
           if (control) {
             control.camera.position.copy(this.character.position)
             control.camera.rotation.copy(control.look.rotation)
             control.camera.distance = control.distance * 10
           }
           this.character.dirty()
+          this.lastPush += delta
+          if (this.lastPush > PUSH_RATE) {
+            entity.pushState({
+              position: this.character.position.toArray(),
+              quaternion: this.character.quaternion.toArray(),
+            })
+            this.lastPush = 0
+          }
         } else {
-          // todo: interpolate updates
+          this.remotePosition.update(delta)
+          this.remoteQuaternion.update(delta)
+          this.base.dirty()
+        }
+      }
+      onState(newState) {
+        if (newState.position) {
+          this.remotePosition.push(newState.position)
+        }
+        if (newState.quaternion) {
+          this.remoteQuaternion.push(newState.quaternion)
         }
       }
     }
-  }
-})()
-`
-
-const TEMP_SCRIPT_4 = `
-(function() {
-  return entity => {
-    return class Script {
-      init() {
-        this.box = entity.find('my-box')
-      }
-      start() {
-        // ...
-      }
-      update(delta) {
-        this.box.rotation.y += delta * 0.5
-        this.box.rotation.x += delta * 0.5
-        this.box.dirty()
-      }
-    }
-  }
-})()
-`
-
-const TEMP_SCRIPT_3 = `
-(function() {
-  return entity => {
-    return class Script {
-      setup() {
-        this.boxes = []
-        for (let i = 0; i < 10; i++) {
-          const box = entity.create({
-            type: 'box',
-            name: 'box' + i,
-            position: [num(-3, 3, 2), num(-3, 3, 2), num(-3, 3, 2)],
-            quaternion: [0, 0, 0, 1],
-            scale: [1, 1, 1],
-            children: [],
-          })
-          entity.add(box)
-          this.boxes.push(box)
-        }
-      }
-      start() {
-        // ...
-      }
-      update(delta) {
-        for (const box of this.boxes) {
-          box.rotation.y += delta * 0.5
-          box.rotation.x += delta * 0.5
-          box.dirty()
-        }
-      }
-    }
-  }
-})()
-`
-
-const TEMP_SCRIPT_2 = `
-(function() {
-  return entity => {
-    const avatar = entity.create({
-      type: 'avatar',
-      url: 'something.vrm',
-    })
-    const body = entity.create({
-      type: 'capsule',
-      size: [0.2, 1],
-      physics: 'dynamic',
-    })
-    body.add(avatar)
-    entity.add(body)
-
-    entity.onUpdate(delta => {
-      body.position.x -= 0.5 * delta
-    })
-  }
-  return class Script {
-    init() {
-      this.avatar = entity.create({
-        type: 'avatar',
-        url: 'something.vrm',
-      })
-      this.body = entity.create({
-        type: 'capsule',
-        size: [0.2, 1],
-        physics: 'dynamic',
-      })
-      entity.add(this.avatar)
-      entity.add(this.body)
-
-      this.cube = this.create('box', { size: [1,1,1] })
-      this.foo = true
-      console.log('init!!!!')
-    }
-    // update(delta) {
-    //   this.foo = !this.foo
-    //   console.log(delta, this.foo)
-    // }
   }
 })()
 `

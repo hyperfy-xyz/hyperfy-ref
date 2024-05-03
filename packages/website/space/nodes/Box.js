@@ -2,8 +2,6 @@ import * as THREE from 'three'
 import { isBoolean } from 'lodash-es'
 
 import { Node } from './Node'
-import { num } from '@/utils/rand'
-import { DEG2RAD } from '@/utils/3d'
 
 const _v1 = new THREE.Vector3()
 const _v2 = new THREE.Vector3()
@@ -57,13 +55,8 @@ export class Box extends Node {
       shape.setSimulationFilterData(tmpFilterData)
       this.mesh.matrixWorld.decompose(_v1, _q1, _v2)
       const transform = new PHYSX.PxTransform()
-      transform.p.x = _v1.x
-      transform.p.y = _v1.y
-      transform.p.z = _v1.z
-      transform.q.x = _q1.x
-      transform.q.y = _q1.y
-      transform.q.z = _q1.z
-      transform.q.w = _q1.w
+      _v1.toPxTransform(transform)
+      _q1.toPxTransform(transform)
       if (this.physics === 'dynamic') {
         this.body = this.space.physics.physics.createRigidDynamic(transform)
         this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
@@ -84,12 +77,8 @@ export class Box extends Node {
   }
 
   update() {
-    // console.log('box update pos', this.position.toArray())
-    // console.log('box update matrix', this.matrix.toArray())
-    // console.log('box update matrixWorld', this.matrixWorld.toArray())
     if (this.mesh) {
       this.mesh.matrix.copy(this.matrixWorld)
-      // this.mesh.matrixWorld.copy(this.matrixWorld)
     }
   }
 
@@ -99,7 +88,7 @@ export class Box extends Node {
     }
     if (this.body) {
       this.space.physics.scene.removeActor(this.body)
-      this.unbind()
+      this.unbind?.()
     }
   }
 

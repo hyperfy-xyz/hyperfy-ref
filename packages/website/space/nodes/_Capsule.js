@@ -1,8 +1,6 @@
 import * as THREE from 'three'
 
 import { Node } from './Node'
-import { num } from '@/utils/rand'
-import { DEG2RAD } from '@/utils/3d'
 
 const _v1 = new THREE.Vector3()
 const _v2 = new THREE.Vector3()

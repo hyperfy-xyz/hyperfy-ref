@@ -64,7 +64,7 @@ export class SockClient {
       console.error(err)
       return
     }
-    this.log('<-', data)
+    // this.log('<-', data)
     const { t, n, d, e, i } = data
     if (t === 'e') {
       this._emit(n, d)
@@ -128,7 +128,7 @@ export class SockClient {
   }
 
   async _sendJSON(data) {
-    this.log('->', data)
+    // this.log('->', data)
     this.ws.send(JSON.stringify(data))
   }
 

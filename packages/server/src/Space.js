@@ -54,11 +54,35 @@ export class Space {
     const client = sock.client
     for (const entityId in delta) {
       const entry = delta[entityId]
-      if (entry.type === 'add') {
-        // todo: validate?
-        this.entities.set(entityId, entry.data)
-        this.broadcast('add-entity', entry.data, client)
+      if (entry.remove) {
+        this.entities.delete(entityId)
+        this.broadcast('remove-entity', entityId, client)
+        return
       }
+      if (entry.add) {
+        this.entities.set(entityId, entry.add)
+        this.broadcast('add-entity', entry.add, client)
+      }
+      if (entry.state) {
+        const entity = this.entities.get(entityId)
+        entity.state = {
+          ...entity.state,
+          ...entry.state,
+        }
+        this.broadcast(
+          'update-entity',
+          { id: entityId, state: entry.state },
+          client
+        )
+      }
+      // if (entry.type === 'add') {
+      //   // todo: validate?
+      //   this.entities.set(entityId, entry.data)
+      //   this.broadcast('add-entity', entry.data, client)
+      // }
+      // if (entry.type === 'update') {
+      //   this.broadcast('update-entity', entry.data, client)
+      // }
     }
   }
 

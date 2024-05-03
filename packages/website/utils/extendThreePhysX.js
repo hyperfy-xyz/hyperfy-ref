@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-export function extendThree() {
+export function extendThreePhysX() {
   if (!PHYSX) throw new Error('PHYSX not initialised')
   if (THREE.Vector3.prototype.fromPxVec3) return
 
@@ -26,5 +26,18 @@ export function extendThree() {
     pxExtVec3.y = this.y
     pxExtVec3.z = this.z
     return pxExtVec3
+  }
+
+  THREE.Vector3.prototype.toPxTransform = function (pxTransform) {
+    pxTransform.p.x = this.x
+    pxTransform.p.y = this.y
+    pxTransform.p.z = this.z
+  }
+
+  THREE.Quaternion.prototype.toPxTransform = function (pxTransform) {
+    pxTransform.q.x = this.x
+    pxTransform.q.y = this.y
+    pxTransform.q.z = this.z
+    pxTransform.q.w = this.w
   }
 }

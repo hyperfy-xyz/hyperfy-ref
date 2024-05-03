@@ -1,10 +1,6 @@
 import * as THREE from 'three'
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 
 import { System } from './System'
-
-// cache across loaders
-THREE.Cache.enabled = true
 
 const PI_2 = Math.PI / 2
 const LOOK_SPEED = 0.002
@@ -38,14 +34,12 @@ export class Control extends System {
     this.active.move.normalize() // prevent surfing
 
     // is this the correct time?
+    // feels like this is updating based off last frame
     if (this.active) {
       const rig = this.space.graphics.cameraRig
       const cam = this.space.graphics.camera
       rig.position.copy(this.active.camera.position)
       rig.quaternion.copy(this.active.camera.quaternion)
-      // if (this.active.camera.distance < 0) {
-      //   this.active.camera.distance = 0
-      // }
       cam.position.z = this.active.camera.distance
     }
   }
@@ -134,6 +128,7 @@ export class Control extends System {
   }
 
   onPointerDown = e => {
+    this.space.viewport.setPointerCapture(e.pointerId)
     this.space.viewport.addEventListener('pointermove', this.onPointerMove)
     this.space.viewport.addEventListener('pointerup', this.onPointerUp)
   }
@@ -144,12 +139,13 @@ export class Control extends System {
       this.active.look.rotation.x -= e.movementY * LOOK_SPEED
       this.active.look.rotation.x = Math.max(
         -PI_2,
-        Math.min(PI_2, this.look.rotation.x)
+        Math.min(PI_2, this.active.look.rotation.x)
       )
     }
   }
 
   onPointerUp = e => {
+    this.space.viewport.releasePointerCapture(e.pointerId)
     this.space.viewport.removeEventListener('pointermove', this.onPointerMove)
     this.space.viewport.removeEventListener('pointerup', this.onPointerUp)
   }

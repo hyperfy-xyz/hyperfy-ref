@@ -18,6 +18,10 @@ export class Script extends Node {
     this.script?.start?.()
   }
 
+  onState(newState) {
+    this.script?.onState?.(newState)
+  }
+
   getProxy() {
     if (!this.proxy) {
       const proxy = {
@@ -26,5 +30,9 @@ export class Script extends Node {
       this.proxy = proxy
     }
     return this.proxy
+  }
+
+  destroy() {
+    this.script = null
   }
 }

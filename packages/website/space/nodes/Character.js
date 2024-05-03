@@ -2,12 +2,7 @@ import * as THREE from 'three'
 import { isNumber, isBoolean } from 'lodash-es'
 
 import { Node } from './Node'
-import { num } from '@/utils/rand'
-import { DEG2RAD } from '@/utils/3d'
-
-// const _v1 = new THREE.Vector3()
-// const _v2 = new THREE.Vector3()
-// const _q1 = new THREE.Quaternion()
+import { DEG2RAD } from '@/utils/general'
 
 const defaults = {
   radius: 0.4,
@@ -53,14 +48,10 @@ export class Character extends Node {
   }
 
   update() {
-    // console.log('cha update pos', this.position.toArray())
-    // console.log('cha update matrix', this.matrix.toArray())
-    // console.log('cha update matrixWorld', this.matrixWorld.toArray())
     if (this.mesh) {
       this.mesh.matrix.copy(this.matrix)
-      this.mesh.matrixWorld.copy(this.matrixWorld)
+      // this.mesh.matrixWorld.copy(this.matrixWorld)
     }
-    // this.controller.setFootPosition(this.position)
   }
 
   unmount() {
@@ -68,19 +59,19 @@ export class Character extends Node {
       this.space.graphics.scene.remove(this.mesh)
     }
     this.controller.release()
+    this.controller = null
   }
 
   move(vec3) {
-    const moveFlags = this.controller.move(
+    this.moveFlags = this.controller.move(
       vec3.toPxVec3(),
       0,
       1 / 60,
       this.space.physics.controllerFilters
     )
-    this.isGrounded = moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN) // prettier-ignore
+    // this.isGrounded = moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN) // prettier-ignore
     const pos = this.controller.getFootPosition()
     this.position.copy(pos)
-    // return this.isGrounded
   }
 
   getProxy() {
@@ -92,7 +83,14 @@ export class Character extends Node {
           return self.move(vec3)
         },
         isGrounded() {
-          return self.isGrounded
+          return self.moveFlags.isSet(
+            PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN
+          )
+        },
+        isCeiling() {
+          return self.moveFlags.isSet(
+            PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_UP
+          )
         },
       }
       this.proxy = proxy

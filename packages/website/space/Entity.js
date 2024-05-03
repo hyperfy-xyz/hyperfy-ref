@@ -19,8 +19,7 @@ export class Entity {
     this.root.mounted = true
     this.root.project()
     this.buildNodes(this.root, data.nodes)
-    // this.state = {}
-    // this.nodes = []
+    this.state = data.state
     this.scripts = []
     this.root.traverse(node => {
       if (node.type === 'script') {
@@ -73,9 +72,6 @@ export class Entity {
       const entity = this
       const space = this.space
       const proxy = {
-        isAuthority() {
-          return entity.authority === space.network.client.id
-        },
         find(name) {
           const node = entity.nodes.get(name)
           if (!node) return null
@@ -95,6 +91,9 @@ export class Entity {
           entity.root.remove(node)
           return proxy
         },
+        isAuthority() {
+          return entity.authority === space.network.client.id
+        },
         requestControl() {
           space.control.request(entity)
         },
@@ -104,10 +103,36 @@ export class Entity {
         releaseControl() {
           return space.control.release(entity)
         },
+        getState() {
+          return entity.state
+        },
+        pushState(newState) {
+          const delta = space.network.delta
+          if (!delta[entity.id]) {
+            delta[entity.id] = {}
+          }
+          if (!delta[entity.id].state) {
+            delta[entity.id].state = {}
+          }
+          delta[entity.id].state = {
+            ...delta[entity.id].state,
+            ...newState,
+          }
+        },
       }
       this.proxy = proxy
     }
     return this.proxy
+  }
+
+  onRemoteState(newState) {
+    this.state = {
+      ...this.state,
+      ...newState,
+    }
+    for (const node of this.scripts) {
+      node.onState(newState)
+    }
   }
 
   destroy() {
@@ -120,33 +145,4 @@ export class Entity {
       }
     })
   }
-
-  // deserialize(data) {
-  //   this.id = data.id
-  //   this.type = data.type
-  //   this.authority = data.authority
-  //   this.position.fromArray(data.position)
-  //   this.quaternion.fromArray(data.quaternion)
-  //   this.state = data.state
-  //   this.nodes = new Node(this, null, { children: data.nodes })
-  //   this.nodes.traverse(node => {
-  //     node.start()
-  //   })
-  //   // this.nodes = data.nodes.map(data => {
-  //   //   const Node = nodes[data.type]
-  //   //   const node = new Node(this, null, data)
-  //   //   return node
-  //   // })
-
-  //   // {
-  //   //   // tmp
-  //   //   const geometry = new THREE.BoxGeometry(1, 1, 1)
-  //   //   const material = new THREE.MeshBasicMaterial({ color: 'red' })
-  //   //   const mesh = new THREE.Mesh(geometry, material)
-  //   //   mesh.position.copy(this.position)
-  //   //   mesh.quaternion.copy(this.quaternion)
-  //   //   this.space.graphics.scene.add(mesh)
-  //   // }
-  //   return this
-  // }
 }
