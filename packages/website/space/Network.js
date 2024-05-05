@@ -79,29 +79,46 @@ export class Network extends System {
 
     this.updateClient()
 
+    // const avatar = this.space.entities.addLocal({
+    //   id: this.makeId(),
+    //   type: 'avatar',
+    //   authority: client.id,
+    //   active: true,
+    //   position: [0, 1, 0],
+    //   quaternion: [0, 0, 0, 1],
+    //   scale: [1, 1, 1],
+    //   state: {
+    //     position: [num(-1, 1, 2), 2, 0],
+    //     quaternion: [0, 0, 0, 1],
+    //   },
+    //   nodes: [
+    //     {
+    //       type: 'script',
+    //       name: 'my-script',
+    //       code: AVATAR_SCRIPT,
+    //     },
+    //   ],
+    // })
     const avatar = this.space.entities.addLocal({
       id: this.makeId(),
       type: 'avatar',
       authority: client.id,
       active: true,
-      position: [num(-1, 1, 2), 3, 0],
+      // position: [0, 1, 0],
+      // quaternion: [0, 0, 0, 1],
+      position: [num(-1, 1, 2), 1, 0],
       quaternion: [0, 0, 0, 1],
       scale: [1, 1, 1],
-      state: {},
+      state: {
+        // position: [num(-1, 1, 2), 2, 0],
+        // quaternion: [0, 0, 0, 1],
+      },
       nodes: [
         {
           type: 'script',
           name: 'my-script',
           code: AVATAR_SCRIPT,
         },
-        // {
-        //   type: 'box',
-        //   name: 'my-box',
-        //   position: [0, 0, 0],
-        //   quaternion: [0, 0, 0, 1],
-        //   scale: [1, 1, 1],
-        //   children: [],
-        // },
       ],
     })
   }
@@ -187,25 +204,63 @@ class Client {
   }
 }
 
+// const AVATAR_SCRIPT = `
+// (function() {
+//   return entity => {
+//     return class Script {
+//       init() {
+//         const state = entity.getState()
+//         const authority = entity.isAuthority()
+//         console.log('state.position', state.position)
+//         console.log('authority', authority)
+//         this.box = entity.create({
+//           type: 'box',
+//           name: 'box',
+//           position: state.position,
+//         })
+//         entity.add(this.box)
+//       }
+//       start() {
+//         console.log('state pos', this.box.position)
+//       }
+//       update(delta) {
+
+//       }
+//       onState(newState) {
+
+//       }
+//     }
+//   }
+// })()
+// `
+
 const AVATAR_SCRIPT = `
 (function() {
   return entity => {
     const PUSH_RATE = 1 / 5 // 5Hz (times per second)
 
+    const o1 = new Object3D()
+    const v1 = new Vector3()
+    const e1 = new Euler()
+    const q1 = new Quaternion()
+
     return class Script {
       init() {
+        
         this.box = entity.create({
           type: 'box',
           name: 'box',
-          // position: [1, 0, 0],
+          position: [0, 4, 0],
           // quaternion: new Quaternion().setFromEuler(new Euler(0, 0, DEG2RAD * 20)).toArray(),
-          size: [1, 1, 10],
+          size: [1.5, 1, 1.5],
           physics: 'static',
           visible: true,
         })
         entity.add(this.box)
-
-        if (entity.isAuthority()) {
+        
+        const state = entity.getState()
+        const authority = entity.isAuthority()
+        if (authority) {
           this.jumpHeight = 1.5
           this.moveSpeed = 5
           this.displacement = new Vector3(0, 0, 0)
@@ -214,14 +269,11 @@ const AVATAR_SCRIPT = `
           this.isGrounded = false
           this.velocity = new Vector3()
           this.hasControl = false
-          this.lastPush = 0
-
-          this.dirEul = new Euler()
-          this.dirQuat = new Quaternion()
-          
-          this.character = entity.create({
-            type: 'character',
-            name: 'character',
+          this.lastPush = 0          
+          this.vrmTargetQuat = new Quaternion()
+          this.ctrl = entity.create({
+            type: 'controller',
+            name: 'ctrl',
             radius: 0.4,
             height: 1,
           })
@@ -231,8 +283,16 @@ const AVATAR_SCRIPT = `
             size: [1, 1.8, 1],
             position: [0, 1.8 / 2 , 0]
           })
-          this.character.add(this.vrm)
-          entity.add(this.character)
+          this.face = entity.create({
+            type: 'box',
+            name: 'face',
+            size: [0.3,0.1,0.1],
+            position: [0, 1, -0.5]
+          })
+          entity.add(this.ctrl)
+          this.ctrl.add(this.vrm)
+          this.vrm.add(this.face)
+
         } else {
           this.base = entity.create({
             type: 'group',
@@ -244,19 +304,35 @@ const AVATAR_SCRIPT = `
             size: [1, 1.8, 1],
             position: [0, 1.8 / 2 , 0]
           })
-          this.base.add(this.vrm)
+          this.face = entity.create({
+            type: 'box',
+            name: 'face',
+            size: [0.3,0.1,0.1],
+            position: [0, 1, -0.5]
+          })
           entity.add(this.base)
+          this.base.add(this.vrm)
+          this.vrm.add(this.face)
+        }
+      }
+      start() {
+        const state = entity.getState()
+        const authority = entity.isAuthority()
+        if (authority) {
+          entity.requestControl()
+        } else {
+          if (state.position) {
+            this.base.position.fromArray(state.position)
+            this.base.quaternion.fromArray(state.quaternion)
+            this.base.dirty()
+          }
           this.remotePosition = new Vector3Lerp(this.base.position, PUSH_RATE)
           this.remoteQuaternion = new QuaternionLerp(this.base.quaternion, PUSH_RATE)
         }
       }
-      start() {
-        if (entity.isAuthority()) {
-          entity.requestControl()
-        }
-      }
       update(delta) {
-        if (entity.isAuthority()) {
+        const authority = entity.isAuthority()
+        if (authority) {
           const control = entity.getControl()
           if (this.isGrounded) {
             this.velocity.y = -this.gravity * delta
@@ -268,32 +344,50 @@ const AVATAR_SCRIPT = `
           }
           if (control) {
             this.displacement.set(control.move.x, 0, control.move.z).multiplyScalar(this.moveSpeed * delta)
-            this.dirEul.copy(control.look.rotation)
-            this.dirEul.x = 0
-            this.dirEul.z = 0
-            this.dirQuat.setFromEuler(this.dirEul)
-            this.displacement.applyQuaternion(this.dirQuat)
+            e1.copy(control.look.rotation)
+            e1.x = 0
+            e1.z = 0
+            q1.setFromEuler(e1)
+            this.displacement.applyQuaternion(q1)
           } else {
             this.displacement.set(0, 0, 0)
           }
           this.displacement.y = this.velocity.y * delta
-          this.character.move(this.displacement)
-          this.isGrounded = this.character.isGrounded()
-          this.isCeiling = this.character.isCeiling()
+          this.ctrl.move(this.displacement)
+          this.isGrounded = this.ctrl.isGrounded()
+          this.isCeiling = this.ctrl.isCeiling()
           if (this.isCeiling && this.velocity.y > 0) {
             this.velocity.y = -this.gravity * delta
           }
           if (control) {
-            control.camera.position.copy(this.character.position)
+            control.camera.position.copy(this.ctrl.position)
+            control.camera.position.y += 1.8
             control.camera.rotation.copy(control.look.rotation)
-            control.camera.distance = control.distance * 10
+            control.camera.distance = control.look.distance * 10
+            if (control.look.locked || !control.look.distance) {
+              e1.copy(control.look.rotation)
+              e1.x = 0
+              e1.z = 0
+              this.vrmTargetQuat.setFromEuler(e1)
+              // this.vrm.quaternion.slerp(q1, 20 * delta)
+            } else if (control.move.x || control.move.z) {
+              o1.position.set(0,0,0)
+              v1.set(control.move.x, 0, control.move.z).negate() // why negate?
+              o1.lookAt(v1)
+              e1.set(0, control.look.rotation.y, 0)
+              q1.setFromEuler(e1)
+              o1.quaternion.multiply(q1)
+              this.vrmTargetQuat.copy(o1.quaternion)
+            }
           }
-          this.character.dirty()
+          this.vrm.quaternion.slerp(this.vrmTargetQuat, 10 * delta)
+          this.vrm.dirty()
+          this.ctrl.dirty()
           this.lastPush += delta
           if (this.lastPush > PUSH_RATE) {
             entity.pushState({
-              position: this.character.position.toArray(),
-              quaternion: this.character.quaternion.toArray(),
+              position: this.ctrl.position.toArray(),
+              quaternion: this.vrm.quaternion.toArray(),
             })
             this.lastPush = 0
           }

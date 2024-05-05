@@ -10,7 +10,7 @@ const defaults = {
   visible: false,
 }
 
-export class Character extends Node {
+export class Controller extends Node {
   constructor(entity, data) {
     super(entity, data)
     this.radius = isNumber(data.radius) ? data.radius : defaults.radius
@@ -50,8 +50,14 @@ export class Character extends Node {
   update() {
     if (this.mesh) {
       this.mesh.matrix.copy(this.matrix)
-      // this.mesh.matrixWorld.copy(this.matrixWorld)
+      this.mesh.matrixWorld.copy(this.matrixWorld)
     }
+    // if (this.didMove) {
+    //   console.log('character position change without move() ????')
+    //   const worldPosition = this.getWorldPosition()
+    //   this.controller.setFootPosition(worldPosition.toPxExtVec3())
+    //   this.didMove = false
+    // }
   }
 
   unmount() {
@@ -72,6 +78,7 @@ export class Character extends Node {
     // this.isGrounded = moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN) // prettier-ignore
     const pos = this.controller.getFootPosition()
     this.position.copy(pos)
+    this.didMove = true
   }
 
   getProxy() {

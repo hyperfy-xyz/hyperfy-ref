@@ -131,6 +131,9 @@ export class Control extends System {
     this.space.viewport.setPointerCapture(e.pointerId)
     this.space.viewport.addEventListener('pointermove', this.onPointerMove)
     this.space.viewport.addEventListener('pointerup', this.onPointerUp)
+    if (this.active) {
+      this.active.look.locked = e.button === 2
+    }
   }
 
   onPointerMove = e => {
@@ -148,17 +151,20 @@ export class Control extends System {
     this.space.viewport.releasePointerCapture(e.pointerId)
     this.space.viewport.removeEventListener('pointermove', this.onPointerMove)
     this.space.viewport.removeEventListener('pointerup', this.onPointerUp)
+    if (this.active) {
+      this.active.look.locked = false
+    }
   }
 
   onWheel = e => {
     e.preventDefault()
     if (this.active) {
-      this.active.distance += e.deltaY * WHEEL_SPEED
-      if (this.active.distance < 0) {
-        this.active.distance = 0
+      this.active.look.distance += e.deltaY * WHEEL_SPEED
+      if (this.active.look.distance < 0) {
+        this.active.look.distance = 0
       }
-      if (this.active.distance > 1) {
-        this.active.distance = 1
+      if (this.active.look.distance > 1) {
+        this.active.look.distance = 1
       }
     }
   }
@@ -190,8 +196,9 @@ export class Control extends System {
       look: {
         rotation: new THREE.Euler(0, 0, 0, 'YXZ'),
         quaternion: new THREE.Quaternion(),
+        locked: false,
+        distance: 0.5,
       },
-      distance: 0.5,
       camera: {
         position: new THREE.Vector3(),
         rotation: new THREE.Euler(),

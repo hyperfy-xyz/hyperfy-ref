@@ -36,6 +36,7 @@ export class Space extends EventEmitter {
       harden: undefined,
       lockdown: undefined,
       num: num,
+      Object3D: THREE.Object3D,
       Quaternion: THREE.Quaternion,
       Vector3: THREE.Vector3,
       Euler: THREE.Euler,

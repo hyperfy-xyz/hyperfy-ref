@@ -93,8 +93,6 @@ export class Graphics extends System {
     // const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
     // const cube = new THREE.Mesh(geometry, material)
     // this.scene.add(cube)
-    this.camera.position.z = 5
-    this.camera.position.y = 2
   }
 
   update(delta) {

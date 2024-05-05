@@ -38,11 +38,12 @@ export class Space {
       clients.push(client.serialize())
     })
     const entities = Array.from(this.entities.values())
-    client.sock.send('init', {
+    const init = {
       clientId,
       clients,
       entities,
-    })
+    }
+    client.sock.send('init', init)
     this.broadcast('add-client', client.serialize(), client)
   }
 
@@ -75,14 +76,6 @@ export class Space {
           client
         )
       }
-      // if (entry.type === 'add') {
-      //   // todo: validate?
-      //   this.entities.set(entityId, entry.data)
-      //   this.broadcast('add-entity', entry.data, client)
-      // }
-      // if (entry.type === 'update') {
-      //   this.broadcast('update-entity', entry.data, client)
-      // }
     }
   }
 
