@@ -12,15 +12,15 @@ export class Control extends System {
     this.keys = {}
     this.controls = []
     this.current = null
+    this.isPointerLocked = false
   }
 
   start() {
     window.addEventListener('keydown', this.onKeyDown)
     window.addEventListener('keyup', this.onKeyUp)
+    document.addEventListener('pointerlockchange', this.onPointerLockChange)
     this.space.viewport.addEventListener('pointerdown', this.onPointerDown)
-    this.space.viewport.addEventListener('wheel', this.onWheel, {
-      passive: false,
-    })
+    this.space.viewport.addEventListener('wheel', this.onWheel, { passive: false }) // prettier-ignore
     this.space.viewport.addEventListener('contextmenu', this.onContextMenu)
   }
 
@@ -133,6 +133,7 @@ export class Control extends System {
       this.current.look.active = true
       this.current.look.locked = e.button === 2
     }
+    this.requestPointerLock()
   }
 
   onPointerMove = e => {
@@ -154,6 +155,7 @@ export class Control extends System {
       this.current.look.active = false
       this.current.look.locked = false
     }
+    this.exitPointerLock()
   }
 
   onWheel = e => {
@@ -171,6 +173,53 @@ export class Control extends System {
 
   onContextMenu = e => {
     e.preventDefault()
+  }
+
+  onPointerLockChange = e => {
+    const didPointerLock = !!document.pointerLockElement
+    if (didPointerLock) {
+      this.onPointerLockStart()
+    } else {
+      this.onPointerLockEnd()
+    }
+  }
+
+  onPointerLockStart() {
+    if (this.isPointerLocked) return
+    // this.viewElem.focus()
+    // document.addEventListener('mousemove', this.onMouseMove)
+    this.mouseMoveFirst = true // bugfix, see onMouseMove
+    this.isPointerLocked = true
+    // this.engine.driver.toggleReticle(true)
+    // this.engine.worldEvents.emit('focus')
+  }
+
+  onPointerLockEnd() {
+    if (!this.isPointerLocked) return
+    // document.removeEventListener('mousemove', this.onMouseMove)
+    // if (document.activeElement === this.viewElem) {
+    //   this.viewElem.blur()
+    // }
+    // this.emit('pointerlock-exit')
+    this.isPointerLocked = false
+    // this.engine.driver.toggleReticle(false)
+    // this.engine.worldEvents.emit('blur')
+  }
+
+  async requestPointerLock() {
+    try {
+      await this.space.viewport.requestPointerLock()
+      return true
+    } catch (err) {
+      // console.log('pointerlock denied, too quick?')
+      return false
+    }
+  }
+
+  exitPointerLock() {
+    if (!this.isPointerLocked) return
+    document.exitPointerLock()
+    this.onPointerLockEnd()
   }
 
   isInputFocused() {
@@ -257,6 +306,10 @@ export class Control extends System {
   destroy() {
     window.removeEventListener('keydown', this.onKeyDown)
     window.removeEventListener('keyup', this.onKeyUp)
+    document.removeEventListener('pointerlockchange', this.onPointerLockChange)
+    this.space.viewport.removeEventListener('pointerdown', this.onPointerDown)
+    this.space.viewport.removeEventListener('wheel', this.onWheel, { passive: false }) // prettier-ignore
+    this.space.viewport.removeEventListener('contextmenu', this.onContextMenu)
     this.controls = []
     this.current = null
     // while(this.controls.length) {
