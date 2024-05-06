@@ -158,7 +158,7 @@ export class Network extends System {
     // this.log('update-entity', data)
     const entity = this.space.entities.get(data.id)
     if (data.state) {
-      entity.onRemoteState(data.state)
+      entity.onRemoteStateChanges(data.state)
     }
   }
 
@@ -265,7 +265,6 @@ const AVATAR_SCRIPT = `
         })
         entity.add(this.box)
         
-        const state = entity.getState()
         const authority = entity.isAuthority()
         if (authority) {
           this.jumpHeight = 1.5
@@ -323,18 +322,20 @@ const AVATAR_SCRIPT = `
         }
       }
       start() {
-        const state = entity.getState()
-        const authority = entity.isAuthority()
-        if (authority) {
+        if (entity.isAuthority()) {
           entity.requestControl()
         } else {
-          if (state.position) {
-            this.base.position.fromArray(state.position)
-            this.base.quaternion.fromArray(state.quaternion)
-            this.base.dirty()
-          }
+          const state = entity.getState()
+          if (is(state.px)) this.base.position.x = state.px
+          if (is(state.py)) this.base.position.y = state.py
+          if (is(state.pz)) this.base.position.z = state.pz
+          if (is(state.qx)) this.base.quaternion.x = state.qx
+          if (is(state.qy)) this.base.quaternion.y = state.qy
+          if (is(state.qz)) this.base.quaternion.z = state.qz
+          if (is(state.qw)) this.base.quaternion.w = state.qw
           this.remotePosition = new Vector3Lerp(this.base.position, PUSH_RATE)
           this.remoteQuaternion = new QuaternionLerp(this.base.quaternion, PUSH_RATE)
+          this.base.dirty()
         }
       }
       update(delta) {
@@ -426,24 +427,38 @@ const AVATAR_SCRIPT = `
           this.vrm.dirty()
           this.lastPush += delta
           if (this.lastPush > PUSH_RATE) {
-            entity.pushState({
-              position: this.ctrl.position.toArray(),
-              quaternion: this.vrm.quaternion.toArray(),
-            })
+            const state = entity.getState()
+            state.px = this.ctrl.position.x
+            state.py = this.ctrl.position.y
+            state.pz = this.ctrl.position.z
+            state.qx = this.vrm.quaternion.x
+            state.qy = this.vrm.quaternion.y
+            state.qz = this.vrm.quaternion.z
+            state.qw = this.vrm.quaternion.w
             this.lastPush = 0
           }
         } else {
+          const changes = entity.getStateChanges()
+          if (changes) {
+            if (changes.px || changes.py || changes.pz) {
+              v1.copy(this.remotePosition.current)
+              if (is(changes.px)) v1.x = changes.px
+              if (is(changes.py)) v1.y = changes.py
+              if (is(changes.pz)) v1.z = changes.pz
+              this.remotePosition.push(v1)
+            }
+            if (changes.qx || changes.qy || changes.qz || changes.qw) {
+              q1.copy(this.remoteQuaternion.current)
+              if (is(changes.qx)) q1.x = changes.qx
+              if (is(changes.qy)) q1.y = changes.qy
+              if (is(changes.qz)) q1.z = changes.qz
+              if (is(changes.qw)) q1.w = changes.qw
+              this.remoteQuaternion.push(q1)
+            }            
+          }
           this.remotePosition.update(delta)
           this.remoteQuaternion.update(delta)
           this.base.dirty()
-        }
-      }
-      onState(newState) {
-        if (newState.position) {
-          this.remotePosition.push(newState.position)
-        }
-        if (newState.quaternion) {
-          this.remoteQuaternion.push(newState.quaternion)
         }
       }
     }
@@ -454,6 +469,10 @@ const AVATAR_SCRIPT = `
       if (difference < -Math.PI) difference += 2 * Math.PI;  
       let interpolatedAngle = startAngle + difference * t;
       return interpolatedAngle;
+    }
+
+    function is(value) {
+      return value !== undefined
     }
   
   }

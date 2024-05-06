@@ -20,6 +20,26 @@ export class Entity {
     this.root.project()
     this.buildNodes(this.root, data.nodes)
     this.state = data.state
+    this.stateProxy = new Proxy(this.state, {
+      set: (target, key, value) => {
+        if (target[key] !== value) {
+          target[key] = value
+          const delta = space.network.delta
+          if (!delta[this.id]) {
+            delta[this.id] = {}
+          }
+          if (!delta[this.id].state) {
+            delta[this.id].state = {}
+          }
+          delta[this.id].state = {
+            ...delta[this.id].state,
+            [key]: value,
+          }
+        }
+        return true
+      },
+    })
+    this.stateChanges = null
     this.scripts = []
     this.root.traverse(node => {
       if (node.type === 'script') {
@@ -39,10 +59,8 @@ export class Entity {
       for (const node of this.scripts) {
         node.start()
       }
-      // register for update/fixedUpdate
-      for (const node of this.scripts) {
-        this.space.scripts.register(node)
-      }
+      // register for script update/fixedUpdate etc
+      this.space.scripts.register(this)
     }
   }
 
@@ -104,20 +122,10 @@ export class Entity {
           return space.control.release(entity)
         },
         getState() {
-          return entity.state
+          return entity.stateProxy
         },
-        pushState(newState) {
-          const delta = space.network.delta
-          if (!delta[entity.id]) {
-            delta[entity.id] = {}
-          }
-          if (!delta[entity.id].state) {
-            delta[entity.id].state = {}
-          }
-          delta[entity.id].state = {
-            ...delta[entity.id].state,
-            ...newState,
-          }
+        getStateChanges() {
+          return entity.stateChanges
         },
       }
       this.proxy = proxy
@@ -125,20 +133,19 @@ export class Entity {
     return this.proxy
   }
 
-  onRemoteState(newState) {
+  onRemoteStateChanges(changes) {
     this.state = {
       ...this.state,
-      ...newState,
+      ...changes,
     }
-    for (const node of this.scripts) {
-      node.onState(newState)
+    this.stateChanges = {
+      ...this.stateChanges,
+      ...changes,
     }
   }
 
   destroy() {
-    for (const node of this.scripts) {
-      this.space.scripts.unregister(node)
-    }
+    this.space.scripts.unregister(this)
     this.nodes.forEach(node => {
       if (node.mounted) {
         node.unmount()

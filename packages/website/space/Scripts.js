@@ -3,56 +3,51 @@ import { System } from './System'
 export class Scripts extends System {
   constructor(space) {
     super(space)
-    this.updateNodes = new Set()
-    this.fixedUpdateNodes = new Set()
-    this.lateUpdateNodes = new Set()
+    this.entities = new Set()
   }
 
-  register(node) {
-    if (node.script?.update) {
-      this.updateNodes.add(node)
-    }
-    if (node.script?.fixedUpdate) {
-      this.fixedUpdateNodes.add(node)
-    }
-    if (node.script?.lateUpdate) {
-      this.lateUpdateNodes.add(node)
-    }
+  register(entity) {
+    this.entities.add(entity)
   }
 
-  unregister(node) {
-    this.updateNodes.delete(node)
-    this.fixedUpdateNodes.delete(node)
-    this.lateUpdateNodes.delete(node)
+  unregister(entity) {
+    this.entities.delete(entity)
   }
 
   update(delta) {
-    for (const node of this.updateNodes) {
-      try {
-        node.script.update?.(delta)
-      } catch (err) {
-        console.error(err)
+    for (const entity of this.entities) {
+      for (const node of entity.scripts) {
+        try {
+          node.script.update?.(delta)
+        } catch (err) {
+          console.error(err)
+        }
       }
     }
   }
 
   fixedUpdate(delta) {
-    for (const node of this.fixedUpdateNodes) {
-      try {
-        node.script.fixedUpdate?.(delta)
-      } catch (err) {
-        console.error(err)
+    for (const entity of this.entities) {
+      for (const node of entity.scripts) {
+        try {
+          node.script.fixedUpdate?.(delta)
+        } catch (err) {
+          console.error(err)
+        }
       }
     }
   }
 
   lateUpdate(delta) {
-    for (const node of this.lateUpdateNodes) {
-      try {
-        node.script.lateUpdate?.(delta)
-      } catch (err) {
-        console.error(err)
+    for (const entity of this.entities) {
+      for (const node of entity.scripts) {
+        try {
+          node.script.lateUpdate?.(delta)
+        } catch (err) {
+          console.error(err)
+        }
       }
+      entity.stateChanges = null
     }
   }
 
@@ -61,8 +56,6 @@ export class Scripts extends System {
   }
 
   destroy() {
-    this.updateNodes.clear()
-    this.fixedUpdateNodes.clear()
-    this.lateUpdateNodes.clear()
+    this.entities.clear()
   }
 }
