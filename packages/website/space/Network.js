@@ -238,11 +238,18 @@ const AVATAR_SCRIPT = `
 (function() {
   return entity => {
     const PUSH_RATE = 1 / 5 // 5Hz (times per second)
+    const ZOOM_DISTANCE = 10 // 10m
+    const ZOOM_SPEED = 6
 
     const o1 = new Object3D()
     const v1 = new Vector3()
+    const v2 = new Vector3()
     const e1 = new Euler()
+    const e2 = new Euler()
+    const e3 = new Euler()
     const q1 = new Quaternion()
+    const q2 = new Quaternion()
+    const q3 = new Quaternion()
 
     return class Script {
       init() {
@@ -262,6 +269,7 @@ const AVATAR_SCRIPT = `
         const authority = entity.isAuthority()
         if (authority) {
           this.jumpHeight = 1.5
+          this.turnSpeed = 5
           this.moveSpeed = 5
           this.displacement = new Vector3(0, 0, 0)
           this.gravity = 20 // 9.81
@@ -270,7 +278,6 @@ const AVATAR_SCRIPT = `
           this.velocity = new Vector3()
           this.hasControl = false
           this.lastPush = 0          
-          this.vrmTargetQuat = new Quaternion()
           this.ctrl = entity.create({
             type: 'controller',
             name: 'ctrl',
@@ -334,6 +341,37 @@ const AVATAR_SCRIPT = `
         const authority = entity.isAuthority()
         if (authority) {
           const control = entity.getControl()
+          this.displacement.set(0, 0, 0)
+          // movement is either:
+          // a) no mouse down = WS forward/back relative to vrm direction + AD to turn left/right + camera constantly tries to stay behind
+          // b) left mouse down = WS forward/back relative to vrm direction + AD to turn left/right
+          // c) right mouse down = WS forward/back relative to camera direction + AD strafe left/right
+          const fp = control && control.look.zoom === 0
+          const active = control && control.look.active
+          const locked = control.look.locked
+          const moving = control.move.x || control.move.z
+          const looking = control.look.rotation.x || control.look.rotation.y
+          const a = control && !control.look.active
+          const b = control && control.look.active && !control.look.locked
+          const c = control && control.look.active && control.look.locked 
+          // AD swivel left and right?
+          if (!active || (active && !locked)) {
+            this.vrm.rotation.y -= control.move.x * this.turnSpeed * delta
+          }
+          // forward/back displacement only (eg turning not strafing)
+          if ((fp && !active) || (!fp && !active) || (!fp && active && !locked)) {
+            this.displacement.set(0, 0, control.move.z).multiplyScalar(this.moveSpeed * delta)
+            this.displacement.applyQuaternion(this.vrm.quaternion)
+          }
+          // forward/back and strafe
+          else {
+            this.displacement.set(control.move.x, 0, control.move.z).multiplyScalar(this.moveSpeed * delta)
+            e1.copy(this.vrm.rotation)
+            e1.x = 0
+            e1.z = 0
+            q1.setFromEuler(e1)
+            this.displacement.applyQuaternion(q1)
+          }
           if (this.isGrounded) {
             this.velocity.y = -this.gravity * delta
           } else {
@@ -342,16 +380,6 @@ const AVATAR_SCRIPT = `
           if (control?.getJump() && this.isGrounded) {
             this.velocity.y = Math.sqrt(2 * this.gravity * this.jumpHeight)
           }
-          if (control) {
-            this.displacement.set(control.move.x, 0, control.move.z).multiplyScalar(this.moveSpeed * delta)
-            e1.copy(control.look.rotation)
-            e1.x = 0
-            e1.z = 0
-            q1.setFromEuler(e1)
-            this.displacement.applyQuaternion(q1)
-          } else {
-            this.displacement.set(0, 0, 0)
-          }
           this.displacement.y = this.velocity.y * delta
           this.ctrl.move(this.displacement)
           this.isGrounded = this.ctrl.isGrounded()
@@ -359,30 +387,43 @@ const AVATAR_SCRIPT = `
           if (this.isCeiling && this.velocity.y > 0) {
             this.velocity.y = -this.gravity * delta
           }
+          const camTurn = !active
+          if (camTurn) {
+            // move camera based on AD
+            control.camera.rotation.y -= control.move.x * this.turnSpeed * delta
+          }
+          const camAdjust = !active && (control.move.x || control.move.z)
+          if (camAdjust) {
+            // slerp camera behind vrm if its not already
+            control.camera.rotation.y = lerpAngle(control.camera.rotation.y, this.vrm.rotation.y, 3 * delta)
+            // camera too high? slerp down to 20 deg
+            if (control.camera.rotation.x * RAD2DEG < -20) {
+              control.camera.rotation.x = lerpAngle(control.camera.rotation.x, -20 * DEG2RAD, 3 * delta)
+            }
+            // camera too low? slerp back to 0
+            if (control.camera.rotation.x * RAD2DEG > 0) {
+              control.camera.rotation.x = lerpAngle(control.camera.rotation.x, 0 * DEG2RAD, 6 * delta)
+            }
+          }
           if (control) {
             control.camera.position.copy(this.ctrl.position)
             control.camera.position.y += 1.8
-            control.camera.rotation.copy(control.look.rotation)
-            control.camera.distance = control.look.distance * 10
-            if (control.look.locked || !control.look.distance) {
-              e1.copy(control.look.rotation)
-              e1.x = 0
-              e1.z = 0
-              this.vrmTargetQuat.setFromEuler(e1)
-              // this.vrm.quaternion.slerp(q1, 20 * delta)
-            } else if (control.move.x || control.move.z) {
-              o1.position.set(0,0,0)
-              v1.set(control.move.x, 0, control.move.z).negate() // why negate?
-              o1.lookAt(v1)
-              e1.set(0, control.look.rotation.y, 0)
-              q1.setFromEuler(e1)
-              o1.quaternion.multiply(q1)
-              this.vrmTargetQuat.copy(o1.quaternion)
-            }
+
+            const from = control.camera.distance
+            const to = control.look.zoom * ZOOM_DISTANCE
+            const alpha = ZOOM_SPEED * delta
+            control.camera.distance += (to - from) * alpha // Vector3.lerp unit
+
+            control.camera.rotation.y += control.look.rotation.y
+            control.camera.rotation.x += control.look.rotation.x
+            control.look.rotation.set(0, 0, 0) // reset
           }
-          this.vrm.quaternion.slerp(this.vrmTargetQuat, 10 * delta)
-          this.vrm.dirty()
+          // VRM always face camera direction?
+          if (fp || (locked && (moving || looking))) {
+            this.vrm.rotation.y = control.camera.rotation.y // TODO: camera rotation.y changes later so its one frame behind
+          }
           this.ctrl.dirty()
+          this.vrm.dirty()
           this.lastPush += delta
           if (this.lastPush > PUSH_RATE) {
             entity.pushState({
@@ -406,6 +447,15 @@ const AVATAR_SCRIPT = `
         }
       }
     }
+
+    function lerpAngle(startAngle, endAngle, t) {  
+      let difference = (endAngle - startAngle) % (2 * Math.PI);
+      if (difference > Math.PI) difference -= 2 * Math.PI;
+      if (difference < -Math.PI) difference += 2 * Math.PI;  
+      let interpolatedAngle = startAngle + difference * t;
+      return interpolatedAngle;
+    }
+  
   }
 })()
 `

@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { System } from './System'
 
 const PI_2 = Math.PI / 2
-const LOOK_SPEED = 0.002
+const LOOK_SPEED = 0.005
 const WHEEL_SPEED = 0.002
 
 export class Control extends System {
@@ -11,7 +11,7 @@ export class Control extends System {
     super(space)
     this.keys = {}
     this.controls = []
-    this.active = null
+    this.current = null
   }
 
   start() {
@@ -25,23 +25,21 @@ export class Control extends System {
   }
 
   update() {
-    if (!this.active) return
-    this.active.move.set(0, 0, 0)
-    if (this.keys.forward) this.active.move.z -= 1
-    if (this.keys.back) this.active.move.z += 1
-    if (this.keys.left) this.active.move.x -= 1
-    if (this.keys.right) this.active.move.x += 1
-    this.active.move.normalize() // prevent surfing
+    if (!this.current) return
+    this.current.move.set(0, 0, 0)
+    if (this.keys.forward) this.current.move.z -= 1
+    if (this.keys.back) this.current.move.z += 1
+    if (this.keys.left) this.current.move.x -= 1
+    if (this.keys.right) this.current.move.x += 1
+    this.current.move.normalize() // prevent surfing
 
     // is this the correct time?
     // feels like this is updating based off last frame
-    if (this.active) {
-      const rig = this.space.graphics.cameraRig
-      const cam = this.space.graphics.camera
-      rig.position.copy(this.active.camera.position)
-      rig.quaternion.copy(this.active.camera.quaternion)
-      cam.position.z = this.active.camera.distance
-    }
+    const rig = this.space.graphics.cameraRig
+    const cam = this.space.graphics.camera
+    rig.position.copy(this.current.camera.position)
+    rig.quaternion.copy(this.current.camera.quaternion)
+    cam.position.z = this.current.camera.distance
   }
 
   onKeyDown = e => {
@@ -79,8 +77,8 @@ export class Control extends System {
       case 'Space':
         if (!meta) {
           this.keys.space = true
-          if (this.active) {
-            this.active.jump = true
+          if (this.current) {
+            this.current.jump = true
           }
         }
         break
@@ -131,18 +129,19 @@ export class Control extends System {
     this.space.viewport.setPointerCapture(e.pointerId)
     this.space.viewport.addEventListener('pointermove', this.onPointerMove)
     this.space.viewport.addEventListener('pointerup', this.onPointerUp)
-    if (this.active) {
-      this.active.look.locked = e.button === 2
+    if (this.current) {
+      this.current.look.active = true
+      this.current.look.locked = e.button === 2
     }
   }
 
   onPointerMove = e => {
-    if (this.active) {
-      this.active.look.rotation.y -= e.movementX * LOOK_SPEED
-      this.active.look.rotation.x -= e.movementY * LOOK_SPEED
-      this.active.look.rotation.x = Math.max(
+    if (this.current) {
+      this.current.look.rotation.y -= e.movementX * LOOK_SPEED
+      this.current.look.rotation.x -= e.movementY * LOOK_SPEED
+      this.current.look.rotation.x = Math.max(
         -PI_2,
-        Math.min(PI_2, this.active.look.rotation.x)
+        Math.min(PI_2, this.current.look.rotation.x)
       )
     }
   }
@@ -151,20 +150,21 @@ export class Control extends System {
     this.space.viewport.releasePointerCapture(e.pointerId)
     this.space.viewport.removeEventListener('pointermove', this.onPointerMove)
     this.space.viewport.removeEventListener('pointerup', this.onPointerUp)
-    if (this.active) {
-      this.active.look.locked = false
+    if (this.current) {
+      this.current.look.active = false
+      this.current.look.locked = false
     }
   }
 
   onWheel = e => {
     e.preventDefault()
-    if (this.active) {
-      this.active.look.distance += e.deltaY * WHEEL_SPEED
-      if (this.active.look.distance < 0) {
-        this.active.look.distance = 0
+    if (this.current) {
+      this.current.look.zoom += e.deltaY * WHEEL_SPEED
+      if (this.current.look.zoom < 0) {
+        this.current.look.zoom = 0
       }
-      if (this.active.look.distance > 1) {
-        this.active.look.distance = 1
+      if (this.current.look.zoom > 1) {
+        this.current.look.zoom = 1
       }
     }
   }
@@ -196,12 +196,13 @@ export class Control extends System {
       look: {
         rotation: new THREE.Euler(0, 0, 0, 'YXZ'),
         quaternion: new THREE.Quaternion(),
+        zoom: 0.5,
+        active: false,
         locked: false,
-        distance: 0.5,
       },
       camera: {
         position: new THREE.Vector3(),
-        rotation: new THREE.Euler(),
+        rotation: new THREE.Euler(0, 0, 0, 'YXZ'),
         quaternion: new THREE.Quaternion(),
         distance: 0,
       },
@@ -231,9 +232,9 @@ export class Control extends System {
   }
 
   get(entity) {
-    if (!this.active) return null
-    if (this.active.entityId !== entity.id) return
-    return this.active
+    if (!this.current) return null
+    if (this.current.entityId !== entity.id) return
+    return this.current
   }
 
   release(entity) {
@@ -245,11 +246,11 @@ export class Control extends System {
   }
 
   check() {
-    if (this.active && this.controls[0] !== this.active) {
-      this.active = null
+    if (this.current && this.controls[0] !== this.current) {
+      this.current = null
     }
-    if (this.controls[0] && !this.active) {
-      this.active = this.controls[0]
+    if (this.controls[0] && !this.current) {
+      this.current = this.controls[0]
     }
   }
 
@@ -257,7 +258,7 @@ export class Control extends System {
     window.removeEventListener('keydown', this.onKeyDown)
     window.removeEventListener('keyup', this.onKeyUp)
     this.controls = []
-    this.active = null
+    this.current = null
     // while(this.controls.length) {
     //   this.controls.pop().callback(false)
     // }

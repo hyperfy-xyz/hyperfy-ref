@@ -70,7 +70,7 @@ export class Graphics extends System {
 
     // hdr
     {
-      const texture = await this.space.loader.load('/assets/sky.hdr')
+      const texture = await this.space.loader.load('/assets/day2.hdr')
       // texture.colorSpace = THREE.SRGBColorSpace
       texture.mapping = THREE.EquirectangularReflectionMapping
       this.scene.environment = texture
