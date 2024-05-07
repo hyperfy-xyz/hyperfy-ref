@@ -78,6 +78,11 @@ export class Graphics extends System {
     this.cameraRig.add(this.camera)
     this.scene.add(this.cameraRig)
 
+    this.raycaster = new THREE.Raycaster()
+    this.raycaster.firstHitOnly = true
+    this.raycastHits = []
+    this.raycastAllMask = 0xffffffff | 0 // https://github.com/mrdoob/three.js/blob/master/src/core/Layers.js
+
     // hdr
     {
       const texture = await this.space.loader.load('/assets/day2.hdr')
@@ -112,5 +117,38 @@ export class Graphics extends System {
 
   render() {
     this.renderer.render(this.scene, this.camera)
+  }
+
+  raycast(
+    origin,
+    direction,
+    mask = this.raycastAllMask,
+    min = 0,
+    max = Infinity
+  ) {
+    this.raycaster.set(origin, direction)
+    this.raycaster.layers.mask = mask
+    this.raycaster.near = min
+    this.raycaster.far = max
+    this.raycaster.intersectObjects(this.scene.children, true, this.raycastHits)
+    const hit = this.raycastHits[0]
+    this.raycastHits.length = 0
+    return hit
+  }
+
+  raycastFromViewport(
+    coords,
+    mask = this.raycastAllMask,
+    min = 0,
+    max = Infinity
+  ) {
+    this.raycaster.setFromCamera(coords, this.camera)
+    this.raycaster.layers.mask = mask
+    this.raycaster.near = min
+    this.raycaster.far = max
+    this.raycaster.intersectObjects(this.scene.children, true, this.raycastHits)
+    const hit = this.raycastHits[0]
+    this.raycastHits.length = 0
+    return hit
   }
 }

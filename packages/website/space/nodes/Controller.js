@@ -31,6 +31,7 @@ export class Controller extends Node {
       this.mesh.matrixWorldAutoUpdate = false
       this.mesh.matrix.copy(this.matrix)
       this.mesh.matrixWorld.copy(this.matrixWorld)
+      this.mesh.node = this
       this.space.graphics.scene.add(this.mesh)
     }
     const desc = new PHYSX.PxCapsuleControllerDesc()

@@ -99,7 +99,7 @@ export class Network extends System {
     //     },
     //   ],
     // })
-    const avatar = this.space.entities.addLocal({
+    this.avatar = this.space.entities.addLocal({
       id: this.makeId(),
       type: 'avatar',
       authority: client.id,
@@ -350,23 +350,26 @@ const AVATAR_SCRIPT = `
           const fp = control && control.look.zoom === 0
           const active = control && control.look.active
           const locked = control.look.locked
-          const moving = control.move.x || control.move.z
+          const advance = control.look.advance
+          const move = v1.copy(control.move)
+          if (advance) move.z = -1
+          const moving = move.x || move.z
           const looking = control.look.rotation.x || control.look.rotation.y
           const a = control && !control.look.active
           const b = control && control.look.active && !control.look.locked
           const c = control && control.look.active && control.look.locked 
           // AD swivel left and right?
           if (!active || (active && !locked)) {
-            this.vrm.rotation.y -= control.move.x * this.turnSpeed * delta
+            this.vrm.rotation.y -= move.x * this.turnSpeed * delta
           }
           // forward/back displacement only (eg turning not strafing)
           if ((fp && !active) || (!fp && !active) || (!fp && active && !locked)) {
-            this.displacement.set(0, 0, control.move.z).multiplyScalar(this.moveSpeed * delta)
+            this.displacement.set(0, 0, move.z).multiplyScalar(this.moveSpeed * delta)
             this.displacement.applyQuaternion(this.vrm.quaternion)
           }
           // forward/back and strafe
           else {
-            this.displacement.set(control.move.x, 0, control.move.z).multiplyScalar(this.moveSpeed * delta)
+            this.displacement.set(move.x, 0, move.z).multiplyScalar(this.moveSpeed * delta)
             e1.copy(this.vrm.rotation)
             e1.x = 0
             e1.z = 0
@@ -391,9 +394,9 @@ const AVATAR_SCRIPT = `
           const camTurn = !active
           if (camTurn) {
             // move camera based on AD
-            control.camera.rotation.y -= control.move.x * this.turnSpeed * delta
+            control.camera.rotation.y -= move.x * this.turnSpeed * delta
           }
-          const camAdjust = !active && (control.move.x || control.move.z)
+          const camAdjust = !active && moving
           if (camAdjust) {
             // slerp camera behind vrm if its not already
             control.camera.rotation.y = lerpAngle(control.camera.rotation.y, this.vrm.rotation.y, 3 * delta)

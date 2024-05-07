@@ -1,10 +1,24 @@
 import * as THREE from 'three'
 
 import { System } from './System'
+import {
+  ArrowRightLeftIcon,
+  AxeIcon,
+  BanIcon,
+  EyeIcon,
+  MicIcon,
+  MicOffIcon,
+  PlusCircleIcon,
+  ShieldPlusIcon,
+  SmileIcon,
+  UserIcon,
+} from 'lucide-react'
 
 const PI_2 = Math.PI / 2
 const LOOK_SPEED = 0.005
 const WHEEL_SPEED = 0.002
+
+const coords = new THREE.Vector2()
 
 export class Control extends System {
   constructor(space) {
@@ -13,6 +27,11 @@ export class Control extends System {
     this.controls = []
     this.current = null
     this.isPointerLocked = false
+    this.clickTracker = {
+      start: null,
+      rmb: false,
+      move: new THREE.Vector2(),
+    }
   }
 
   start() {
@@ -32,9 +51,10 @@ export class Control extends System {
     if (this.keys.left) this.current.move.x -= 1
     if (this.keys.right) this.current.move.x += 1
     this.current.move.normalize() // prevent surfing
+  }
 
-    // is this the correct time?
-    // feels like this is updating based off last frame
+  lateUpdate() {
+    if (!this.current) return
     const rig = this.space.graphics.cameraRig
     const cam = this.space.graphics.camera
     rig.position.copy(this.current.camera.position)
@@ -53,29 +73,34 @@ export class Control extends System {
       case 'KeyW':
       case 'ArrowUp':
         if (!meta) {
+          this.closeContext()
           this.keys.forward = true
         }
         break
       case 'KeyS':
       case 'ArrowDown':
         if (!meta) {
+          this.closeContext()
           this.keys.back = true
         }
         break
       case 'KeyA':
       case 'ArrowLeft':
         if (!meta) {
+          this.closeContext()
           this.keys.left = true
         }
         break
       case 'KeyD':
       case 'ArrowRight':
         if (!meta) {
+          this.closeContext()
           this.keys.right = true
         }
         break
       case 'Space':
         if (!meta) {
+          this.closeContext()
           this.keys.space = true
           if (this.current) {
             this.current.jump = true
@@ -126,7 +151,11 @@ export class Control extends System {
   }
 
   onPointerDown = e => {
-    this.space.viewport.setPointerCapture(e.pointerId)
+    this.closeContext()
+    this.clickTracker.start = performance.now()
+    this.clickTracker.rmb = e.button === 2
+    this.clickTracker.move.set(0, 0)
+    // this.space.viewport.setPointerCapture(e.pointerId)
     this.space.viewport.addEventListener('pointermove', this.onPointerMove)
     this.space.viewport.addEventListener('pointerup', this.onPointerUp)
     if (this.current) {
@@ -137,7 +166,23 @@ export class Control extends System {
   }
 
   onPointerMove = e => {
+    this.clickTracker.move.x += e.movementX
+    this.clickTracker.move.y += e.movementY
     if (this.current) {
+      switch (e.buttons) {
+        case 1:
+          this.current.look.locked = false
+          this.current.look.advance = false
+          break
+        case 2:
+          this.current.look.locked = true
+          this.current.look.advance = false
+          break
+        case 3:
+          this.current.look.locked = true
+          this.current.look.advance = true
+          break
+      }
       this.current.look.rotation.y -= e.movementX * LOOK_SPEED
       this.current.look.rotation.x -= e.movementY * LOOK_SPEED
       this.current.look.rotation.x = Math.max(
@@ -148,18 +193,26 @@ export class Control extends System {
   }
 
   onPointerUp = e => {
-    this.space.viewport.releasePointerCapture(e.pointerId)
+    if (this.clickTracker.rmb) {
+      const elapsed = performance.now() - this.clickTracker.start
+      if (elapsed < 500 && this.clickTracker.move.length() < 10) {
+        this.openContext(e.clientX, e.clientY)
+      }
+    }
+    // this.space.viewport.releasePointerCapture(e.pointerId)
     this.space.viewport.removeEventListener('pointermove', this.onPointerMove)
     this.space.viewport.removeEventListener('pointerup', this.onPointerUp)
     if (this.current) {
       this.current.look.active = false
       this.current.look.locked = false
+      this.current.look.advance = false
     }
     this.exitPointerLock()
   }
 
   onWheel = e => {
     e.preventDefault()
+    this.closeContext()
     if (this.current) {
       this.current.look.zoom += e.deltaY * WHEEL_SPEED
       if (this.current.look.zoom < 0) {
@@ -248,6 +301,7 @@ export class Control extends System {
         zoom: 0.5,
         active: false,
         locked: false,
+        advance: false,
       },
       camera: {
         position: new THREE.Vector3(),
@@ -301,6 +355,82 @@ export class Control extends System {
     if (this.controls[0] && !this.current) {
       this.current = this.controls[0]
     }
+  }
+
+  openContext(x, y) {
+    const rect = this.space.viewport.getBoundingClientRect()
+    coords.x = ((x - rect.left) / (rect.right - rect.left)) * 2 - 1
+    coords.y = -((y - rect.top) / (rect.bottom - rect.top)) * 2 + 1
+    const hit = this.space.graphics.raycastFromViewport(coords)
+    if (!hit) return // void
+    const entity = hit?.object?.node?.entity
+    const actions = []
+    const add = (label, icon, fn) => {
+      actions.push({
+        label,
+        icon,
+        exec: () => {
+          this.closeContext()
+          fn()
+        },
+      })
+    }
+    const hitVoid = !hit
+    const hitSpace = hit && !entity
+    const hitSelf = entity === this.space.network.avatar
+    const hitAvatar = !hitSelf && entity?.type === 'avatar'
+    const hitPrototype = entity?.type === 'prototype'
+    const hitItem = entity?.type === 'item'
+    if (hitSelf) {
+      add('Profile', UserIcon, () => {
+        console.log('TODO')
+      })
+      add('Emotes', SmileIcon, () => {
+        console.log('TODO')
+      })
+      add('Enable Mic', MicIcon, () => {
+        console.log('TODO')
+      })
+    }
+    if (hitAvatar) {
+      add('Inspect', EyeIcon, () => {
+        console.log('TODO')
+      })
+      add('Trade', ArrowRightLeftIcon, () => {
+        console.log('TODO')
+      })
+      add('Permissions', ShieldPlusIcon, () => {
+        console.log('TODO')
+      })
+      add('Mute', MicOffIcon, () => {
+        console.log('TODO')
+      })
+      add('Kick', AxeIcon, () => {
+        console.log('TODO')
+      })
+      add('Ban', BanIcon, () => {
+        console.log('TODO')
+      })
+    }
+    if (hitSpace || hitPrototype || hitItem) {
+      add('Create', PlusCircleIcon, () => {
+        console.log('TODO: create')
+      })
+    }
+    if (actions.length) {
+      this.context = {
+        x,
+        y,
+        actions,
+      }
+      this.space.emit('context:open', this.context)
+    }
+  }
+
+  closeContext() {
+    if (!this.context) return
+    this.context = null
+    this.space.emit('context:close')
   }
 
   destroy() {
