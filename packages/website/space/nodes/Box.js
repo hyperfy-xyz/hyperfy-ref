@@ -24,6 +24,7 @@ export class Box extends Node {
   mount() {
     if (this.visible) {
       const geometry = new THREE.BoxGeometry(...this.size)
+      geometry.computeBoundsTree()
       const material = new THREE.MeshStandardMaterial({ color: 'green' })
       this.mesh = new THREE.Mesh(geometry, material)
       this.mesh.receiveShadow = true

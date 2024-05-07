@@ -1,7 +1,17 @@
 import * as THREE from 'three'
+import {
+  computeBoundsTree,
+  disposeBoundsTree,
+  acceleratedRaycast,
+} from 'three-mesh-bvh'
 
 import { System } from './System'
 import { CSM } from './libs/csm/CSM'
+
+// three-mesh-bvh
+THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree
+THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree
+THREE.Mesh.prototype.raycast = acceleratedRaycast
 
 // THREE.Object3D.DEFAULT_MATRIX_AUTO_UPDATE = false
 // THREE.Object3D.DEFAULT_MATRIX_WORLD_AUTO_UPDATE = false

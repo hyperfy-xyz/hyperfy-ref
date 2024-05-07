@@ -28,6 +28,7 @@
     "ses": "^1.4.1",
     "stats-gl": "^2.2.8",
     "three": "^0.163.0",
+    "three-mesh-bvh": "^0.7.4",
     "viem": "^2.9.23"
   },
   "overrides": {
