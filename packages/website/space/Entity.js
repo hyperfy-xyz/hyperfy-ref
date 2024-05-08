@@ -10,6 +10,7 @@ export class Entity {
     this.space = space
     this.id = data.id
     this.type = data.type
+    this.creator = data.creator
     this.authority = data.authority
     this.mode = data.mode
     this.modeClientId = data.modeClientId // when mode=moving|editing
@@ -96,13 +97,16 @@ export class Entity {
       }
     }
     if (prevMode === 'moving') {
-      this.positionLerp.snap()
-      this.quaternionLerp.snap()
-      this.root.dirty()
+      this.space.entities.decActive(this)
+    }
+    if (prevMode === 'editing') {
       this.space.entities.decActive(this)
     }
     // rebuild
     this.rebuild()
+    this.positionLerp.snap()
+    this.quaternionLerp.snap()
+    this.root.dirty()
     this.nodes.forEach(node => {
       node.setMode(this.mode)
     })
@@ -136,6 +140,12 @@ export class Entity {
       }
       this.space.entities.incActive(this)
     }
+    if (this.mode === 'editing') {
+      if (modeClientId === this.space.network.client.id) {
+        this.space.panels.edit(this)
+      }
+      this.space.entities.incActive(this)
+    }
     this.prevMode = this.mode
     this.prevModeClientId = this.modeClientId
   }
@@ -155,6 +165,11 @@ export class Entity {
       }
     }
     if (this.mode === 'moving') {
+      this.positionLerp.update(delta)
+      this.quaternionLerp.update(delta)
+      this.root.dirty()
+    }
+    if (this.mode === 'editing') {
       this.positionLerp.update(delta)
       this.quaternionLerp.update(delta)
       this.root.dirty()

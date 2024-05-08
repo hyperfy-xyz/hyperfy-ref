@@ -87,6 +87,7 @@ export class Network extends System {
     // const avatar = this.space.entities.addLocal({
     //   id: this.makeId(),
     //   type: 'avatar',
+    //   creator: this.client.user.id,
     //   authority: client.id,
     //   active: true,
     //   position: [0, 1, 0],
@@ -107,6 +108,7 @@ export class Network extends System {
     this.avatar = this.space.entities.addLocal({
       id: this.makeId(),
       type: 'avatar',
+      creator: this.client.user.id,
       authority: client.id,
       mode: 'active',
       modeClientId: null,
@@ -143,6 +145,12 @@ export class Network extends System {
     client.name = user.name
     client.address = user.address
     this.server.send('update-client', client.serialize())
+  }
+
+  findUser(userId) {
+    for (const client of this.clients.values()) {
+      if (client.user.id === userId) return client.user
+    }
   }
 
   onAddClient = data => {
@@ -200,22 +208,22 @@ export class Network extends System {
 class Client {
   constructor() {
     this.id = null
-    this.name = null
-    this.address = null
+    this.user = null
+    this.permissions = null
   }
 
   deserialize(data) {
     this.id = data.id
-    this.name = data.name
-    this.address = data.address
+    this.user = data.user
+    this.permissions = data.permissions
     return this
   }
 
   serialize() {
     return {
       id: this.id,
-      name: this.name,
-      address: this.address,
+      user: this.user,
+      permissions: this.permissions,
     }
   }
 }

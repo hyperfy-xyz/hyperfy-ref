@@ -3,8 +3,10 @@ import { cls, css, useRoute } from 'firebolt'
 
 import { Header } from '@/components/Header'
 import { useAuth } from '@/components/AuthProvider'
+import { useForceUpdate } from '@/components/useForceUpdate'
+
 import { Space } from '@/space/Space'
-import { FootprintsIcon } from 'lucide-react'
+import { XIcon } from 'lucide-react'
 
 export default function Page() {
   const { auth } = useAuth()
@@ -46,10 +48,11 @@ function Content() {
     const space = spaceRef.current
     space.setAuth(auth)
   }, [auth])
+  const space = spaceRef.current
   return (
     <>
       <Header inSpace />
-      <title>{spaceRef.current?.network.meta?.name || 'Space'}</title>
+      <title>{space?.network.meta?.name || 'Space'}</title>
       <div
         className='space'
         css={css`
@@ -93,6 +96,7 @@ function Content() {
         {context && (
           <Context x={context.x} y={context.y} actions={context.actions} />
         )}
+        {space && <Panels space={space} />}
       </div>
     </>
   )
@@ -116,7 +120,7 @@ function Context({ x, y, actions }) {
         innerRadius={50}
         outerRadius={150}
         actions={actions}
-        gapAngle={4}
+        gapAngle={6}
       />
     </div>
   )
@@ -295,5 +299,97 @@ const RadialButton = ({
         fill='rgba(255, 255, 255, 0.3)' // Semi-transparent for visibility
       /> */}
     </g>
+  )
+}
+
+function Panels({ space }) {
+  const update = useForceUpdate()
+  useEffect(() => {
+    return space.panels.subscribe(update)
+  }, [])
+  const panel = space.panels.panel
+  if (!panel) return null
+  return (
+    <div
+      className='panel'
+      css={css`
+        position: absolute;
+        top: 100px;
+        left: 100px;
+        width: 200px;
+        height: 300px;
+        border-radius: 10px;
+        background: black;
+        color: white;
+        .panel-bar {
+          display: flex;
+          align-items: center;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          padding: 2px;
+        }
+        .panel-bar-gap {
+          flex: 1;
+        }
+        .panel-bar-close {
+          &:hover {
+            cursor: pointer;
+          }
+        }
+      `}
+    >
+      <div className='panel-bar'>
+        <div className='panel-bar-gap' />
+        <div className='panel-bar-close' onClick={panel.close}>
+          <XIcon size={14} />
+        </div>
+      </div>
+      {panel.type === 'inspect-prototype' && (
+        <div>
+          <div>It's a prototype</div>
+        </div>
+      )}
+      {panel.type === 'inspect-avatar' && (
+        <div>
+          <div>It's an avatar</div>
+        </div>
+      )}
+      {panel.type === 'inspect-self' && (
+        <div>
+          <div>It's me</div>
+        </div>
+      )}
+      {panel.type === 'edit' && <EditPanel panel={panel} />}
+    </div>
+  )
+}
+
+function EditPanel({ panel }) {
+  const entity = panel.entity
+  const [node, setNode] = useState(null)
+  return (
+    <div>
+      <div>Edit</div>
+      {entity.initialNodes.map(node => (
+        <div key={node.name} onClick={() => setNode(node)}>
+          {node.name}
+        </div>
+      ))}
+      {node?.type === 'script' && (
+        <Code value={node.code} onChange={code => (node.code = code)} />
+      )}
+    </div>
+  )
+}
+
+function Code({ value, onChange }) {
+  const [current, setCurrent] = useState(value)
+  return (
+    <textarea
+      value={current}
+      onChange={e => {
+        setCurrent(e.target.value)
+        onChange(e.target.value)
+      }}
+    />
   )
 }

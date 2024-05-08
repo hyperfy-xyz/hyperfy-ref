@@ -193,7 +193,8 @@ function Main() {
           color: var(--text-color);
         }
 
-        input {
+        input,
+        textarea {
           border: 0;
           background: none;
           outline: 0;

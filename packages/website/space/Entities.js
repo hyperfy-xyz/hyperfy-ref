@@ -30,6 +30,7 @@ export class Entities extends System {
 
   remove(id) {
     const entity = this.entities.get(id)
+    this.space.panels.onEntityRemoved(entity)
     entity.destroy() // todo: cleanup
     this.entities.delete(id)
   }

@@ -9,6 +9,7 @@ import {
   HandIcon,
   MicIcon,
   MicOffIcon,
+  PencilRulerIcon,
   PlusCircleIcon,
   ShieldPlusIcon,
   SmileIcon,
@@ -432,7 +433,7 @@ export class Control extends System {
     const hitItem = entity?.type === 'item'
     if (hitSelf) {
       add('Profile', UserIcon, () => {
-        console.log('TODO')
+        this.space.panels.inspect(entity)
       })
       add('Emotes', SmileIcon, () => {
         console.log('TODO')
@@ -443,7 +444,7 @@ export class Control extends System {
     }
     if (hitAvatar) {
       add('Inspect', EyeIcon, () => {
-        console.log('TODO')
+        this.space.panels.inspect(entity)
       })
       add('Trade', ArrowRightLeftIcon, () => {
         console.log('TODO')
@@ -462,162 +463,221 @@ export class Control extends System {
       })
     }
     if (hitSpace || hitPrototype || hitItem) {
-      add('Create', PlusCircleIcon, () => {
-        // LOTSA STATIC CUBES
-        // for (let i = 0; i < 1000; i++) {
-        //   this.space.entities.addLocal({
-        //     id: this.space.network.makeId(),
-        //     type: 'prototype',
-        //     authority: this.space.network.client.id,
-        //     mode: 'active',
-        //     modeClientId: null,
-        //     position: [num(-100, 100, 2), 0, num(-100, 100, 2)],
-        //     quaternion: [0, 0, 0, 1],
-        //     scale: [1, 1, 1],
-        //     state: {},
-        //     nodes: [
-        //       {
-        //         type: 'box',
-        //         name: 'box',
-        //         color: 'red',
-        //         position: [0, 0.5, 0],
-        //       },
-        //     ],
-        //   })
-        // }
-        // LOTSA CUBES
-        // console.time('lotsa')
-        // for (let i = 0; i < 1000; i++) {
-        //   this.space.entities.addLocal({
-        //     id: this.space.network.makeId(),
-        //     type: 'prototype',
-        //     authority: this.space.network.client.id,
-        //     mode: 'active',
-        //     modeClientId: null,
-        //     position: [num(-100, 100, 2), num(-100, 100, 2), num(-100, 100, 2)],
-        //     quaternion: [0, 0, 0, 1],
-        //     scale: [1, 1, 1],
-        //     state: {},
-        //     nodes: [
-        //       {
-        //         type: 'box',
-        //         name: 'box',
-        //         color: 'red',
-        //         position: [0, 0.5, 0],
-        //       },
-        //       {
-        //         type: 'script',
-        //         name: 'my-script',
-        //         code: `
-        //           (function(){
-        //             return entity => {
-        //               return class Script {
-        //                 init() {
-        //                   this.box = entity.find('box')
-        //                 }
-        //                 update(delta) {
-        //                   this.box.rotation.y += 10 * delta
-        //                   this.box.dirty()
-        //                 }
-        //               }
-        //             }
-        //           })()
-        //         `,
-        //       },
-        //     ],
-        //   })
-        // }
-        // console.timeEnd('lotsa')
-        // SPINNING CUBES
-        this.space.entities.addLocal({
-          id: this.space.network.makeId(),
-          type: 'prototype',
-          authority: this.space.network.client.id,
-          mode: 'active',
-          modeClientId: null,
-          position: hit.point.toArray(),
-          quaternion: [0, 0, 0, 1],
-          scale: [1, 1, 1],
-          state: {},
-          nodes: [
-            {
-              type: 'box',
-              name: 'box',
-              color: 'red',
-              position: [0, 0.5, 0],
-            },
-            {
-              type: 'script',
-              name: 'my-script',
-              code: `
-                (function(){
-                  return entity => {
-                    return class Script {
-                      init() {
-                        this.box = entity.find('box')
-                      }
-                      update(delta) {
-                        this.box.rotation.y += 10 * delta
-                        this.box.dirty()
+      if (this.space.permissions.canCreatePrototype()) {
+        add('Create', PlusCircleIcon, () => {
+          this.space.entities.addLocal({
+            id: this.space.network.makeId(),
+            type: 'prototype',
+            creator: this.space.network.client.user.id,
+            authority: this.space.network.client.id,
+            mode: 'editing',
+            modeClientId: this.space.network.client.id,
+            position: hit.point.toArray(),
+            quaternion: [0, 0, 0, 1],
+            scale: [1, 1, 1],
+            state: {},
+            nodes: [
+              {
+                type: 'box',
+                name: 'box',
+                color: 'red',
+                position: [0, 0.5, 0],
+              },
+              {
+                type: 'script',
+                name: 'my-script',
+                code: `
+                  (function(){
+                    return entity => {
+                      return class Script {
+                        init() {
+                          this.box = entity.find('box')
+                        }
+                        update(delta) {
+                          this.box.rotation.y += 10 * delta
+                          this.box.dirty()
+                        }
                       }
                     }
-                  }
-                })()
-              `,
-            },
-          ],
+                  })()
+                `,
+              },
+            ],
+          })
+          // LOTSA STATIC CUBES
+          // for (let i = 0; i < 1000; i++) {
+          //   this.space.entities.addLocal({
+          //     id: this.space.network.makeId(),
+          //     type: 'prototype',
+          //     creator: this.space.network.client.user.id,
+          //     authority: this.space.network.client.id,
+          //     mode: 'active',
+          //     modeClientId: null,
+          //     position: [num(-100, 100, 2), 0, num(-100, 100, 2)],
+          //     quaternion: [0, 0, 0, 1],
+          //     scale: [1, 1, 1],
+          //     state: {},
+          //     nodes: [
+          //       {
+          //         type: 'box',
+          //         name: 'box',
+          //         color: 'red',
+          //         position: [0, 0.5, 0],
+          //       },
+          //     ],
+          //   })
+          // }
+          // LOTSA CUBES
+          // console.time('lotsa')
+          // for (let i = 0; i < 1000; i++) {
+          //   this.space.entities.addLocal({
+          //     id: this.space.network.makeId(),
+          //     type: 'prototype',
+          //     creator: this.space.network.client.user.id,
+          //     authority: this.space.network.client.id,
+          //     mode: 'active',
+          //     modeClientId: null,
+          //     position: [num(-100, 100, 2), num(-100, 100, 2), num(-100, 100, 2)],
+          //     quaternion: [0, 0, 0, 1],
+          //     scale: [1, 1, 1],
+          //     state: {},
+          //     nodes: [
+          //       {
+          //         type: 'box',
+          //         name: 'box',
+          //         color: 'red',
+          //         position: [0, 0.5, 0],
+          //       },
+          //       {
+          //         type: 'script',
+          //         name: 'my-script',
+          //         code: `
+          //           (function(){
+          //             return entity => {
+          //               return class Script {
+          //                 init() {
+          //                   this.box = entity.find('box')
+          //                 }
+          //                 update(delta) {
+          //                   this.box.rotation.y += 10 * delta
+          //                   this.box.dirty()
+          //                 }
+          //               }
+          //             }
+          //           })()
+          //         `,
+          //       },
+          //     ],
+          //   })
+          // }
+          // console.timeEnd('lotsa')
+          // SPINNING CUBES
+          // this.space.entities.addLocal({
+          //   id: this.space.network.makeId(),
+          //   type: 'prototype',
+          //   creator: this.space.network.client.user.id,
+          //   authority: this.space.network.client.id,
+          //   mode: 'active',
+          //   modeClientId: null,
+          //   position: hit.point.toArray(),
+          //   quaternion: [0, 0, 0, 1],
+          //   scale: [1, 1, 1],
+          //   state: {},
+          //   nodes: [
+          //     {
+          //       type: 'box',
+          //       name: 'box',
+          //       color: 'red',
+          //       position: [0, 0.5, 0],
+          //     },
+          //     {
+          //       type: 'script',
+          //       name: 'my-script',
+          //       code: `
+          //         (function(){
+          //           return entity => {
+          //             return class Script {
+          //               init() {
+          //                 this.box = entity.find('box')
+          //               }
+          //               update(delta) {
+          //                 this.box.rotation.y += 10 * delta
+          //                 this.box.dirty()
+          //               }
+          //             }
+          //           }
+          //         })()
+          //       `,
+          //     },
+          //   ],
+          // })
+          // PHYSICS CUBES
+          // this.space.entities.addLocal({
+          //   id: this.space.network.makeId(),
+          //   type: 'prototype',
+          //   creator: this.space.network.client.user.id,
+          //   authority: this.space.network.client.id,
+          //   mode: 'active',
+          //   modeClientId: null,
+          //   position: hit.point.toArray(),
+          //   quaternion: [0, 0, 0, 1],
+          //   scale: [1, 1, 1],
+          //   state: {},
+          //   nodes: [
+          //     {
+          //       type: 'box',
+          //       name: 'box',
+          //       position: [0, 0.5, 0],
+          //       size: [1, 1, 1],
+          //       physics: 'dynamic',
+          //       visible: true,
+          //     },
+          //     {
+          //       type: 'script',
+          //       name: 'my-script',
+          //       code: `
+          //         (function(){
+          //           return entity => {
+          //             return class Script {
+          //               init() {
+          //                 this.box = entity.find('box')
+          //                 entity.add(this.box)
+          //               }
+          //             }
+          //           }
+          //         })()
+          //       `,
+          //     },
+          //   ],
+          // })
         })
-        // PHYSICS CUBES
-        // this.space.entities.addLocal({
-        //   id: this.space.network.makeId(),
-        //   type: 'prototype',
-        //   authority: this.space.network.client.id,
-        //   mode: 'active',
-        //   modeClientId: null,
-        //   position: hit.point.toArray(),
-        //   quaternion: [0, 0, 0, 1],
-        //   scale: [1, 1, 1],
-        //   state: {},
-        //   nodes: [
-        //     {
-        //       type: 'box',
-        //       name: 'box',
-        //       position: [0, 0.5, 0],
-        //       size: [1, 1, 1],
-        //       physics: 'dynamic',
-        //       visible: true,
-        //     },
-        //     {
-        //       type: 'script',
-        //       name: 'my-script',
-        //       code: `
-        //         (function(){
-        //           return entity => {
-        //             return class Script {
-        //               init() {
-        //                 this.box = entity.find('box')
-        //                 entity.add(this.box)
-        //               }
-        //             }
-        //           }
-        //         })()
-        //       `,
-        //     },
-        //   ],
-        // })
-      })
+      }
     }
     if (hitPrototype) {
-      add('Move', HandIcon, () => {
-        this.space.network.server.send('entity-mode-request', {
-          entityId: entity.id,
-          mode: 'moving',
+      add('Inspect', EyeIcon, () => {
+        this.space.panels.inspect(entity)
+      })
+      if (this.space.permissions.canMoveEntity(entity)) {
+        add('Move', HandIcon, () => {
+          this.space.network.server.send('entity-mode-request', {
+            entityId: entity.id,
+            mode: 'moving',
+          })
         })
-        // this.setMoving(entity)
-      })
-      add('Destroy', Trash2Icon, () => {
-        this.space.entities.removeLocal(entity.id)
-      })
+      }
+      if (this.space.permissions.canEditEntity(entity)) {
+        add('Edit', PencilRulerIcon, () => {
+          this.space.network.server.send('entity-mode-request', {
+            entityId: entity.id,
+            mode: 'editing',
+          })
+        })
+      }
+      if (this.space.permissions.canDestroyEntity(entity)) {
+        add('Destroy', Trash2Icon, () => {
+          this.space.entities.removeLocal(entity.id)
+        })
+      }
     }
     if (actions.length) {
       this.context = {
@@ -630,12 +690,6 @@ export class Control extends System {
   }
 
   setMoving(entity) {
-    // if (this.moving?.entity === entity) return
-    // if (this.moving) {
-    //   this.moving.entity.setMoving(false)
-    //   this.moving = null
-    //   console.warn('TODO: commit already moving?')
-    // }
     if (entity) {
       this.moving = {
         entity,

@@ -6,15 +6,17 @@ import { num } from '@/utils/num'
 
 import { DEG2RAD, RAD2DEG } from '@/utils/general'
 import { extendThreePhysX } from '@/utils/extendThreePhysX'
+import { Vector3Lerp } from '@/utils/Vector3Lerp'
+import { QuaternionLerp } from '@/utils/QuaternionLerp'
 
+import { Permissions } from './Permissions'
 import { Control } from './Control'
 import { Loader } from './Loader'
 import { Network } from './Network'
 import { Physics } from './Physics'
 import { Entities } from './Entities'
 import { Graphics } from './Graphics'
-import { Vector3Lerp } from '@/utils/Vector3Lerp'
-import { QuaternionLerp } from '@/utils/QuaternionLerp'
+import { Panels } from './Panels'
 
 const FIXED_TIMESTEP = 1 / 60 // 60Hz
 
@@ -55,6 +57,8 @@ export class Space extends EventEmitter {
       mode: 0,
     })
     document.body.appendChild(this.stats.dom)
+    this.panels = new Panels(this)
+    this.permissions = new Permissions(this)
     this.control = new Control(this)
     this.loader = new Loader(this)
     this.network = new Network(this)
@@ -68,6 +72,8 @@ export class Space extends EventEmitter {
   }
 
   async init() {
+    // await this.panels.init()
+    // await this.permissions.init()
     await this.control.init()
     await this.loader.init()
     await this.network.init()
@@ -79,6 +85,8 @@ export class Space extends EventEmitter {
   }
 
   start() {
+    // this.panels.start()
+    // this.permissions.start()
     this.control.start()
     this.loader.start()
     this.network.start()
@@ -99,6 +107,8 @@ export class Space extends EventEmitter {
   }
 
   update(delta) {
+    // this.panels.update(delta)
+    // this.permissions.update(delta)
     this.control.update(delta)
     this.loader.update(delta)
     this.network.update(delta)
@@ -112,6 +122,8 @@ export class Space extends EventEmitter {
     this.fixedTime += delta
     while (this.fixedTime >= FIXED_TIMESTEP) {
       this.fixedTime -= FIXED_TIMESTEP
+      // this.panels.fixedUpdate(FIXED_TIMESTEP)
+      // this.permissions.fixedUpdate(FIXED_TIMESTEP)
       this.control.fixedUpdate(FIXED_TIMESTEP)
       this.loader.fixedUpdate(FIXED_TIMESTEP)
       this.network.fixedUpdate(FIXED_TIMESTEP)
@@ -122,6 +134,8 @@ export class Space extends EventEmitter {
   }
 
   lateUpdate(delta) {
+    // this.panels.lateUpdate(delta)
+    // this.permissions.lateUpdate(delta)
     this.control.lateUpdate(delta)
     this.loader.lateUpdate(delta)
     this.network.lateUpdate(delta)
@@ -141,6 +155,8 @@ export class Space extends EventEmitter {
 
   destroy() {
     this.stop()
+    this.panels.destroy()
+    this.permissions.destroy()
     this.control.destroy()
     this.loader.destroy()
     this.network.destroy()

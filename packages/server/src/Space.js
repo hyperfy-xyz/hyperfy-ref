@@ -22,6 +22,12 @@ export class Space {
     try {
       this.meta = await api.get(`/spaces/${this.id}`)
       this.permissions = await api.get(`/permissions/${this.id}`)
+
+      // temp
+      // this.permissions.prototypeMove = false
+      // this.permissions.prototypeEdit = false
+      // this.permissions.prototypeDestroy = false
+
       const entities = await api.get(`/entities?spaceId=${this.id}`)
       for (const entity of entities) {
         this.entities.set(entity.id, entity)
@@ -33,7 +39,7 @@ export class Space {
   }
 
   onConnect = async ws => {
-    const client = new Client(ws)
+    const client = new Client(this, ws)
     this.clients.set(client.id, client)
     client.sock.client = client
     client.sock.on('auth', this.onAuth)
@@ -117,6 +123,12 @@ export class Space {
   onEntityModeRequest = async (sock, { entityId, mode }) => {
     const entity = this.entities.get(entityId)
     if (entity.mode !== 'active') return
+    if (mode === 'moving' && !sock.client.canMoveEntity(entity)) {
+      return
+    }
+    if (mode === 'editing' && !sock.client.canEditEntity(entity)) {
+      return
+    }
     entity.mode = mode
     entity.modeClientId = sock.client.id
     this.broadcast('update-entity', {
@@ -194,7 +206,8 @@ export class Space {
 }
 
 class Client {
-  constructor(ws) {
+  constructor(space, ws) {
+    this.space = space
     this.sock = new SockServer(ws)
     this.id = ++ids
     this.user = null
@@ -207,7 +220,7 @@ class Client {
       throw new Error('client changed id')
     }
     this.id = data.id
-    this.user = data.users
+    this.user = data.user
     this.permissions = data.permissions
     return this
   }
@@ -218,5 +231,53 @@ class Client {
       user: this.user,
       permissions: this.permissions,
     }
+  }
+
+  canMoveEntity(entity) {
+    const userId = this.user.id
+    const spacePerms = this.space.permissions
+    const userPerms = this.permissions
+    if (entity.type === 'prototype') {
+      // if you created it you can move it if you still have the create permission
+      if (entity.creator === userId) {
+        return spacePerms.prototypeCreate || userPerms.prototypeCreate
+      }
+      // otherwise you can only move if you have move permission
+      return spacePerms.prototypeMove || userPerms.prototypeMove
+    }
+    if (entity.type === 'item') {
+      return spacePerms.itemMove || userPerms.itemMove
+    }
+    return false
+  }
+
+  canEditEntity(entity) {
+    const userId = this.user.id
+    const spacePerms = this.space.permissions
+    const userPerms = this.permissions
+    if (entity.type === 'prototype') {
+      // if you created it you can edit it if you still have the create permission
+      if (entity.creator === userId) {
+        return spacePerms.prototypeCreate || userPerms.prototypeCreate
+      }
+      // otherwise you can only edit if you have edit permission
+      return spacePerms.prototypeEdit || userPerms.prototypeEdit
+    }
+    return false
+  }
+
+  canDestroyEntity(entity) {
+    const userId = this.user.id
+    const spacePerms = this.space.permissions
+    const userPerms = this.permissions
+    if (entity.type === 'prototype') {
+      // if you created it you can destroy it if you still have the create permission
+      if (entity.creator === userId) {
+        return spacePerms.prototypeCreate || userPerms.prototypeCreate
+      }
+      // otherwise you can only destroy if you have destroy permission
+      return spacePerms.prototypeDestroy || userPerms.prototypeDestroy
+    }
+    return false
   }
 }
