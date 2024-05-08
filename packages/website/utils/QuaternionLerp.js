@@ -35,13 +35,12 @@ export class QuaternionLerp {
     return this
   }
 
-  flush() {
+  snap() {
     this.previous.copy(this.current)
     this.value.copy(this.current)
-    this.time = 0
   }
 
-  reset() {
+  clear() {
     this.previous.copy(this.value)
     this.current.copy(this.value)
   }

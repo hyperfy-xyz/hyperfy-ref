@@ -112,12 +112,17 @@ function Context({ x, y, actions }) {
         user-select: none;
       `}
     >
-      <RadialMenu innerRadius={50} outerRadius={150} actions={actions} />
+      <RadialMenu
+        innerRadius={50}
+        outerRadius={150}
+        actions={actions}
+        gapAngle={4}
+      />
     </div>
   )
 }
 
-const RadialMenu = ({ innerRadius, outerRadius, actions, gapAngle = 5 }) => {
+const RadialMenu = ({ innerRadius, outerRadius, actions, gapAngle }) => {
   const svgRef = useRef()
 
   const hoverScale = 1.05

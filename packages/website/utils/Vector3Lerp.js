@@ -35,12 +35,12 @@ export class Vector3Lerp {
     return this
   }
 
-  flush() {
+  snap() {
     this.previous.copy(this.current)
     this.value.copy(this.current)
   }
 
-  reset() {
+  clear() {
     this.previous.copy(this.value)
     this.current.copy(this.value)
   }

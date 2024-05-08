@@ -1,6 +1,5 @@
-import * as THREE from 'three'
 import * as Nodes from './nodes'
-import { cloneDeep } from 'lodash-es'
+
 import { Vector3Lerp } from '@/utils/Vector3Lerp'
 import { QuaternionLerp } from '@/utils/QuaternionLerp'
 
@@ -79,9 +78,6 @@ export class Entity {
       node.unmount() // todo: destroy nodes?
     })
     this.nodes.clear()
-    // if (this.scripts.length) {
-    //   this.space.entities.decActive(this)
-    // }
     this.scripts = []
     // build
     this.buildNodes(this.root, this.initialNodes)
@@ -100,8 +96,8 @@ export class Entity {
       }
     }
     if (prevMode === 'moving') {
-      this.positionLerp.flush()
-      this.quaternionLerp.flush()
+      this.positionLerp.snap()
+      this.quaternionLerp.snap()
       this.root.dirty()
       this.space.entities.decActive(this)
     }
@@ -143,65 +139,6 @@ export class Entity {
     this.prevMode = this.mode
     this.prevModeClientId = this.modeClientId
   }
-
-  // setActive(active) {
-  //   if (this.active === active) return
-  //   this.active = active
-  //   this.rebuild()
-  //   if (this.active) {
-  //     this.setMoving(false)
-  //     this.root.traverse(node => {
-  //       if (node.type === 'script') {
-  //         this.scripts.push(node)
-  //       }
-  //     })
-  //     // initialise scripts
-  //     for (const node of this.scripts) {
-  //       node.init()
-  //     }
-  //     // move root children to world space
-  //     while (this.root.children.length) {
-  //       this.root.detach(this.root.children[0])
-  //     }
-  //     // start scripts
-  //     for (const node of this.scripts) {
-  //       node.start()
-  //     }
-  //     // register for script update/fixedUpdate etc
-  //     if (this.scripts.length) {
-  //       this.space.entities.incActive(this)
-  //     }
-  //   } else {
-  //     // ...
-  //   }
-  //   const delta = this.space.network.getEntityDelta(this.id)
-  //   if (!delta.props) delta.props = {}
-  //   delta.props.active = this.active
-  // }
-
-  // setMoving(moving) {
-  //   if (this.moving === moving) return
-  //   this.moving = moving
-  //   this.positionLerp.reset()
-  //   this.quaternionLerp.reset()
-  //   this.root.dirty()
-  //   if (this.moving) {
-  //     this.setActive(false)
-  //     this.nodes.forEach(node => {
-  //       node.setMoving(true)
-  //     })
-  //     this.space.entities.incActive(this)
-  //   } else {
-  //     this.nodes.forEach(node => {
-  //       node.setMoving(false)
-  //     })
-  //     this.setActive(true)
-  //     this.space.entities.decActive(this)
-  //   }
-  //   const delta = this.space.network.getEntityDelta(this.id)
-  //   if (!delta.props) delta.props = {}
-  //   delta.props.moving = this.moving
-  // }
 
   update(delta) {
     // only called when
@@ -310,17 +247,9 @@ export class Entity {
 
   onRemotePropChanges(data) {
     if (data.position) {
-      // const snap =
-      //   !this.modeClientId || this.modeClientId === this.space.network.client.id
-      // this.positionLerp.push(data.position, snap)
-      // this.root.dirty()
       this.positionLerp.push(data.position)
     }
     if (data.quaternion) {
-      // const snap =
-      //   !this.modeClientId || this.modeClientId === this.space.network.client.id
-      // this.quaternionLerp.push(data.quaternion, snap)
-      // this.root.dirty()
       this.quaternionLerp.push(data.quaternion)
     }
     if (data.mode) {
