@@ -66,7 +66,7 @@ export class Control extends System {
         this.space.graphics.maskMoving
       )
       if (hit) {
-        this.moving.entity.root.position.copy(hit.point)
+        this.moving.entity.positionLerp.push(hit.point, true)
         this.moving.entity.root.dirty()
         this.moving.lastSend += delta
         if (this.moving.lastSend >= MOVING_SEND_RATE) {
@@ -179,7 +179,15 @@ export class Control extends System {
 
   onPointerDown = e => {
     if (this.moving) {
-      this.moving.entity.setMoving(false)
+      this.moving.entity.mode = 'active'
+      this.moving.entity.modeClientId = null
+      this.moving.entity.checkMode()
+      const delta = this.space.network.getEntityDelta(this.moving.entity.id)
+      if (!delta.props) delta.props = {}
+      delta.props.mode = 'active'
+      delta.props.modeClientId = null
+      delta.props.position = this.moving.entity.root.position.toArray()
+      delta.props.quaternion = this.moving.entity.root.quaternion.toArray()
       this.moving = null
       return
     }
@@ -455,7 +463,8 @@ export class Control extends System {
         //     id: this.space.network.makeId(),
         //     type: 'prototype',
         //     authority: this.space.network.client.id,
-        //     active: true,
+        //     mode: 'active',
+        //     modeClientId: null,
         //     position: [num(-100, 100, 2), 0, num(-100, 100, 2)],
         //     quaternion: [0, 0, 0, 1],
         //     scale: [1, 1, 1],
@@ -477,7 +486,8 @@ export class Control extends System {
         //     id: this.space.network.makeId(),
         //     type: 'prototype',
         //     authority: this.space.network.client.id,
-        //     active: true,
+        //     mode: 'active',
+        //     modeClientId: null,
         //     position: [num(-100, 100, 2), num(-100, 100, 2), num(-100, 100, 2)],
         //     quaternion: [0, 0, 0, 1],
         //     scale: [1, 1, 1],
@@ -517,7 +527,8 @@ export class Control extends System {
           id: this.space.network.makeId(),
           type: 'prototype',
           authority: this.space.network.client.id,
-          active: true,
+          mode: 'active',
+          modeClientId: null,
           position: hit.point.toArray(),
           quaternion: [0, 0, 0, 1],
           scale: [1, 1, 1],
@@ -555,7 +566,8 @@ export class Control extends System {
         //   id: this.space.network.makeId(),
         //   type: 'prototype',
         //   authority: this.space.network.client.id,
-        //   active: true,
+        //   mode: 'active',
+        //   modeClientId: null,
         //   position: hit.point.toArray(),
         //   quaternion: [0, 0, 0, 1],
         //   scale: [1, 1, 1],
@@ -591,8 +603,11 @@ export class Control extends System {
     }
     if (hitPrototype) {
       add('Move', HandIcon, () => {
-        // this.space.network.server.send('entity-move-request', entity.id)
-        this.setMoving(entity)
+        this.space.network.server.send('entity-mode-request', {
+          entityId: entity.id,
+          mode: 'moving',
+        })
+        // this.setMoving(entity)
       })
       add('Destroy', Trash2Icon, () => {
         this.space.entities.removeLocal(entity.id)
@@ -609,18 +624,19 @@ export class Control extends System {
   }
 
   setMoving(entity) {
-    if (this.moving?.entity === entity) return
-    if (this.moving) {
-      this.moving.entity.setMoving(false)
-      this.moving = null
-      console.warn('TODO: commit already moving?')
-    }
+    // if (this.moving?.entity === entity) return
+    // if (this.moving) {
+    //   this.moving.entity.setMoving(false)
+    //   this.moving = null
+    //   console.warn('TODO: commit already moving?')
+    // }
     if (entity) {
       this.moving = {
         entity,
         lastSend: 0,
       }
-      this.moving.entity.setMoving(true)
+    } else {
+      this.moving = null
     }
   }
 

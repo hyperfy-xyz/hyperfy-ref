@@ -12,8 +12,8 @@ export class Entity {
     this.id = data.id
     this.type = data.type
     this.authority = data.authority
-    this.active = null // set below
-    this.moving = false
+    this.mode = data.mode
+    this.modeClientId = data.modeClientId // when mode=moving|editing
     this.nodes = new Map()
     this.root = this.createNode({
       type: 'group',
@@ -46,7 +46,7 @@ export class Entity {
     this.initialNodes = data.nodes
     this.positionLerp = new Vector3Lerp(this.root.position, MOVING_SEND_RATE)
     this.quaternionLerp = new QuaternionLerp(this.root.quaternion, MOVING_SEND_RATE) // prettier-ignore
-    this.setActive(data.active)
+    this.checkMode()
   }
 
   buildNodes(parent, nodes) {
@@ -79,20 +79,39 @@ export class Entity {
       node.unmount() // todo: destroy nodes?
     })
     this.nodes.clear()
-    if (this.scripts.length) {
-      this.space.entities.decActive(this)
-    }
+    // if (this.scripts.length) {
+    //   this.space.entities.decActive(this)
+    // }
     this.scripts = []
     // build
     this.buildNodes(this.root, this.initialNodes)
   }
 
-  setActive(active) {
-    if (this.active === active) return
-    this.active = active
+  checkMode() {
+    const prevMode = this.prevMode
+    const prevModeClientId = this.prevModeClientId
+    const mode = this.mode
+    const modeClientId = this.modeClientId
+    if (prevMode === mode) return
+    // cleanup previous
+    if (prevMode === 'active') {
+      if (this.scripts.length) {
+        this.space.entities.decActive(this)
+      }
+    }
+    if (prevMode === 'moving') {
+      this.positionLerp.flush()
+      this.quaternionLerp.flush()
+      this.root.dirty()
+      this.space.entities.decActive(this)
+    }
+    // rebuild
     this.rebuild()
-    if (this.active) {
-      this.setMoving(false)
+    this.nodes.forEach(node => {
+      node.setMode(this.mode)
+    })
+    // configure new
+    if (this.mode === 'active') {
       this.root.traverse(node => {
         if (node.type === 'script') {
           this.scripts.push(node)
@@ -114,44 +133,82 @@ export class Entity {
       if (this.scripts.length) {
         this.space.entities.incActive(this)
       }
-    } else {
-      // ...
     }
-    const delta = this.space.network.getEntityDelta(this.id)
-    if (!delta.props) delta.props = {}
-    delta.props.active = this.active
+    if (this.mode === 'moving') {
+      if (modeClientId === this.space.network.client.id) {
+        this.space.control.setMoving(this)
+      }
+      this.space.entities.incActive(this)
+    }
+    this.prevMode = this.mode
+    this.prevModeClientId = this.modeClientId
   }
 
-  setMoving(moving) {
-    if (this.moving === moving) return
-    this.moving = moving
-    this.positionLerp.reset()
-    this.quaternionLerp.reset()
-    this.root.dirty()
-    if (this.moving) {
-      this.setActive(false)
-      this.nodes.forEach(node => {
-        node.setMoving(true)
-      })
-      this.space.entities.incActive(this)
-    } else {
-      this.nodes.forEach(node => {
-        node.setMoving(false)
-      })
-      this.setActive(true)
-      this.space.entities.decActive(this)
-    }
-    const delta = this.space.network.getEntityDelta(this.id)
-    if (!delta.props) delta.props = {}
-    delta.props.moving = this.moving
-  }
+  // setActive(active) {
+  //   if (this.active === active) return
+  //   this.active = active
+  //   this.rebuild()
+  //   if (this.active) {
+  //     this.setMoving(false)
+  //     this.root.traverse(node => {
+  //       if (node.type === 'script') {
+  //         this.scripts.push(node)
+  //       }
+  //     })
+  //     // initialise scripts
+  //     for (const node of this.scripts) {
+  //       node.init()
+  //     }
+  //     // move root children to world space
+  //     while (this.root.children.length) {
+  //       this.root.detach(this.root.children[0])
+  //     }
+  //     // start scripts
+  //     for (const node of this.scripts) {
+  //       node.start()
+  //     }
+  //     // register for script update/fixedUpdate etc
+  //     if (this.scripts.length) {
+  //       this.space.entities.incActive(this)
+  //     }
+  //   } else {
+  //     // ...
+  //   }
+  //   const delta = this.space.network.getEntityDelta(this.id)
+  //   if (!delta.props) delta.props = {}
+  //   delta.props.active = this.active
+  // }
+
+  // setMoving(moving) {
+  //   if (this.moving === moving) return
+  //   this.moving = moving
+  //   this.positionLerp.reset()
+  //   this.quaternionLerp.reset()
+  //   this.root.dirty()
+  //   if (this.moving) {
+  //     this.setActive(false)
+  //     this.nodes.forEach(node => {
+  //       node.setMoving(true)
+  //     })
+  //     this.space.entities.incActive(this)
+  //   } else {
+  //     this.nodes.forEach(node => {
+  //       node.setMoving(false)
+  //     })
+  //     this.setActive(true)
+  //     this.space.entities.decActive(this)
+  //   }
+  //   const delta = this.space.network.getEntityDelta(this.id)
+  //   if (!delta.props) delta.props = {}
+  //   delta.props.moving = this.moving
+  // }
 
   update(delta) {
     // only called when
     // - it has scripts
     // - its being moved
     // also applies to fixed/late update
-    if (this.active) {
+    if (this.mode === 'active') {
       for (const node of this.scripts) {
         try {
           node.script.update?.(delta)
@@ -160,7 +217,7 @@ export class Entity {
         }
       }
     }
-    if (this.moving) {
+    if (this.mode === 'moving') {
       this.positionLerp.update(delta)
       this.quaternionLerp.update(delta)
       this.root.dirty()
@@ -168,7 +225,7 @@ export class Entity {
   }
 
   fixedUpdate(delta) {
-    if (this.active) {
+    if (this.mode === 'active') {
       for (const node of this.scripts) {
         try {
           node.script.fixedUpdate?.(delta)
@@ -180,7 +237,7 @@ export class Entity {
   }
 
   lateUpdate(delta) {
-    if (this.active) {
+    if (this.mode === 'active') {
       for (const node of this.scripts) {
         try {
           node.script.lateUpdate?.(delta)
@@ -252,17 +309,24 @@ export class Entity {
   }
 
   onRemotePropChanges(data) {
-    if (data.active === true || data.active === false) {
-      this.setActive(data.active)
-    }
-    if (data.moving === true || data.moving === false) {
-      this.setMoving(data.moving)
-    }
     if (data.position) {
+      // const snap =
+      //   !this.modeClientId || this.modeClientId === this.space.network.client.id
+      // this.positionLerp.push(data.position, snap)
+      // this.root.dirty()
       this.positionLerp.push(data.position)
     }
     if (data.quaternion) {
+      // const snap =
+      //   !this.modeClientId || this.modeClientId === this.space.network.client.id
+      // this.quaternionLerp.push(data.quaternion, snap)
+      // this.root.dirty()
       this.quaternionLerp.push(data.quaternion)
+    }
+    if (data.mode) {
+      this.mode = data.mode
+      this.modeClientId = data.modeClientId
+      this.checkMode()
     }
   }
 

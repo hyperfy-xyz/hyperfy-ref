@@ -4,12 +4,14 @@ import { api } from './api'
 let ids = 0
 
 export class Space {
-  constructor(id) {
+  constructor(id, onDestroy) {
     this.id = id
+    this.onDestroy = onDestroy
     this.meta = null
     this.permissions = null
     this.entities = new Map()
     this.clients = new Map()
+    this.checkInterval = setInterval(() => this.checkConnections(), 10000)
     this.ready = new Promise(async resolve => {
       await this.init()
       resolve()
@@ -17,21 +19,22 @@ export class Space {
   }
 
   async init() {
-    this.meta = await api.get(`/spaces/${this.id}`)
-    this.permissions = await api.get(`/permissions/${this.id}`)
-    const entities = await api.get(`/entities?spaceId=${this.id}`)
-    for (const entity of entities) {
-      this.entities.set(entity.id, entity)
+    try {
+      this.meta = await api.get(`/spaces/${this.id}`)
+      this.permissions = await api.get(`/permissions/${this.id}`)
+      const entities = await api.get(`/entities?spaceId=${this.id}`)
+      for (const entity of entities) {
+        this.entities.set(entity.id, entity)
+      }
+    } catch (err) {
+      console.error(err)
+      this.destroy()
     }
-    // todo: on error disconnect all clients
-    // for (const client of this.clients) {
-    //   client.disconnect()
-    // }
-    this.checkInterval = setInterval(() => this.checkConnections(), 10000)
   }
 
   onConnect = async ws => {
     const client = new Client(ws)
+    this.clients.set(client.id, client)
     client.sock.client = client
     client.sock.on('auth', this.onAuth)
     client.sock.on('disconnect', this.onDisconnect)
@@ -60,8 +63,9 @@ export class Space {
     client.sock.send('init', init)
     client.sock.on('update-client', this.onUpdateClient)
     client.sock.on('update-entities', this.onUpdateEntities)
-    client.sock.on('entity-move-request', this.onEntityMoveRequest)
+    client.sock.on('entity-mode-request', this.onEntityModeRequest)
     this.broadcast('add-client', client.serialize(), client)
+    client.active = true
   }
 
   onUpdateClient = (sock, data) => {
@@ -93,11 +97,11 @@ export class Space {
       if (entry.props) {
         const entity = this.entities.get(entityId)
         const props = entry.props
-        if (props.active === true || props.active === false) {
-          entity.active = props.active
+        if (props.mode) {
+          entity.mode = props.mode
         }
-        if (props.moving === true || props.moving === false) {
-          entity.moving = props.moving
+        if (props.modeClientId) {
+          entity.modeClientId = props.modeClientId
         }
         if (props.position) {
           entity.position = props.position
@@ -110,36 +114,19 @@ export class Space {
     }
   }
 
-  onEntityMoveRequest = async (sock, entityId) => {
+  onEntityModeRequest = async (sock, { entityId, mode }) => {
     const entity = this.entities.get(entityId)
-    if (entity.mover) return
-    entity.mover = sock.client.id
+    if (entity.mode !== 'active') return
+    entity.mode = mode
+    entity.modeClientId = sock.client.id
     this.broadcast('update-entity', {
       id: entityId,
-      props: { mover: entity.mover },
+      props: {
+        mode: entity.mode,
+        modeClientId: entity.modeClientId,
+      },
     })
   }
-
-  // onAuth = async (client, token) => {
-  //   const { userId } = await readToken(token)
-  //   const user = await db('users').where('id', userId)
-  //   const permissions = this.space.permissions[user.id] || 0
-  //   client.user = {
-  //     id: user.id,
-  //     name: user.name,
-  //     address: user.address,
-  //     permissions,
-  //   }
-  //   this.broadcast('auth-change', {
-  //     id: client.id,
-  //     user,
-  //   })
-  //   return client.user
-  // }
-
-  // onSomeMethod = (client, arg1) => {
-  //   // ...
-  // }
 
   onDisconnect = sock => {
     const client = sock.client
@@ -147,6 +134,7 @@ export class Space {
       return // they never authed
     }
     this.clients.delete(client.id)
+    // remove clients avatar
     const toRemove = []
     this.entities.forEach(entity => {
       if (entity.type === 'avatar' && entity.authority === client.id) {
@@ -157,11 +145,26 @@ export class Space {
       this.entities.delete(entity.id)
       this.broadcast('remove-entity', entity.id)
     }
+    // if they were editing/moving an entity, reactivate it
+    this.entities.forEach(entity => {
+      if (entity.modeClientId === client.id) {
+        entity.mode = 'active'
+        entity.modeClientId = null
+        this.broadcast('update-entity', {
+          id: entity.id,
+          props: {
+            mode: 'active',
+            modeClientId: null,
+          },
+        })
+      }
+    })
     this.broadcast('remove-client', client.id)
   }
 
   broadcast(event, data, skipClient) {
     this.clients.forEach(client => {
+      if (!client.active) return
       if (client === skipClient) return
       client.sock.send(event, data)
     })
@@ -186,6 +189,7 @@ export class Space {
     this.clients.forEach(client => {
       client.sock.disconnect()
     })
+    this.onDestroy()
   }
 }
 
@@ -195,6 +199,7 @@ class Client {
     this.id = ++ids
     this.user = null
     this.permissions = null
+    this.active = false
   }
 
   deserialize(data) {

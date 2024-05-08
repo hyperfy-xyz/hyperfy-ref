@@ -38,7 +38,6 @@ export class Vector3Lerp {
   flush() {
     this.previous.copy(this.current)
     this.value.copy(this.current)
-    this.time = 0
   }
 
   reset() {

@@ -66,6 +66,7 @@ export class Node {
   detach(node) {
     const idx = this.children.indexOf(node)
     if (idx === -1) return
+    this.project()
     node.parent = null
     this.children.splice(idx, 1)
     node.matrix.copy(node.matrixWorld)
@@ -135,7 +136,7 @@ export class Node {
     }
   }
 
-  setMoving(moving) {
+  setMode(mode) {
     // ...
   }
 

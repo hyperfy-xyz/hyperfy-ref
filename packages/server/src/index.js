@@ -25,7 +25,9 @@ server.on('upgrade', (req, sock, head) => {
     id = id.toLowerCase()
     let space = spaces.get(id)
     if (!space) {
-      space = new Space(id)
+      space = new Space(id, () => {
+        spaces.delete(id)
+      })
       spaces.set(id, space)
     }
     space.onConnect(ws)

@@ -60,7 +60,7 @@ export class Box extends Node {
       this.mesh.matrix.copy(this.matrix)
       this.mesh.matrixWorld.copy(this.matrixWorld)
       this.mesh.node = this
-      if (this.moving) this.mesh.layers.set(Layers.MOVING)
+      if (this.layer) this.mesh.layers.set(this.layer)
       this.space.graphics.scene.add(this.mesh)
     }
     if (this.physics) {
@@ -121,15 +121,13 @@ export class Box extends Node {
     }
   }
 
-  setMoving(moving) {
-    this.moving = moving
-    if (this.mesh) {
-      if (moving) {
-        this.mesh.layers.set(Layers.MOVING)
-      } else {
-        this.mesh.layers.set(Layers.DEFAULT)
-      }
+  setMode(mode) {
+    if (mode === 'moving') {
+      this.layer = Layers.MOVING
+    } else {
+      this.layer = Layers.DEFAULT
     }
+    this.mesh?.layers.set(this.layer)
   }
 
   getProxy() {
