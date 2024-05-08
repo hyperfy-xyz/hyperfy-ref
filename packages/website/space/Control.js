@@ -292,6 +292,9 @@ export class Control extends System {
     this.isPointerLocked = true
     // this.engine.driver.toggleReticle(true)
     // this.engine.worldEvents.emit('focus')
+
+    // pointerlock is async so if pointer is no longer down, exit
+    if (!this.pointer.down) this.exitPointerLock()
   }
 
   onPointerLockEnd() {
