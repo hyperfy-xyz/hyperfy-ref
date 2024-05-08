@@ -28,6 +28,12 @@ export const config = {
         }
       }
     },
+    async ctx => {
+      const apiSecret = ctx.req.headers.get('x-api-secret')
+      if (apiSecret === process.env.API_SECRET) {
+        ctx.hasApiSecret = true
+      }
+    },
   ],
   async start() {
     await migrate()

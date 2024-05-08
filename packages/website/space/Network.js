@@ -10,6 +10,8 @@ export class Network extends System {
   constructor(space) {
     super(space)
     this.server = null
+    this.meta = null
+    this.permissions = null
     this.clients = new Map()
     this.client = null
     this.delta = {}
@@ -54,10 +56,13 @@ export class Network extends System {
   onConnect = () => {
     this.log('connect')
     this.space.emit('connect')
+    this.server.send('auth', this.space.auth.token)
   }
 
   onInit = async data => {
     this.log('init', data)
+    this.meta = data.meta
+    this.permissions = data.permissions
     for (const clientData of data.clients) {
       const client = new Client().deserialize(clientData)
       this.clients.set(client.id, client)
@@ -123,6 +128,13 @@ export class Network extends System {
     })
   }
 
+  getEntityDelta(id) {
+    if (!this.delta[id]) {
+      this.delta[id] = {}
+    }
+    return this.delta[id]
+  }
+
   updateClient = () => {
     if (!this.active) return
     const user = this.space.auth.user
@@ -159,6 +171,9 @@ export class Network extends System {
     const entity = this.space.entities.get(data.id)
     if (data.state) {
       entity.onRemoteStateChanges(data.state)
+    }
+    if (data.props) {
+      entity.onRemotePropChanges(data.props)
     }
   }
 
@@ -254,16 +269,16 @@ const AVATAR_SCRIPT = `
     return class Script {
       init() {
         
-        this.box = entity.create({
-          type: 'box',
-          name: 'box',
-          position: [0, 4, 0],
-          // quaternion: new Quaternion().setFromEuler(new Euler(0, 0, DEG2RAD * 20)).toArray(),
-          size: [1.5, 1, 1.5],
-          physics: 'static',
-          visible: true,
-        })
-        entity.add(this.box)
+        // this.box = entity.create({
+        //   type: 'box',
+        //   name: 'box',
+        //   position: [0, 4, 0],
+        //   // quaternion: new Quaternion().setFromEuler(new Euler(0, 0, DEG2RAD * 20)).toArray(),
+        //   size: [1.5, 1, 1.5],
+        //   physics: 'static',
+        //   visible: true,
+        // })
+        // entity.add(this.box)
         
         const authority = entity.isAuthority()
         if (authority) {
@@ -287,12 +302,14 @@ const AVATAR_SCRIPT = `
             type: 'box',
             name: 'vrm',
             size: [1, 1.8, 1],
+            color: 'red',
             position: [0, 1.8 / 2 , 0]
           })
           this.face = entity.create({
             type: 'box',
             name: 'face',
             size: [0.3,0.1,0.1],
+            color: 'red',
             position: [0, 1, -0.5]
           })
           entity.add(this.ctrl)
@@ -308,12 +325,14 @@ const AVATAR_SCRIPT = `
             type: 'box',
             name: 'vrm',
             size: [1, 1.8, 1],
+            color: 'red',
             position: [0, 1.8 / 2 , 0]
           })
           this.face = entity.create({
             type: 'box',
             name: 'face',
             size: [0.3,0.1,0.1],
+            color: 'red',
             position: [0, 1, -0.5]
           })
           entity.add(this.base)
@@ -425,6 +444,16 @@ const AVATAR_SCRIPT = `
           // VRM always face camera direction?
           if (fp || (locked && (moving || looking))) {
             this.vrm.rotation.y = control.camera.rotation.y // TODO: camera rotation.y changes later so its one frame behind
+          }
+          // Hide VRM in first person
+          // console.log(this.vrm.getParent())
+          if (control && !control.look.zoom && this.vrm.getParent()) {
+            console.log('hide')
+            this.ctrl.remove(this.vrm)
+          }
+          if (control && control.look.zoom && !this.vrm.getParent()) {
+            console.log('show')
+            this.ctrl.add(this.vrm)
           }
           this.ctrl.dirty()
           this.vrm.dirty()

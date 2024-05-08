@@ -6,12 +6,7 @@ export class Entities extends System {
     super(space)
     this.entities = new Map()
     this.dirtyNodes = []
-  }
-
-  update(delta) {
-    while (this.dirtyNodes.length) {
-      this.dirtyNodes.pop().apply()
-    }
+    this.activeEntities = new Set()
   }
 
   add(data) {
@@ -46,6 +41,43 @@ export class Entities extends System {
       delta[id] = {}
     }
     delta[id].remove = true
+  }
+
+  incActive(entity) {
+    if (!entity._activeCount) {
+      entity._activeCount = 0
+    }
+    entity._activeCount++
+    this.activeEntities.add(entity)
+  }
+
+  decActive(entity, force) {
+    entity._activeCount--
+    if (force) entity._activeCount = 0
+    if (entity._activeCount <= 0) {
+      this.activeEntities.delete(entity)
+    }
+  }
+
+  update(delta) {
+    while (this.dirtyNodes.length) {
+      this.dirtyNodes.pop().apply()
+    }
+    for (const entity of this.activeEntities) {
+      entity.update(delta)
+    }
+  }
+
+  fixedUpdate(delta) {
+    for (const entity of this.activeEntities) {
+      entity.fixedUpdate(delta)
+    }
+  }
+
+  lateUpdate(delta) {
+    for (const entity of this.activeEntities) {
+      entity.lateUpdate(delta)
+    }
   }
 
   log(...args) {

@@ -49,6 +49,7 @@ function Content() {
   return (
     <>
       <Header inSpace />
+      <title>{spaceRef.current?.network.meta?.name || 'Space'}</title>
       <div
         className='space'
         css={css`

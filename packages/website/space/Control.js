@@ -6,19 +6,24 @@ import {
   AxeIcon,
   BanIcon,
   EyeIcon,
+  HandIcon,
   MicIcon,
   MicOffIcon,
   PlusCircleIcon,
   ShieldPlusIcon,
   SmileIcon,
+  Trash2Icon,
   UserIcon,
 } from 'lucide-react'
+import { num } from '@/utils/num'
 
 const PI_2 = Math.PI / 2
 const LOOK_SPEED = 0.005
 const WHEEL_SPEED = 0.002
 
-const coords = new THREE.Vector2()
+const MOVING_SEND_RATE = 1 / 5
+
+const vec2 = new THREE.Vector2()
 
 export class Control extends System {
   constructor(space) {
@@ -27,11 +32,13 @@ export class Control extends System {
     this.controls = []
     this.current = null
     this.isPointerLocked = false
-    this.clickTracker = {
+    this.pointer = {
+      coords: new THREE.Vector2(),
       start: null,
       rmb: false,
       move: new THREE.Vector2(),
     }
+    this.moving = null
   }
 
   start() {
@@ -39,11 +46,12 @@ export class Control extends System {
     window.addEventListener('keyup', this.onKeyUp)
     document.addEventListener('pointerlockchange', this.onPointerLockChange)
     this.space.viewport.addEventListener('pointerdown', this.onPointerDown)
+    this.space.viewport.addEventListener('pointermove', this.onPointerMove)
     this.space.viewport.addEventListener('wheel', this.onWheel, { passive: false }) // prettier-ignore
     this.space.viewport.addEventListener('contextmenu', this.onContextMenu)
   }
 
-  update() {
+  update(delta) {
     if (!this.current) return
     this.current.move.set(0, 0, 0)
     if (this.keys.forward) this.current.move.z -= 1
@@ -51,6 +59,25 @@ export class Control extends System {
     if (this.keys.left) this.current.move.x -= 1
     if (this.keys.right) this.current.move.x += 1
     this.current.move.normalize() // prevent surfing
+
+    if (this.moving) {
+      const hit = this.space.graphics.raycastViewport(
+        this.space.control.pointer.coords,
+        this.space.graphics.maskMoving
+      )
+      if (hit) {
+        this.moving.entity.root.position.copy(hit.point)
+        this.moving.entity.root.dirty()
+        this.moving.lastSend += delta
+        if (this.moving.lastSend >= MOVING_SEND_RATE) {
+          const delta = this.space.network.getEntityDelta(this.moving.entity.id)
+          if (!delta.props) delta.props = {}
+          delta.props.position = this.moving.entity.root.position.toArray()
+          delta.props.quaternion = this.moving.entity.root.quaternion.toArray()
+          this.moving.lastSend = 0
+        }
+      }
+    }
   }
 
   lateUpdate() {
@@ -151,12 +178,17 @@ export class Control extends System {
   }
 
   onPointerDown = e => {
+    if (this.moving) {
+      this.moving.entity.setMoving(false)
+      this.moving = null
+      return
+    }
     this.closeContext()
-    this.clickTracker.start = performance.now()
-    this.clickTracker.rmb = e.button === 2
-    this.clickTracker.move.set(0, 0)
+    this.pointer.down = true
+    this.pointer.downAt = performance.now()
+    this.pointer.rmb = e.button === 2
+    this.pointer.move.set(0, 0)
     // this.space.viewport.setPointerCapture(e.pointerId)
-    this.space.viewport.addEventListener('pointermove', this.onPointerMove)
     this.space.viewport.addEventListener('pointerup', this.onPointerUp)
     if (this.current) {
       this.current.look.active = true
@@ -166,8 +198,11 @@ export class Control extends System {
   }
 
   onPointerMove = e => {
-    this.clickTracker.move.x += e.movementX
-    this.clickTracker.move.y += e.movementY
+    this.pointer.coords.x = e.offsetX
+    this.pointer.coords.y = e.offsetY
+    if (!this.pointer.down) return
+    this.pointer.move.x += e.movementX
+    this.pointer.move.y += e.movementY
     if (this.current) {
       switch (e.buttons) {
         case 1:
@@ -193,14 +228,13 @@ export class Control extends System {
   }
 
   onPointerUp = e => {
-    if (this.clickTracker.rmb) {
-      const elapsed = performance.now() - this.clickTracker.start
-      if (elapsed < 500 && this.clickTracker.move.length() < 10) {
+    if (this.pointer.rmb) {
+      const elapsed = performance.now() - this.pointer.downAt
+      if (elapsed < 500 && this.pointer.move.length() < 10) {
         this.openContext(e.clientX, e.clientY)
       }
     }
     // this.space.viewport.releasePointerCapture(e.pointerId)
-    this.space.viewport.removeEventListener('pointermove', this.onPointerMove)
     this.space.viewport.removeEventListener('pointerup', this.onPointerUp)
     if (this.current) {
       this.current.look.active = false
@@ -208,6 +242,8 @@ export class Control extends System {
       this.current.look.advance = false
     }
     this.exitPointerLock()
+    this.pointer.down = false
+    this.pointer.downAt = null
   }
 
   onWheel = e => {
@@ -358,10 +394,8 @@ export class Control extends System {
   }
 
   openContext(x, y) {
-    const rect = this.space.viewport.getBoundingClientRect()
-    coords.x = ((x - rect.left) / (rect.right - rect.left)) * 2 - 1
-    coords.y = -((y - rect.top) / (rect.bottom - rect.top)) * 2 + 1
-    const hit = this.space.graphics.raycastFromViewport(coords)
+    vec2.set(x, y)
+    const hit = this.space.graphics.raycastViewport(vec2)
     if (!hit) return // void
     const entity = hit?.object?.node?.entity
     const actions = []
@@ -375,6 +409,7 @@ export class Control extends System {
         },
       })
     }
+    console.log(hit)
     const hitVoid = !hit
     const hitSpace = hit && !entity
     const hitSelf = entity === this.space.network.avatar
@@ -414,7 +449,153 @@ export class Control extends System {
     }
     if (hitSpace || hitPrototype || hitItem) {
       add('Create', PlusCircleIcon, () => {
-        console.log('TODO: create')
+        // LOTSA STATIC CUBES
+        // for (let i = 0; i < 1000; i++) {
+        //   this.space.entities.addLocal({
+        //     id: this.space.network.makeId(),
+        //     type: 'prototype',
+        //     authority: this.space.network.client.id,
+        //     active: true,
+        //     position: [num(-100, 100, 2), 0, num(-100, 100, 2)],
+        //     quaternion: [0, 0, 0, 1],
+        //     scale: [1, 1, 1],
+        //     state: {},
+        //     nodes: [
+        //       {
+        //         type: 'box',
+        //         name: 'box',
+        //         color: 'red',
+        //         position: [0, 0.5, 0],
+        //       },
+        //     ],
+        //   })
+        // }
+        // LOTSA CUBES
+        // console.time('lotsa')
+        // for (let i = 0; i < 1000; i++) {
+        //   this.space.entities.addLocal({
+        //     id: this.space.network.makeId(),
+        //     type: 'prototype',
+        //     authority: this.space.network.client.id,
+        //     active: true,
+        //     position: [num(-100, 100, 2), num(-100, 100, 2), num(-100, 100, 2)],
+        //     quaternion: [0, 0, 0, 1],
+        //     scale: [1, 1, 1],
+        //     state: {},
+        //     nodes: [
+        //       {
+        //         type: 'box',
+        //         name: 'box',
+        //         color: 'red',
+        //         position: [0, 0.5, 0],
+        //       },
+        //       {
+        //         type: 'script',
+        //         name: 'my-script',
+        //         code: `
+        //           (function(){
+        //             return entity => {
+        //               return class Script {
+        //                 init() {
+        //                   this.box = entity.find('box')
+        //                 }
+        //                 update(delta) {
+        //                   this.box.rotation.y += 10 * delta
+        //                   this.box.dirty()
+        //                 }
+        //               }
+        //             }
+        //           })()
+        //         `,
+        //       },
+        //     ],
+        //   })
+        // }
+        // console.timeEnd('lotsa')
+        // SPINNING CUBES
+        this.space.entities.addLocal({
+          id: this.space.network.makeId(),
+          type: 'prototype',
+          authority: this.space.network.client.id,
+          active: true,
+          position: hit.point.toArray(),
+          quaternion: [0, 0, 0, 1],
+          scale: [1, 1, 1],
+          state: {},
+          nodes: [
+            {
+              type: 'box',
+              name: 'box',
+              color: 'red',
+              position: [0, 0.5, 0],
+            },
+            {
+              type: 'script',
+              name: 'my-script',
+              code: `
+                (function(){
+                  return entity => {
+                    return class Script {
+                      init() {
+                        this.box = entity.find('box')
+                      }
+                      update(delta) {
+                        this.box.rotation.y += 10 * delta
+                        this.box.dirty()
+                      }
+                    }
+                  }
+                })()
+              `,
+            },
+          ],
+        })
+        // PHYSICS CUBES
+        // this.space.entities.addLocal({
+        //   id: this.space.network.makeId(),
+        //   type: 'prototype',
+        //   authority: this.space.network.client.id,
+        //   active: true,
+        //   position: hit.point.toArray(),
+        //   quaternion: [0, 0, 0, 1],
+        //   scale: [1, 1, 1],
+        //   state: {},
+        //   nodes: [
+        //     {
+        //       type: 'box',
+        //       name: 'box',
+        //       position: [0, 0.5, 0],
+        //       size: [1, 1, 1],
+        //       physics: 'dynamic',
+        //       visible: true,
+        //     },
+        //     {
+        //       type: 'script',
+        //       name: 'my-script',
+        //       code: `
+        //         (function(){
+        //           return entity => {
+        //             return class Script {
+        //               init() {
+        //                 this.box = entity.find('box')
+        //                 entity.add(this.box)
+        //               }
+        //             }
+        //           }
+        //         })()
+        //       `,
+        //     },
+        //   ],
+        // })
+      })
+    }
+    if (hitPrototype) {
+      add('Move', HandIcon, () => {
+        // this.space.network.server.send('entity-move-request', entity.id)
+        this.setMoving(entity)
+      })
+      add('Destroy', Trash2Icon, () => {
+        this.space.entities.removeLocal(entity.id)
       })
     }
     if (actions.length) {
@@ -424,6 +605,22 @@ export class Control extends System {
         actions,
       }
       this.space.emit('context:open', this.context)
+    }
+  }
+
+  setMoving(entity) {
+    if (this.moving?.entity === entity) return
+    if (this.moving) {
+      this.moving.entity.setMoving(false)
+      this.moving = null
+      console.warn('TODO: commit already moving?')
+    }
+    if (entity) {
+      this.moving = {
+        entity,
+        lastSend: 0,
+      }
+      this.moving.entity.setMoving(true)
     }
   }
 
@@ -438,6 +635,7 @@ export class Control extends System {
     window.removeEventListener('keyup', this.onKeyUp)
     document.removeEventListener('pointerlockchange', this.onPointerLockChange)
     this.space.viewport.removeEventListener('pointerdown', this.onPointerDown)
+    this.space.viewport.removeEventListener('pointermove', this.onPointerMove)
     this.space.viewport.removeEventListener('wheel', this.onWheel, { passive: false }) // prettier-ignore
     this.space.viewport.removeEventListener('contextmenu', this.onContextMenu)
     this.controls = []

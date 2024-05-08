@@ -13,7 +13,6 @@ import { Network } from './Network'
 import { Physics } from './Physics'
 import { Entities } from './Entities'
 import { Graphics } from './Graphics'
-import { Scripts } from './Scripts'
 import { Vector3Lerp } from '@/utils/Vector3Lerp'
 import { QuaternionLerp } from '@/utils/QuaternionLerp'
 
@@ -61,7 +60,6 @@ export class Space extends EventEmitter {
     this.network = new Network(this)
     this.physics = new Physics(this)
     this.entities = new Entities(this)
-    this.scripts = new Scripts(this)
     this.graphics = new Graphics(this)
     this.time = 0
     this.fixedTime = 0
@@ -76,7 +74,6 @@ export class Space extends EventEmitter {
     await this.physics.init()
     extendThreePhysX()
     await this.entities.init()
-    await this.scripts.init()
     await this.graphics.init()
     this.start()
   }
@@ -87,7 +84,6 @@ export class Space extends EventEmitter {
     this.network.start()
     this.physics.start()
     this.entities.start()
-    this.scripts.start()
     this.graphics.start()
     this.stats.init(this.graphics.renderer)
     this.graphics.renderer.setAnimationLoop(this.tick)
@@ -108,7 +104,6 @@ export class Space extends EventEmitter {
     this.network.update(delta)
     this.physics.update(delta)
     this.entities.update(delta)
-    this.scripts.update(delta)
     this.graphics.update(delta)
     this.stats.update()
   }
@@ -122,7 +117,6 @@ export class Space extends EventEmitter {
       this.network.fixedUpdate(FIXED_TIMESTEP)
       this.physics.fixedUpdate(FIXED_TIMESTEP)
       this.entities.fixedUpdate(FIXED_TIMESTEP)
-      this.scripts.fixedUpdate(FIXED_TIMESTEP)
       this.graphics.fixedUpdate(FIXED_TIMESTEP)
     }
   }
@@ -133,7 +127,6 @@ export class Space extends EventEmitter {
     this.network.lateUpdate(delta)
     this.physics.lateUpdate(delta)
     this.entities.lateUpdate(delta)
-    this.scripts.lateUpdate(delta)
     this.graphics.lateUpdate(delta)
   }
 
@@ -153,7 +146,6 @@ export class Space extends EventEmitter {
     this.network.destroy()
     this.physics.destroy()
     this.entities.destroy()
-    this.scripts.destroy()
     this.graphics.destroy()
   }
 }

@@ -135,6 +135,10 @@ export class Node {
     }
   }
 
+  setMoving(moving) {
+    // ...
+  }
+
   getWorldPosition(vec3 = _v1) {
     this.matrixWorld.decompose(vec3, _q1, _v2)
     return vec3
@@ -153,9 +157,16 @@ export class Node {
         },
         add(pNode) {
           const node = self.entity.nodes.get(pNode.name)
-          console.log('SELF', self, node)
           self.add(node)
           return this
+        },
+        remove(pNode) {
+          const node = self.entity.nodes.get(pNode.name)
+          self.remove(node)
+          return this
+        },
+        getParent() {
+          return self.parent?.getProxy()
         },
       }
       this.proxy = proxy

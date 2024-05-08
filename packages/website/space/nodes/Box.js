@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { isBoolean } from 'lodash-es'
 
 import { Node } from './Node'
+import { Layers } from '@/utils/Layers'
 
 const _v1 = new THREE.Vector3()
 const _v2 = new THREE.Vector3()
@@ -9,14 +10,35 @@ const _q1 = new THREE.Quaternion()
 
 const defaults = {
   size: [1, 1, 1],
+  color: 'blue',
   physics: null,
   visible: true,
 }
+
+// WIP batch mesh - has issues, eg no per-mesh layers and stuff
+// const batchGroups = {} // [key] [...batches]
+// const getBatch = (space, color) => {
+//   const key = color
+//   let group = batchGroups[key]
+//   if (!group) {
+//     group = []
+//     batchGroups[key] = group
+//   }
+//   let batch = group.find(batch => batch._geometryCount < batch._maxGeometryCount)
+//   if (!batch) {
+//     const material = new THREE.MeshStandardMaterial({ color })
+//     batch = new THREE.BatchedMesh(100, 8*100, undefined, material)
+//     space.graphics.scene.add(batch)
+//     group.push(batch)
+//   }
+//   return batch
+// }
 
 export class Box extends Node {
   constructor(entity, data) {
     super(entity, data)
     this.size = data.size || defaults.size
+    this.color = data.color || defaults.color
     this.physics = data.physics || defaults.physics
     this.visible = isBoolean(data.visible) ? data.visible : defaults.visible
   }
@@ -25,7 +47,11 @@ export class Box extends Node {
     if (this.visible) {
       const geometry = new THREE.BoxGeometry(...this.size)
       geometry.computeBoundsTree()
-      const material = new THREE.MeshStandardMaterial({ color: 'green' })
+      const material = new THREE.MeshStandardMaterial({
+        color: this.color,
+        roughness: 1,
+        metalness: 0,
+      })
       this.mesh = new THREE.Mesh(geometry, material)
       this.mesh.receiveShadow = true
       this.mesh.castShadow = true
@@ -34,6 +60,7 @@ export class Box extends Node {
       this.mesh.matrix.copy(this.matrix)
       this.mesh.matrixWorld.copy(this.matrixWorld)
       this.mesh.node = this
+      if (this.moving) this.mesh.layers.set(Layers.MOVING)
       this.space.graphics.scene.add(this.mesh)
     }
     if (this.physics) {
@@ -91,6 +118,17 @@ export class Box extends Node {
     if (this.body) {
       this.space.physics.scene.removeActor(this.body)
       this.unbind?.()
+    }
+  }
+
+  setMoving(moving) {
+    this.moving = moving
+    if (this.mesh) {
+      if (moving) {
+        this.mesh.layers.set(Layers.MOVING)
+      } else {
+        this.mesh.layers.set(Layers.DEFAULT)
+      }
     }
   }
 

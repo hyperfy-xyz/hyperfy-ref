@@ -1,5 +1,10 @@
 import * as THREE from 'three'
 import * as Nodes from './nodes'
+import { cloneDeep } from 'lodash-es'
+import { Vector3Lerp } from '@/utils/Vector3Lerp'
+import { QuaternionLerp } from '@/utils/QuaternionLerp'
+
+const MOVING_SEND_RATE = 1 / 5
 
 export class Entity {
   constructor(space, data) {
@@ -7,7 +12,8 @@ export class Entity {
     this.id = data.id
     this.type = data.type
     this.authority = data.authority
-    this.active = data.active
+    this.active = null // set below
+    this.moving = false
     this.nodes = new Map()
     this.root = this.createNode({
       type: 'group',
@@ -18,21 +24,17 @@ export class Entity {
     })
     this.root.mounted = true
     this.root.project()
-    this.buildNodes(this.root, data.nodes)
     this.state = data.state
     this.stateProxy = new Proxy(this.state, {
       set: (target, key, value) => {
         if (target[key] !== value) {
           target[key] = value
-          const delta = space.network.delta
-          if (!delta[this.id]) {
-            delta[this.id] = {}
+          const delta = space.network.getEntityDelta(this.id)
+          if (!delta.state) {
+            delta.state = {}
           }
-          if (!delta[this.id].state) {
-            delta[this.id].state = {}
-          }
-          delta[this.id].state = {
-            ...delta[this.id].state,
+          delta.state = {
+            ...delta.state,
             [key]: value,
           }
         }
@@ -41,27 +43,10 @@ export class Entity {
     })
     this.stateChanges = null
     this.scripts = []
-    this.root.traverse(node => {
-      if (node.type === 'script') {
-        this.scripts.push(node)
-      }
-    })
-    if (this.active) {
-      // initialise scripts
-      for (const node of this.scripts) {
-        node.init()
-      }
-      // move root children to world space
-      while (this.root.children.length) {
-        this.root.detach(this.root.children[0])
-      }
-      // start scripts
-      for (const node of this.scripts) {
-        node.start()
-      }
-      // register for script update/fixedUpdate etc
-      this.space.scripts.register(this)
-    }
+    this.initialNodes = data.nodes
+    this.positionLerp = new Vector3Lerp(this.root.position, MOVING_SEND_RATE)
+    this.quaternionLerp = new QuaternionLerp(this.root.quaternion, MOVING_SEND_RATE) // prettier-ignore
+    this.setActive(data.active)
   }
 
   buildNodes(parent, nodes) {
@@ -83,6 +68,128 @@ export class Entity {
     const node = new Node(this, data)
     this.nodes.set(node.name, node)
     return node
+  }
+
+  rebuild() {
+    // destroy
+    while (this.root.children.length) {
+      this.root.detach(this.root.children[0])
+    }
+    this.nodes.forEach(node => {
+      node.unmount() // todo: destroy nodes?
+    })
+    this.nodes.clear()
+    if (this.scripts.length) {
+      this.space.entities.decActive(this)
+    }
+    this.scripts = []
+    // build
+    this.buildNodes(this.root, this.initialNodes)
+  }
+
+  setActive(active) {
+    if (this.active === active) return
+    this.active = active
+    this.rebuild()
+    if (this.active) {
+      this.setMoving(false)
+      this.root.traverse(node => {
+        if (node.type === 'script') {
+          this.scripts.push(node)
+        }
+      })
+      // initialise scripts
+      for (const node of this.scripts) {
+        node.init()
+      }
+      // move root children to world space
+      while (this.root.children.length) {
+        this.root.detach(this.root.children[0])
+      }
+      // start scripts
+      for (const node of this.scripts) {
+        node.start()
+      }
+      // register for script update/fixedUpdate etc
+      if (this.scripts.length) {
+        this.space.entities.incActive(this)
+      }
+    } else {
+      // ...
+    }
+    const delta = this.space.network.getEntityDelta(this.id)
+    if (!delta.props) delta.props = {}
+    delta.props.active = this.active
+  }
+
+  setMoving(moving) {
+    if (this.moving === moving) return
+    this.moving = moving
+    this.positionLerp.reset()
+    this.quaternionLerp.reset()
+    this.root.dirty()
+    if (this.moving) {
+      this.setActive(false)
+      this.nodes.forEach(node => {
+        node.setMoving(true)
+      })
+      this.space.entities.incActive(this)
+    } else {
+      this.nodes.forEach(node => {
+        node.setMoving(false)
+      })
+      this.setActive(true)
+      this.space.entities.decActive(this)
+    }
+    const delta = this.space.network.getEntityDelta(this.id)
+    if (!delta.props) delta.props = {}
+    delta.props.moving = this.moving
+  }
+
+  update(delta) {
+    // only called when
+    // - it has scripts
+    // - its being moved
+    // also applies to fixed/late update
+    if (this.active) {
+      for (const node of this.scripts) {
+        try {
+          node.script.update?.(delta)
+        } catch (err) {
+          console.error(err)
+        }
+      }
+    }
+    if (this.moving) {
+      this.positionLerp.update(delta)
+      this.quaternionLerp.update(delta)
+      this.root.dirty()
+    }
+  }
+
+  fixedUpdate(delta) {
+    if (this.active) {
+      for (const node of this.scripts) {
+        try {
+          node.script.fixedUpdate?.(delta)
+        } catch (err) {
+          console.error(err)
+        }
+      }
+    }
+  }
+
+  lateUpdate(delta) {
+    if (this.active) {
+      for (const node of this.scripts) {
+        try {
+          node.script.lateUpdate?.(delta)
+        } catch (err) {
+          console.error(err)
+        }
+      }
+    }
+    this.stateChanges = null
   }
 
   getProxy() {
@@ -144,8 +251,23 @@ export class Entity {
     }
   }
 
+  onRemotePropChanges(data) {
+    if (data.active === true || data.active === false) {
+      this.setActive(data.active)
+    }
+    if (data.moving === true || data.moving === false) {
+      this.setMoving(data.moving)
+    }
+    if (data.position) {
+      this.positionLerp.push(data.position)
+    }
+    if (data.quaternion) {
+      this.quaternionLerp.push(data.quaternion)
+    }
+  }
+
   destroy() {
-    this.space.scripts.unregister(this)
+    this.space.entities.decActive(this, true)
     this.nodes.forEach(node => {
       if (node.mounted) {
         node.unmount()

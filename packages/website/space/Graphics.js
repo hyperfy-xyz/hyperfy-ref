@@ -1,12 +1,17 @@
 import * as THREE from 'three'
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
 import {
   computeBoundsTree,
   disposeBoundsTree,
   acceleratedRaycast,
 } from 'three-mesh-bvh'
+import { N8AOPass } from 'n8ao'
 
 import { System } from './System'
 import { CSM } from './libs/csm/CSM'
+
+import { Layers } from '@/utils/Layers'
 
 // three-mesh-bvh
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree
@@ -18,6 +23,11 @@ THREE.Mesh.prototype.raycast = acceleratedRaycast
 
 // THREE.ColorManagement.enabled = true
 
+const v1 = new THREE.Vector3()
+const vec2 = new THREE.Vector2()
+
+const FOV = 70
+
 export class Graphics extends System {
   constructor(space) {
     super(space)
@@ -25,16 +35,25 @@ export class Graphics extends System {
   }
 
   async init() {
+    this.width = this.viewport.offsetWidth
+    this.height = this.viewport.offsetHeight
+    this.aspect = this.width / this.height
+    this.resizer = new ResizeObserver(() => {
+      this.resize(this.viewport.offsetWidth, this.viewport.offsetHeight)
+    })
+    this.resizer.observe(this.viewport)
+
     this.scene = new THREE.Scene()
     // this.scene.matrixAutoUpdate = false
     // this.scene.matrixWorldAutoUpdate = false
-    this.camera = new THREE.PerspectiveCamera(
-      75,
-      this.viewport.offsetWidth / this.viewport.offsetHeight,
-      0.1,
-      1000
-    )
-    this.renderer = new THREE.WebGLRenderer({ antialias: true })
+    this.camera = new THREE.PerspectiveCamera(FOV, this.aspect, 0.1, 20000)
+    this.camera.layers.enableAll()
+    this.renderer = new THREE.WebGLRenderer({
+      // antialias: true,
+      powerPreference: 'high-performance',
+    })
+    this.renderer.setClearColor(0xffffff, 0)
+    this.renderer.setPixelRatio(1) // window.devicePixelRatio
     this.renderer.setSize(this.viewport.offsetWidth, this.viewport.offsetHeight)
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
@@ -44,20 +63,20 @@ export class Graphics extends System {
     this.viewport.appendChild(this.renderer.domElement)
 
     this.csm = new CSM({
-      // mode: 'practical', // uniform, logarithmic, practical, custom
-      mode: 'custom',
-      customSplitsCallback: function (cascadeCount, nearDistance, farDistance) {
-        return [0.05, 0.2, 0.5]
-      },
-      maxFar: 400,
+      mode: 'practical', // uniform, logarithmic, practical, custom
+      // mode: 'custom',
+      // customSplitsCallback: function (cascadeCount, nearDistance, farDistance) {
+      //   return [0.05, 0.2, 0.5]
+      // },
+      maxFar: 100,
       fade: true,
       cascades: 3,
       shadowMapSize: 2048,
-      lightDirection: new THREE.Vector3(0, -1, 2).normalize(),
+      // lightDirection: new THREE.Vector3(0, -1, 2).normalize(),
       camera: this.camera,
       parent: this.scene,
       lightNear: 0.1,
-      lightFar: 1000,
+      lightFar: 500,
       // shadowBias: -0.00003,
       // shadowMapSize: 1024,
       // lightDirection: new THREE.Vector3(-1, -1, -1).normalize(),
@@ -73,6 +92,19 @@ export class Graphics extends System {
       light.intensity = 1
       light.color.set(0xffffff)
     }
+    this.sunPosition = new THREE.Vector3(200, 400, 200)
+    this.csm.lightDirection
+      .subVectors(v1.set(0, 0, 0), this.sunPosition)
+      .normalize() // directional vector from sun position to location
+
+    this.composer = new EffectComposer(this.renderer)
+    this.aoPass = new N8AOPass(this.scene, this.camera, this.width, this.height)
+    this.aoPass.configuration.aoRadius = 1
+    this.aoPass.configuration.distanceFalloff = 1
+    this.aoPass.configuration.intensity = 3
+    this.composer.addPass(this.aoPass)
+    this.aaPass = new SMAAPass()
+    this.composer.addPass(this.aaPass)
 
     this.cameraRig = new THREE.Object3D()
     this.cameraRig.add(this.camera)
@@ -81,7 +113,14 @@ export class Graphics extends System {
     this.raycaster = new THREE.Raycaster()
     this.raycaster.firstHitOnly = true
     this.raycastHits = []
-    this.raycastAllMask = 0xffffffff | 0 // https://github.com/mrdoob/three.js/blob/master/src/core/Layers.js
+
+    this.maskNone = new THREE.Layers()
+    this.maskNone.enableAll()
+    this.maskMoving = new THREE.Layers()
+    this.maskMoving.enableAll()
+    this.maskMoving.disable(Layers.MOVING)
+
+    window.THREE = THREE
 
     // hdr
     {
@@ -94,13 +133,35 @@ export class Graphics extends System {
     // ground
     {
       const geometry = new THREE.BoxGeometry(1000, 1, 1000)
-      const material = new THREE.MeshStandardMaterial({ color: 'blue' })
+      const material = new THREE.MeshStandardMaterial({ color: 'green' })
       const mesh = new THREE.Mesh(geometry, material)
       mesh.receiveShadow = true
       mesh.castShadow = true
       mesh.position.y = -0.5
       this.scene.add(mesh)
     }
+  }
+
+  resize(width, height) {
+    this.width = width
+    this.height = height
+    this.aspect = this.width / this.height
+    this.camera.aspect = this.aspect
+    // if (this.aspect > PLANE_ASPECT_RATIO) {
+    //   // improved portrait FOV
+    //   // see: https://discourse.threejs.org/t/keeping-an-object-scaled-based-on-the-bounds-of-the-canvas-really-battling-to-explain-this-one/17574/10
+    //   const cameraHeight = Math.tan(degToRad(FOV / 2))
+    //   const ratio = this.camera.aspect / PLANE_ASPECT_RATIO
+    //   const newCameraHeight = cameraHeight / ratio
+    //   this.camera.fov = radToDeg(Math.atan(newCameraHeight)) * 2
+    // } else {
+    //   this.camera.fov = FOV
+    // }
+    this.camera.updateProjectionMatrix()
+    this.renderer.setSize(this.width, this.height)
+    this.composer.setSize(this.width, this.height)
+    this.csm.updateFrustums()
+    this.render()
   }
 
   start() {
@@ -116,18 +177,13 @@ export class Graphics extends System {
   }
 
   render() {
-    this.renderer.render(this.scene, this.camera)
+    this.composer.render()
+    // this.renderer.render(this.scene, this.camera)
   }
 
-  raycast(
-    origin,
-    direction,
-    mask = this.raycastAllMask,
-    min = 0,
-    max = Infinity
-  ) {
+  raycast(origin, direction, layers = this.maskNone, min = 0, max = Infinity) {
     this.raycaster.set(origin, direction)
-    this.raycaster.layers.mask = mask
+    this.raycaster.layers = layers
     this.raycaster.near = min
     this.raycaster.far = max
     this.raycaster.intersectObjects(this.scene.children, true, this.raycastHits)
@@ -136,14 +192,12 @@ export class Graphics extends System {
     return hit
   }
 
-  raycastFromViewport(
-    coords,
-    mask = this.raycastAllMask,
-    min = 0,
-    max = Infinity
-  ) {
-    this.raycaster.setFromCamera(coords, this.camera)
-    this.raycaster.layers.mask = mask
+  raycastViewport(coords, layers = this.maskNone, min = 0, max = Infinity) {
+    const rect = this.viewport.getBoundingClientRect()
+    vec2.x = ((coords.x - rect.left) / (rect.right - rect.left)) * 2 - 1
+    vec2.y = -((coords.y - rect.top) / (rect.bottom - rect.top)) * 2 + 1
+    this.raycaster.setFromCamera(vec2, this.camera)
+    this.raycaster.layers = layers
     this.raycaster.near = min
     this.raycaster.far = max
     this.raycaster.intersectObjects(this.scene.children, true, this.raycastHits)

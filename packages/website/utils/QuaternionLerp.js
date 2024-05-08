@@ -35,6 +35,17 @@ export class QuaternionLerp {
     return this
   }
 
+  flush() {
+    this.previous.copy(this.current)
+    this.value.copy(this.current)
+    this.time = 0
+  }
+
+  reset() {
+    this.previous.copy(this.value)
+    this.current.copy(this.value)
+  }
+
   update(delta) {
     this.time += delta
     const alpha = this.time / this.speed
