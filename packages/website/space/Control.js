@@ -46,7 +46,7 @@ export class Control extends System {
     window.addEventListener('keyup', this.onKeyUp)
     document.addEventListener('pointerlockchange', this.onPointerLockChange)
     this.space.viewport.addEventListener('pointerdown', this.onPointerDown)
-    this.space.viewport.addEventListener('pointermove', this.onPointerMove)
+    window.addEventListener('pointermove', this.onPointerMove)
     this.space.viewport.addEventListener('wheel', this.onWheel, { passive: false }) // prettier-ignore
     this.space.viewport.addEventListener('contextmenu', this.onContextMenu)
   }
@@ -206,8 +206,11 @@ export class Control extends System {
   }
 
   onPointerMove = e => {
-    this.pointer.coords.x = e.offsetX
-    this.pointer.coords.y = e.offsetY
+    const rect = this.space.viewport.getBoundingClientRect()
+    const offsetX = e.pageX - rect.left // - window.scrollX
+    const offsetY = e.pageY - rect.top // - window.scrollY
+    this.pointer.coords.x = offsetX
+    this.pointer.coords.y = offsetY
     if (!this.pointer.down) return
     this.pointer.move.x += e.movementX
     this.pointer.move.y += e.movementY
@@ -651,7 +654,7 @@ export class Control extends System {
     window.removeEventListener('keyup', this.onKeyUp)
     document.removeEventListener('pointerlockchange', this.onPointerLockChange)
     this.space.viewport.removeEventListener('pointerdown', this.onPointerDown)
-    this.space.viewport.removeEventListener('pointermove', this.onPointerMove)
+    window.removeEventListener('pointermove', this.onPointerMove)
     this.space.viewport.removeEventListener('wheel', this.onWheel, { passive: false }) // prettier-ignore
     this.space.viewport.removeEventListener('contextmenu', this.onContextMenu)
     this.controls = []
