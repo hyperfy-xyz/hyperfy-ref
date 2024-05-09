@@ -81,7 +81,18 @@ export class Entity {
     this.nodes.clear()
     this.scripts = []
     // build
-    this.buildNodes(this.root, this.initialNodes)
+    if (this.mode === 'dead') {
+      this.buildNodes(this.root, [
+        {
+          type: 'box',
+          name: 'error',
+          color: 'blue',
+          position: [0, 0.5, 0],
+        },
+      ])
+    } else {
+      this.buildNodes(this.root, this.initialNodes)
+    }
   }
 
   checkMode() {
@@ -119,7 +130,13 @@ export class Entity {
       })
       // initialise scripts
       for (const node of this.scripts) {
-        node.init()
+        try {
+          node.init()
+        } catch (err) {
+          console.error('entity init failed', this)
+          console.error(err)
+          this.kill()
+        }
       }
       // move root children to world space
       while (this.root.children.length) {
@@ -127,7 +144,13 @@ export class Entity {
       }
       // start scripts
       for (const node of this.scripts) {
-        node.start()
+        try {
+          node.start()
+        } catch (err) {
+          console.error('entity start failed', this)
+          console.error(err)
+          this.kill()
+        }
       }
       // register for script update/fixedUpdate etc
       if (this.scripts.length) {
@@ -160,7 +183,9 @@ export class Entity {
         try {
           node.script.update?.(delta)
         } catch (err) {
+          console.error('entiy update failed', this)
           console.error(err)
+          this.kill()
         }
       }
     }
@@ -182,7 +207,9 @@ export class Entity {
         try {
           node.script.fixedUpdate?.(delta)
         } catch (err) {
+          console.error('entiy fixedUpdate failed', this)
           console.error(err)
+          this.kill()
         }
       }
     }
@@ -194,11 +221,18 @@ export class Entity {
         try {
           node.script.lateUpdate?.(delta)
         } catch (err) {
+          console.error('entiy lateUpdate failed', this)
           console.error(err)
+          this.kill()
         }
       }
     }
     this.stateChanges = null
+  }
+
+  kill() {
+    this.mode = 'dead'
+    this.checkMode()
   }
 
   getProxy() {

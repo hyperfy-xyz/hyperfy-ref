@@ -5,6 +5,7 @@ import {
   ArrowRightLeftIcon,
   AxeIcon,
   BanIcon,
+  CopyIcon,
   EyeIcon,
   HandIcon,
   MicIcon,
@@ -667,6 +668,14 @@ export class Control extends System {
       }
       if (this.space.permissions.canEditEntity(entity)) {
         add('Edit', PencilRulerIcon, () => {
+          this.space.network.server.send('entity-mode-request', {
+            entityId: entity.id,
+            mode: 'editing',
+          })
+        })
+      }
+      if (this.space.permissions.canEditEntity(entity)) {
+        add('Duplicate', CopyIcon, () => {
           this.space.network.server.send('entity-mode-request', {
             entityId: entity.id,
             mode: 'editing',

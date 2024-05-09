@@ -314,10 +314,10 @@ function Panels({ space }) {
       className='panel'
       css={css`
         position: absolute;
-        top: 100px;
-        left: 100px;
-        width: 200px;
-        height: 300px;
+        top: 360px;
+        left: 360px;
+        width: 300px;
+        height: 400px;
         border-radius: 10px;
         background: black;
         color: white;
@@ -385,6 +385,7 @@ function Code({ value, onChange }) {
   const [current, setCurrent] = useState(value)
   return (
     <textarea
+      css={css``}
       value={current}
       onChange={e => {
         setCurrent(e.target.value)
