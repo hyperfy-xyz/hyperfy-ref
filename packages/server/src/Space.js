@@ -93,6 +93,7 @@ export class Space {
       }
       if (entry.state) {
         const entity = this.entities.get(entityId)
+        if (!entity) return
         const state = entry.state
         entity.state = {
           ...entity.state,
@@ -102,6 +103,7 @@ export class Space {
       }
       if (entry.props) {
         const entity = this.entities.get(entityId)
+        if (!entity) return
         const props = entry.props
         if (props.mode) {
           entity.mode = props.mode
