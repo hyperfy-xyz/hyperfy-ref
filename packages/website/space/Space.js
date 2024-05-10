@@ -19,6 +19,7 @@ import { Graphics } from './Graphics'
 import { Panels } from './Panels'
 
 const FIXED_TIMESTEP = 1 / 60 // 60Hz
+const FIXED_TIME_MAX = FIXED_TIMESTEP * 20
 
 export class Space extends EventEmitter {
   constructor({ id, auth, viewport }) {
@@ -120,6 +121,9 @@ export class Space extends EventEmitter {
 
   fixedUpdate(delta) {
     this.fixedTime += delta
+    if (this.fixedTime > FIXED_TIME_MAX) {
+      this.fixedTime = FIXED_TIME_MAX // prevent huge build-up while tab is inactive
+    }
     while (this.fixedTime >= FIXED_TIMESTEP) {
       this.fixedTime -= FIXED_TIMESTEP
       // this.panels.fixedUpdate(FIXED_TIMESTEP)
