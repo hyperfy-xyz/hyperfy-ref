@@ -135,12 +135,13 @@ const RadialMenu = ({ innerRadius, outerRadius, actions, gapAngle }) => {
   const centerY = size / 2
 
   const buttons = useMemo(() => {
-    actions = actions.slice()
+    actions = actions.filter(a => a.visible)
     while (actions.length < 4) {
       actions.push({
         label: null,
         icon: null,
-        exec: null,
+        disabled: true,
+        onClick: null,
       })
     }
     const buttons = []
@@ -150,7 +151,8 @@ const RadialMenu = ({ innerRadius, outerRadius, actions, gapAngle }) => {
       const button = {}
       button.label = action.label
       button.icon = action.icon
-      button.onClick = action.exec
+      button.disabled = action.disabled
+      button.onClick = action.onClick
       button.startDegree = i * angleSize
       button.endDegree = button.startDegree + angleSize
       buttons.push(button)
@@ -182,6 +184,10 @@ const RadialMenu = ({ innerRadius, outerRadius, actions, gapAngle }) => {
           pointer-events: auto;
           transform-origin: 50%;
           transition: transform 0.1s ease-out;
+          color: white;
+          &.disabled {
+            color: #8f8f8f;
+          }
           &:hover:not(.disabled) {
             cursor: pointer;
             transform: scale(${hoverScale});
@@ -203,6 +209,7 @@ const RadialMenu = ({ innerRadius, outerRadius, actions, gapAngle }) => {
           gapAngle={gapAngle}
           label={button.label}
           icon={button.icon}
+          disabled={button.disabled}
           onClick={button.onClick}
         />
       ))}
@@ -221,6 +228,7 @@ const RadialButton = ({
   gapAngle,
   label,
   icon: Icon,
+  disabled,
   onClick,
 }) => {
   // shape
@@ -263,11 +271,13 @@ const RadialButton = ({
   const textSize = 14
   const gapSize = 8
 
+  const click = () => {
+    if (disabled) return
+    onClick()
+  }
+
   return (
-    <g
-      className={cls('radial-button', { disabled: !onClick })}
-      onClick={onClick}
-    >
+    <g className={cls('radial-button', { disabled })} onClick={click}>
       <path d={pathData} fill='rgba(0, 0, 0, 0.4)' />
       {Icon && (
         <Icon
@@ -276,14 +286,14 @@ const RadialButton = ({
           y={squareY - iconSize / 2 - textSize / 2 - gapSize / 2}
           width={iconSize}
           height={iconSize}
-          stroke='white'
+          stroke='currentColor'
         />
       )}
       {label && (
         <text
           x={squareX}
           y={squareY + iconSize / 2 + gapSize / 2}
-          fill='white'
+          fill='currentColor'
           textAnchor='middle'
           alignmentBaseline='central'
           fontSize={textSize}
@@ -318,14 +328,17 @@ function Panels({ space }) {
         left: 360px;
         width: 300px;
         height: 400px;
+        background: #16161c;
+        border: 1px solid rgba(255, 255, 255, 0.03);
         border-radius: 10px;
-        background: black;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         color: white;
         .panel-bar {
+          height: 40px;
+          padding: 0 10px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.03);
           display: flex;
           align-items: center;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-          padding: 2px;
         }
         .panel-bar-gap {
           flex: 1;
@@ -340,7 +353,7 @@ function Panels({ space }) {
       <div className='panel-bar'>
         <div className='panel-bar-gap' />
         <div className='panel-bar-close' onClick={panel.close}>
-          <XIcon size={14} />
+          <XIcon size={20} />
         </div>
       </div>
       {panel.type === 'inspect-prototype' && (
