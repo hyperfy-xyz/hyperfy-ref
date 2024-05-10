@@ -276,23 +276,11 @@ const AVATAR_SCRIPT = `
     const q3 = new Quaternion()
 
     return class Script {
-      init() {
-        
-        // this.box = entity.create({
-        //   type: 'box',
-        //   name: 'box',
-        //   position: [0, 4, 0],
-        //   // quaternion: new Quaternion().setFromEuler(new Euler(0, 0, DEG2RAD * 20)).toArray(),
-        //   size: [1.5, 1, 1.5],
-        //   physics: 'static',
-        //   visible: true,
-        // })
-        // entity.add(this.box)
-        
+      init() {        
         const authority = entity.isAuthority()
         if (authority) {
           this.jumpHeight = 1.5
-          this.turnSpeed = 5
+          this.turnSpeed = 3
           this.moveSpeed = 5
           this.displacement = new Vector3(0, 0, 0)
           this.gravity = 20 // 9.81
@@ -409,7 +397,7 @@ const AVATAR_SCRIPT = `
           } else {
             this.velocity.y -= this.gravity * delta
           }
-          if (control?.getJump() && this.isGrounded) {
+          if (control?.jump && this.isGrounded) {
             this.velocity.y = Math.sqrt(2 * this.gravity * this.jumpHeight)
           }
           this.displacement.y = this.velocity.y * delta

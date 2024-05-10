@@ -174,6 +174,9 @@ export class Control extends System {
       case 'Space':
         if (!meta) {
           this.keys.space = false
+          if (this.current) {
+            this.current.jump = false
+          }
         }
         break
     }
@@ -340,13 +343,6 @@ export class Control extends System {
       entityId: entity.id,
       move: new THREE.Vector3(),
       jump: false,
-      getJump() {
-        if (this.jump) {
-          this.jump = false
-          return true
-        }
-        return false
-      },
       look: {
         rotation: new THREE.Euler(0, 0, 0, 'YXZ'),
         quaternion: new THREE.Quaternion(),
