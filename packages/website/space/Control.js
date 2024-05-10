@@ -529,7 +529,6 @@ export class Control extends System {
             modeClientId: this.space.network.client.id,
             position: hit.point.toArray(),
             quaternion: [0, 0, 0, 1],
-            scale: [1, 1, 1],
             state: {},
             nodes: [
               {
@@ -688,7 +687,6 @@ export class Control extends System {
 //     modeClientId: null,
 //     position: [num(-100, 100, 2), 0, num(-100, 100, 2)],
 //     quaternion: [0, 0, 0, 1],
-//     scale: [1, 1, 1],
 //     state: {},
 //     nodes: [
 //       {
@@ -712,7 +710,6 @@ export class Control extends System {
 //     modeClientId: null,
 //     position: [num(-100, 100, 2), num(-100, 100, 2), num(-100, 100, 2)],
 //     quaternion: [0, 0, 0, 1],
-//     scale: [1, 1, 1],
 //     state: {},
 //     nodes: [
 //       {
@@ -754,7 +751,6 @@ export class Control extends System {
 //   modeClientId: null,
 //   position: hit.point.toArray(),
 //   quaternion: [0, 0, 0, 1],
-//   scale: [1, 1, 1],
 //   state: {},
 //   nodes: [
 //     {
@@ -794,7 +790,6 @@ export class Control extends System {
 //   modeClientId: null,
 //   position: hit.point.toArray(),
 //   quaternion: [0, 0, 0, 1],
-//   scale: [1, 1, 1],
 //   state: {},
 //   nodes: [
 //     {

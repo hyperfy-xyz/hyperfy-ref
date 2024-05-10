@@ -20,7 +20,6 @@ export class Entity {
       name: 'root',
       position: data.position,
       quaternion: data.quaternion,
-      scale: data.scale,
     })
     this.root.mounted = true
     this.root.project()

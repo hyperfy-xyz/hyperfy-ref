@@ -1,3 +1,5 @@
+import { extendThreePhysX } from '@/utils/extendThreePhysX'
+
 import { System } from './System'
 
 let version
@@ -32,6 +34,7 @@ export class Physics extends System {
     this.bindings = new Set()
     this.controllerManager = PHYSX.PxTopLevelFunctions.prototype.CreateControllerManager(this.scene) // prettier-ignore
     this.controllerFilters = new PHYSX.PxControllerFilters()
+    extendThreePhysX()
   }
 
   start() {

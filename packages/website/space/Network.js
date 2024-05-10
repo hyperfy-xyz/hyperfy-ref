@@ -1,6 +1,10 @@
+import * as THREE from 'three'
+
+import { num } from '@/utils/num'
+import { DEG2RAD } from '@/utils/general'
+
 import { System } from './System'
 import { SockClient } from './SockClient'
-import { num } from '@/utils/num'
 
 const SEND_RATE = 1 / 5 // 5Hz (5 times per second)
 
@@ -92,7 +96,6 @@ export class Network extends System {
     //   active: true,
     //   position: [0, 1, 0],
     //   quaternion: [0, 0, 0, 1],
-    //   scale: [1, 1, 1],
     //   state: {
     //     position: [num(-1, 1, 2), 2, 0],
     //     quaternion: [0, 0, 0, 1],
@@ -112,15 +115,11 @@ export class Network extends System {
       authority: client.id,
       mode: 'active',
       modeClientId: null,
-      // position: [0, 1, 0],
-      // quaternion: [0, 0, 0, 1],
       position: [num(-1, 1, 2), 1, 0],
-      quaternion: [0, 0, 0, 1],
-      scale: [1, 1, 1],
-      state: {
-        // position: [num(-1, 1, 2), 2, 0],
-        // quaternion: [0, 0, 0, 1],
-      },
+      quaternion: new THREE.Quaternion()
+        .setFromEuler(new THREE.Euler(0, 0 * DEG2RAD, 0, 'YXZ'))
+        .toArray(),
+      state: {},
       nodes: [
         {
           type: 'script',
@@ -340,6 +339,18 @@ const AVATAR_SCRIPT = `
       start() {
         if (entity.isAuthority()) {
           entity.requestControl()
+          const control = entity.getControl()
+          if (control) {
+            // we can spawn facing any direction, so we need to
+            // - rotate the ctrl back to zero (its always on zero)
+            // - rotate the vrm by this amount instead
+            // - apply the rotation to the camera
+            this.vrm.rotation.y = this.ctrl.rotation.y
+            this.ctrl.rotation.y = 0
+            control.camera.rotation.y = this.vrm.rotation.y
+            this.vrm.dirty()
+            this.ctrl.dirty()
+          }
         } else {
           const state = entity.getState()
           if (is(state.px)) this.base.position.x = state.px

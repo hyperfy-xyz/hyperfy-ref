@@ -5,7 +5,6 @@ import Stats from 'stats-gl'
 import { num } from '@/utils/num'
 
 import { DEG2RAD, RAD2DEG } from '@/utils/general'
-import { extendThreePhysX } from '@/utils/extendThreePhysX'
 import { Vector3Lerp } from '@/utils/Vector3Lerp'
 import { QuaternionLerp } from '@/utils/QuaternionLerp'
 
@@ -79,7 +78,6 @@ export class Space extends EventEmitter {
     await this.loader.init()
     await this.network.init()
     await this.physics.init()
-    extendThreePhysX()
     await this.entities.init()
     await this.graphics.init()
     this.start()
