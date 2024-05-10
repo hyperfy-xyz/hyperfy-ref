@@ -49,13 +49,15 @@ export class Panels extends System {
       type: 'edit',
       entity,
       close: () => {
-        entity.mode = 'active'
-        entity.modeClientId = null
-        entity.checkMode()
-        const delta = this.space.network.getEntityDelta(entity.id)
-        if (!delta.props) delta.props = {}
-        delta.props.mode = 'active'
-        delta.props.modeClientId = null
+        if (!entity.destroyed) {
+          entity.mode = 'active'
+          entity.modeClientId = null
+          entity.checkMode()
+          const delta = this.space.network.getEntityDelta(entity.id)
+          if (!delta.props) delta.props = {}
+          delta.props.mode = 'active'
+          delta.props.modeClientId = null
+        }
         this.panel = null
         this.emit()
       },

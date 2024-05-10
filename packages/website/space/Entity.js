@@ -315,5 +315,6 @@ export class Entity {
         node.unmount()
       }
     })
+    this.destroyed = true
   }
 }
