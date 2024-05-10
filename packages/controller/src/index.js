@@ -1,3 +1,4 @@
+import './sourceMapSupport'
 import 'dotenv-flow/config'
 import http from 'http'
 import express from 'express'
