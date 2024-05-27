@@ -5,6 +5,7 @@ import {
   ArrowRightLeftIcon,
   AxeIcon,
   BanIcon,
+  BombIcon,
   CopyIcon,
   EyeIcon,
   GiftIcon,
@@ -650,6 +651,27 @@ export class Control extends System {
           })
         },
       })
+      // add({
+      //   label: 'Bomb',
+      //   icon: BombIcon,
+      //   visible: true,
+      //   disabled: false,
+      //   execute: () => {
+      //     for (let i = 0; i < 1000; i++) {
+      //       this.space.entities.addInstanceLocal({
+      //         id: this.space.network.makeId(),
+      //         schemaId: entity.schema.id,
+      //         creator: this.space.network.client.user.id, // ???
+      //         authority: this.space.network.client.id,
+      //         mode: 'active',
+      //         modeClientId: null,
+      //         position: [num(-10, 10, 2), num(-10, 10, 2), num(-10, 10, 2)],
+      //         quaternion: [0, 0, 0, 1],
+      //         state: entity.state,
+      //       })
+      //     }
+      //   },
+      // })
       add({
         label: 'Destroy',
         icon: Trash2Icon,

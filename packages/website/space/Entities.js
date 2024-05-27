@@ -336,11 +336,9 @@ const AVATAR_SCRIPT = `
           // Hide VRM in first person
           // console.log(this.vrm.getParent())
           if (control && !control.look.zoom && this.vrm.getParent()) {
-            console.log('hide')
             this.ctrl.remove(this.vrm)
           }
           if (control && control.look.zoom && !this.vrm.getParent()) {
-            console.log('show')
             this.ctrl.add(this.vrm)
           }
           this.ctrl.dirty()
