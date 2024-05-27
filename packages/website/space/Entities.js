@@ -88,6 +88,14 @@ export class Entities extends System {
     })
   }
 
+  countInstancesBySchema(id) {
+    let n = 0
+    this.instances.forEach(entity => {
+      if (entity.schema.id === id) n++
+    })
+    return n
+  }
+
   incActive(entity) {
     if (!entity._activeCount) {
       entity._activeCount = 0

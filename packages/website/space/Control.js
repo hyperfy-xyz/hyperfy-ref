@@ -9,6 +9,7 @@ import {
   EyeIcon,
   GiftIcon,
   HandIcon,
+  LinkIcon,
   MicIcon,
   MicOffIcon,
   PencilRulerIcon,
@@ -16,9 +17,11 @@ import {
   ShieldPlusIcon,
   SmileIcon,
   Trash2Icon,
+  UnlinkIcon,
   UserIcon,
 } from 'lucide-react'
 import { num } from '@/utils/num'
+import { cloneDeep } from 'lodash-es'
 
 const PI_2 = Math.PI / 2
 const LOOK_SPEED = 0.005
@@ -602,6 +605,33 @@ export class Control extends System {
           })
         },
       })
+      if (this.space.entities.countInstancesBySchema(entity.schema.id) > 1) {
+        add({
+          label: 'Unlink',
+          icon: UnlinkIcon,
+          visible: this.space.permissions.canEditEntity(entity), // ???
+          disabled: false,
+          execute: () => {
+            // duplicate schema
+            const schema = cloneDeep(entity.schema)
+            schema.id = this.space.network.makeId()
+            this.space.entities.upsertSchemaLocal(schema)
+            // replace current instance with new one
+            this.space.entities.addInstanceLocal({
+              id: this.space.network.makeId(),
+              schemaId: schema.id,
+              creator: this.space.network.client.user.id, // ???
+              authority: this.space.network.client.id,
+              mode: 'active',
+              modeClientId: null,
+              position: entity.root.position.toArray(),
+              quaternion: entity.root.quaternion.toArray(),
+              state: entity.state,
+            })
+            this.space.entities.removeInstanceLocal(entity.id)
+          },
+        })
+      }
       add({
         label: 'Duplicate',
         icon: CopyIcon,
