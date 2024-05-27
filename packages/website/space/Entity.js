@@ -145,7 +145,6 @@ export class Entity {
       for (const node of this.scripts) {
         try {
           node.start()
-          console.log('START SCRIPT', node)
         } catch (err) {
           console.error('entity start failed', this)
           console.error(err)

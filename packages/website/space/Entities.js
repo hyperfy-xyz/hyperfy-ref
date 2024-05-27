@@ -34,12 +34,11 @@ export class Entities extends System {
     } else {
       this.schemas.set(schema.id, schema)
     }
-    console.log('upsertSchema', existing)
     if (existing) {
       this.instances.forEach(entity => {
         if (entity.schema.id === schema.id) {
-          console.log('RESPAWN', schema)
-          entity.checkMode(true) // force respawn
+          // force respawn
+          entity.checkMode(true)
         }
       })
     }

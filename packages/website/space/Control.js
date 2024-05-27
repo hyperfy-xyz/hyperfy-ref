@@ -426,7 +426,6 @@ export class Control extends System {
         },
       })
     }
-    console.log(hit)
     const hitVoid = !hit
     const hitSpace = hit && !entity
     const hitSelf = entity === this.space.network.avatar
