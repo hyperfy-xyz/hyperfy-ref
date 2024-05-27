@@ -382,7 +382,7 @@ function EditPanel({ panel }) {
   return (
     <div>
       <div>Edit</div>
-      {entity.initialNodes.map(node => (
+      {entity.schema.nodes.map(node => (
         <div key={node.name} onClick={() => setNode(node)}>
           {node.name}
         </div>

@@ -73,10 +73,11 @@ export class Control extends System {
         this.moving.entity.root.dirty()
         this.moving.lastSend += delta
         if (this.moving.lastSend >= MOVING_SEND_RATE) {
-          const delta = this.space.network.getEntityDelta(this.moving.entity.id)
-          if (!delta.props) delta.props = {}
-          delta.props.position = this.moving.entity.root.position.toArray()
-          delta.props.quaternion = this.moving.entity.root.quaternion.toArray()
+          this.space.network.pushEntityUpdate(this.moving.entity.id, update => {
+            if (!update.props) update.props = {}
+            update.props.position = this.moving.entity.root.position.toArray()
+            update.props.quaternion = this.moving.entity.root.quaternion.toArray() // prettier-ignore
+          })
           this.moving.lastSend = 0
         }
       }
@@ -188,12 +189,13 @@ export class Control extends System {
       this.moving.entity.mode = 'active'
       this.moving.entity.modeClientId = null
       this.moving.entity.checkMode()
-      const delta = this.space.network.getEntityDelta(this.moving.entity.id)
-      if (!delta.props) delta.props = {}
-      delta.props.mode = 'active'
-      delta.props.modeClientId = null
-      delta.props.position = this.moving.entity.root.position.toArray()
-      delta.props.quaternion = this.moving.entity.root.quaternion.toArray()
+      this.space.network.pushEntityUpdate(this.moving.entity.id, update => {
+        if (!update.props) update.props = {}
+        update.props.mode = 'active'
+        update.props.modeClientId = null
+        update.props.position = this.moving.entity.root.position.toArray()
+        update.props.quaternion = this.moving.entity.root.quaternion.toArray()
+      })
       this.moving = null
       return
     }
@@ -425,9 +427,9 @@ export class Control extends System {
     const hitVoid = !hit
     const hitSpace = hit && !entity
     const hitSelf = entity === this.space.network.avatar
-    const hitAvatar = !hitSelf && entity?.type === 'avatar'
-    const hitPrototype = entity?.type === 'prototype'
-    const hitItem = entity?.type === 'item'
+    const hitAvatar = !hitSelf && entity?.schema.type === 'avatar'
+    const hitPrototype = entity?.schema.type === 'prototype'
+    const hitItem = entity?.schema.type === 'item'
     if (hitSelf) {
       add({
         label: 'Profile',
@@ -520,16 +522,9 @@ export class Control extends System {
         visible: this.space.permissions.canCreatePrototype(),
         disabled: false,
         execute: () => {
-          this.space.entities.addLocal({
+          const schema = {
             id: this.space.network.makeId(),
             type: 'prototype',
-            creator: this.space.network.client.user.id,
-            authority: this.space.network.client.id,
-            mode: 'editing',
-            modeClientId: this.space.network.client.id,
-            position: hit.point.toArray(),
-            quaternion: [0, 0, 0, 1],
-            state: {},
             nodes: [
               {
                 type: 'box',
@@ -557,6 +552,18 @@ export class Control extends System {
                 `,
               },
             ],
+          }
+          this.space.entities.upsertSchemaLocal(schema)
+          this.space.entities.addInstanceLocal({
+            id: this.space.network.makeId(),
+            schemaId: schema.id,
+            creator: this.space.network.client.user.id,
+            authority: this.space.network.client.id,
+            mode: 'editing',
+            modeClientId: this.space.network.client.id,
+            position: hit.point.toArray(),
+            quaternion: [0, 0, 0, 1],
+            state: {},
           })
         },
       })
@@ -601,9 +608,16 @@ export class Control extends System {
         visible: this.space.permissions.canEditEntity(entity),
         disabled: false,
         execute: () => {
-          this.space.network.server.send('entity-mode-request', {
-            entityId: entity.id,
-            mode: 'editing',
+          this.space.entities.addInstanceLocal({
+            id: this.space.network.makeId(),
+            schemaId: entity.schema.id,
+            creator: this.space.network.client.user.id, // ???
+            authority: this.space.network.client.id,
+            mode: 'moving',
+            modeClientId: this.space.network.client.id,
+            position: entity.root.position.toArray(),
+            quaternion: entity.root.quaternion.toArray(),
+            state: {},
           })
         },
       })
@@ -613,7 +627,7 @@ export class Control extends System {
         visible: this.space.permissions.canDestroyEntity(entity),
         disabled: false,
         execute: () => {
-          this.space.entities.removeLocal(entity.id)
+          this.space.entities.removeInstanceLocal(entity.id)
         },
       })
       // add({
@@ -622,7 +636,7 @@ export class Control extends System {
       //   visible: true,
       //   disabled: false,
       //   execute: () => {
-      //     // this.space.entities.removeLocal(entity.id)
+      //     // this.space.entities.removeInstanceLocal(entity.id)
       //   },
       // })
     }
@@ -678,7 +692,7 @@ export class Control extends System {
 
 // LOTSA STATIC CUBES
 // for (let i = 0; i < 1000; i++) {
-//   this.space.entities.addLocal({
+//   this.space.entities.addInstanceLocal({
 //     id: this.space.network.makeId(),
 //     type: 'prototype',
 //     creator: this.space.network.client.user.id,
@@ -701,7 +715,7 @@ export class Control extends System {
 // LOTSA CUBES
 // console.time('lotsa')
 // for (let i = 0; i < 1000; i++) {
-//   this.space.entities.addLocal({
+//   this.space.entities.addInstanceLocal({
 //     id: this.space.network.makeId(),
 //     type: 'prototype',
 //     creator: this.space.network.client.user.id,
@@ -742,7 +756,7 @@ export class Control extends System {
 // }
 // console.timeEnd('lotsa')
 // SPINNING CUBES
-// this.space.entities.addLocal({
+// this.space.entities.addInstanceLocal({
 //   id: this.space.network.makeId(),
 //   type: 'prototype',
 //   creator: this.space.network.client.user.id,
@@ -781,7 +795,7 @@ export class Control extends System {
 //   ],
 // })
 // PHYSICS CUBES
-// this.space.entities.addLocal({
+// this.space.entities.addInstanceLocal({
 //   id: this.space.network.makeId(),
 //   type: 'prototype',
 //   creator: this.space.network.client.user.id,

@@ -69,6 +69,7 @@ export class Space extends EventEmitter {
     this.fixedTime = 0
     this.frame = 0
     this.init()
+    window.space = this
   }
 
   async init() {

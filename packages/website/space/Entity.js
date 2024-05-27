@@ -9,7 +9,7 @@ export class Entity {
   constructor(space, data) {
     this.space = space
     this.id = data.id
-    this.type = data.type
+    this.schema = this.space.entities.getSchema(data.schemaId)
     this.creator = data.creator
     this.authority = data.authority
     this.mode = data.mode
@@ -28,21 +28,21 @@ export class Entity {
       set: (target, key, value) => {
         if (target[key] !== value) {
           target[key] = value
-          const delta = space.network.getEntityDelta(this.id)
-          if (!delta.state) {
-            delta.state = {}
-          }
-          delta.state = {
-            ...delta.state,
-            [key]: value,
-          }
+          space.network.pushEntityUpdate(this.id, update => {
+            if (!update.state) {
+              update.state = {}
+            }
+            update.state = {
+              ...update.state,
+              [key]: value,
+            }
+          })
         }
         return true
       },
     })
     this.stateChanges = null
     this.scripts = []
-    this.initialNodes = data.nodes
     this.positionLerp = new Vector3Lerp(this.root.position, MOVING_SEND_RATE)
     this.quaternionLerp = new QuaternionLerp(this.root.quaternion, MOVING_SEND_RATE) // prettier-ignore
     this.checkMode()
@@ -90,16 +90,16 @@ export class Entity {
         },
       ])
     } else {
-      this.buildNodes(this.root, this.initialNodes)
+      this.buildNodes(this.root, this.schema.nodes)
     }
   }
 
-  checkMode() {
+  checkMode(forceRespawn) {
     const prevMode = this.prevMode
     const prevModeClientId = this.prevModeClientId
     const mode = this.mode
     const modeClientId = this.modeClientId
-    if (prevMode === mode) return
+    if (prevMode === mode && !forceRespawn) return
     // cleanup previous
     if (prevMode === 'active') {
       if (this.scripts.length) {
@@ -145,6 +145,7 @@ export class Entity {
       for (const node of this.scripts) {
         try {
           node.start()
+          console.log('START SCRIPT', node)
         } catch (err) {
           console.error('entity start failed', this)
           console.error(err)

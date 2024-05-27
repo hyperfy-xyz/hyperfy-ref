@@ -8,7 +8,7 @@ export class Panels extends System {
   }
 
   inspect(entity) {
-    if (entity.type === 'prototype') {
+    if (entity.schema.type === 'prototype') {
       this.panel = {
         type: 'inspect-prototype',
         entity,
@@ -18,7 +18,7 @@ export class Panels extends System {
         },
       }
     }
-    if (entity.type === 'avatar') {
+    if (entity.schema.type === 'avatar') {
       const user = this.space.network.findUser(entity.creator)
       const me = this.space.network.client.user
       if (user.id === me.id) {
@@ -52,11 +52,12 @@ export class Panels extends System {
         if (!entity.destroyed) {
           entity.mode = 'active'
           entity.modeClientId = null
-          entity.checkMode()
-          const delta = this.space.network.getEntityDelta(entity.id)
-          if (!delta.props) delta.props = {}
-          delta.props.mode = 'active'
-          delta.props.modeClientId = null
+          this.space.network.pushEntityUpdate(entity.id, update => {
+            if (!update.props) update.props = {}
+            update.props.mode = 'active'
+            update.props.modeClientId = null
+          })
+          this.space.entities.upsertSchemaLocal(entity.schema) // this causes a respawn for all instances
         }
         this.panel = null
         this.emit()

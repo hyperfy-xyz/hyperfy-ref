@@ -9,7 +9,8 @@ export class Space {
     this.onDestroy = onDestroy
     this.meta = null
     this.permissions = null
-    this.entities = new Map()
+    this.schemas = new Map()
+    this.instances = new Map()
     this.clients = new Map()
     this.checkInterval = setInterval(() => this.checkConnections(), 10000)
     this.ready = new Promise(async resolve => {
@@ -30,7 +31,7 @@ export class Space {
 
       const entities = await api.get(`/entities?spaceId=${this.id}`)
       for (const entity of entities) {
-        this.entities.set(entity.id, entity)
+        this.instances.set(entity.id, entity)
       }
     } catch (err) {
       console.error(err)
@@ -58,17 +59,19 @@ export class Space {
     this.clients.forEach(client => {
       clients.push(client.serialize())
     })
-    const entities = Array.from(this.entities.values())
+    const schemas = Array.from(this.schemas.values())
+    const instances = Array.from(this.instances.values())
     const init = {
       clientId: client.id,
       meta: this.meta,
       permissions: this.permissions,
       clients,
-      entities,
+      schemas,
+      instances,
     }
     client.sock.send('init', init)
-    client.sock.on('update-client', this.onUpdateClient)
-    client.sock.on('update-entities', this.onUpdateEntities)
+    client.sock.on('update-client', this.onUpdateClient) // todo: move to 'update' event
+    client.sock.on('packet', this.onPacket)
     client.sock.on('entity-mode-request', this.onEntityModeRequest)
     this.broadcast('add-client', client.serialize(), client)
     client.active = true
@@ -78,33 +81,40 @@ export class Space {
     sock.client.deserialize(data)
   }
 
-  onUpdateEntities = (sock, delta) => {
+  onPacket = (sock, data) => {
     const client = sock.client
-    for (const entityId in delta) {
-      const entry = delta[entityId]
-      if (entry.remove) {
-        this.entities.delete(entityId)
+    for (const schemaId in data.schemas) {
+      const schema = data.schemas[schemaId]
+      this.schemas.set(schema.id, schema)
+      this.broadcast('upsert-schema', schema, client)
+      // TODO: remove schemas when not needed so they don't build up
+      // initial state sent to new clients?
+    }
+    for (const entityId in data.entities) {
+      const update = data.entities[entityId]
+      if (update.remove) {
+        this.instances.delete(entityId)
         this.broadcast('remove-entity', entityId, client)
         return
       }
-      if (entry.add) {
-        this.entities.set(entityId, entry.add)
-        this.broadcast('add-entity', entry.add, client)
+      if (update.add) {
+        this.instances.set(entityId, update.add)
+        this.broadcast('add-entity', update.add, client)
       }
-      if (entry.state) {
-        const entity = this.entities.get(entityId)
+      if (update.state) {
+        const entity = this.instances.get(entityId)
         if (!entity) return
-        const state = entry.state
+        const state = update.state
         entity.state = {
           ...entity.state,
           ...state,
         }
         this.broadcast('update-entity', { id: entityId, state }, client)
       }
-      if (entry.props) {
-        const entity = this.entities.get(entityId)
+      if (update.props) {
+        const entity = this.instances.get(entityId)
         if (!entity) return
-        const props = entry.props
+        const props = update.props
         if (props.mode) {
           entity.mode = props.mode
         }
@@ -123,7 +133,7 @@ export class Space {
   }
 
   onEntityModeRequest = async (sock, { entityId, mode }) => {
-    const entity = this.entities.get(entityId)
+    const entity = this.instances.get(entityId)
     if (entity.mode !== 'active') return
     if (mode === 'moving' && !sock.client.canMoveEntity(entity)) {
       return
@@ -150,17 +160,17 @@ export class Space {
     this.clients.delete(client.id)
     // remove clients avatar
     const toRemove = []
-    this.entities.forEach(entity => {
-      if (entity.type === 'avatar' && entity.authority === client.id) {
+    this.instances.forEach(entity => {
+      if (entity.schemaId === '$avatar' && entity.authority === client.id) {
         toRemove.push(entity)
       }
     })
     for (const entity of toRemove) {
-      this.entities.delete(entity.id)
+      this.instances.delete(entity.id)
       this.broadcast('remove-entity', entity.id)
     }
     // if they were editing/moving an entity, reactivate it
-    this.entities.forEach(entity => {
+    this.instances.forEach(entity => {
       if (entity.modeClientId === client.id) {
         entity.mode = 'active'
         entity.modeClientId = null
@@ -239,7 +249,8 @@ class Client {
     const userId = this.user.id
     const spacePerms = this.space.permissions
     const userPerms = this.permissions
-    if (entity.type === 'prototype') {
+    const schema = this.space.schemas.get(entity.schemaId)
+    if (schema.type === 'prototype') {
       // if you created it you can move it if you still have the create permission
       if (entity.creator === userId) {
         return spacePerms.prototypeCreate || userPerms.prototypeCreate
@@ -247,7 +258,7 @@ class Client {
       // otherwise you can only move if you have move permission
       return spacePerms.prototypeMove || userPerms.prototypeMove
     }
-    if (entity.type === 'item') {
+    if (schema.type === 'item') {
       return spacePerms.itemMove || userPerms.itemMove
     }
     return false
@@ -257,7 +268,8 @@ class Client {
     const userId = this.user.id
     const spacePerms = this.space.permissions
     const userPerms = this.permissions
-    if (entity.type === 'prototype') {
+    const schema = this.space.schemas.get(entity.schemaId)
+    if (schema.type === 'prototype') {
       // if you created it you can edit it if you still have the create permission
       if (entity.creator === userId) {
         return spacePerms.prototypeCreate || userPerms.prototypeCreate
@@ -272,7 +284,8 @@ class Client {
     const userId = this.user.id
     const spacePerms = this.space.permissions
     const userPerms = this.permissions
-    if (entity.type === 'prototype') {
+    const schema = this.space.schemas.get(entity.schemaId)
+    if (schema.type === 'prototype') {
       // if you created it you can destroy it if you still have the create permission
       if (entity.creator === userId) {
         return spacePerms.prototypeCreate || userPerms.prototypeCreate

@@ -16,7 +16,7 @@ export class Permissions extends System {
     const userId = client.user.id
     const spacePerms = this.space.network.permissions
     const userPerms = this.space.network.client.permissions
-    if (entity.type === 'prototype') {
+    if (entity.schema.type === 'prototype') {
       // if you created it you can move it if you still have the create permission
       if (entity.creator === userId) {
         return spacePerms.prototypeCreate || userPerms.prototypeCreate
@@ -24,7 +24,7 @@ export class Permissions extends System {
       // otherwise you can only move if you have move permission
       return spacePerms.prototypeMove || userPerms.prototypeMove
     }
-    if (entity.type === 'item') {
+    if (entity.schema.type === 'item') {
       return spacePerms.itemMove || userPerms.itemMove
     }
     return false
@@ -35,7 +35,7 @@ export class Permissions extends System {
     const userId = client.user.id
     const spacePerms = this.space.network.permissions
     const userPerms = this.space.network.client.permissions
-    if (entity.type === 'prototype') {
+    if (entity.schema.type === 'prototype') {
       // if you created it you can edit it if you still have the create permission
       if (entity.creator === userId) {
         return spacePerms.prototypeCreate || userPerms.prototypeCreate
@@ -51,7 +51,7 @@ export class Permissions extends System {
     const userId = client.user.id
     const spacePerms = this.space.network.permissions
     const userPerms = this.space.network.client.permissions
-    if (entity.type === 'prototype') {
+    if (entity.schema.type === 'prototype') {
       // if you created it you can destroy it if you still have the create permission
       if (entity.creator === userId) {
         return spacePerms.prototypeCreate || userPerms.prototypeCreate
