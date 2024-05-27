@@ -100,7 +100,7 @@ const loadScript = url => {
 
 const loadPhysX = async () => {
   if (!globalThis.PHYSX) {
-    await loadScript('/assets/physx-js-webidl.js')
+    await loadScript('/static/physx-js-webidl.js')
     globalThis.PHYSX = await globalThis.PhysX()
     version = PHYSX.PHYSICS_VERSION
     allocator = new PHYSX.PxDefaultAllocator()

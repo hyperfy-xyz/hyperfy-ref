@@ -13,7 +13,7 @@ export default function RootLayout({ children }) {
         <meta name='viewport' content='width=device-width, initial-scale=1' />
         <link
           rel='preload'
-          href='/assets/rubik.woff2'
+          href='/static/rubik.woff2'
           as='font'
           type='font/woff2'
           crossOrigin='anonymous'

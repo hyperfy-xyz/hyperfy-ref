@@ -1,8 +1,8 @@
 import { css } from 'firebolt'
 import snap from '@firebolt-dev/snap'
 
-import bg from '@/routes/assets/og-bg.png'
-import rubik from '@/routes/assets/rubik.woff2'
+import bg from '@/routes/static/og-bg.png'
+import rubik from '@/routes/static/rubik.woff2'
 
 export async function get(ctx) {
   const { title } = ctx.params
