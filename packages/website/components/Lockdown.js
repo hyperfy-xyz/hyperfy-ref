@@ -9,6 +9,20 @@ export function Lockdown() {
       errorTaming: 'unsafe',
       errorTrapping: 'none',
       unhandledRejectionTrapping: 'none',
+
+      //
+      // regExpTaming: 'unsafe',
+      // localeTaming: 'unsafe',
+      // consoleTaming: 'unsafe',
+      // evalTaming: 'unsafeEval',
+      // // stackFiltering: ''
+      // overrideTaming: 'min',
+      // domainTaming: 'unsafe',
+
+      // this is needed for monaco to work correctly.
+      // specifically the theming seems to be broken.
+      // this shouldn't be an issue as we are not using harden()
+      __hardenTaming__: 'unsafe',
     })
   }, [])
 }

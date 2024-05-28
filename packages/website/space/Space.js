@@ -28,10 +28,10 @@ export class Space extends EventEmitter {
     this.viewport = viewport
     this.compartment = new Compartment({
       console: {
-        log: harden(console.log),
-        error: harden(console.error),
-        time: harden(console.time),
-        timeEnd: harden(console.timeEnd),
+        log: (...args) => console.log(...args),
+        error: (...args) => console.error(...args),
+        time: (...args) => console.time(...args),
+        timeEnd: (...args) => console.timeEnd(...args),
       },
       eval: undefined,
       harden: undefined,

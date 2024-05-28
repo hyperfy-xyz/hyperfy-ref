@@ -7,6 +7,7 @@ import { useForceUpdate } from '@/components/useForceUpdate'
 
 import { Space } from '@/space/Space'
 import { XIcon } from 'lucide-react'
+import { CodeEditor } from '@/components/CodeEditor'
 
 export default function Page() {
   const { auth } = useAuth()
@@ -388,22 +389,8 @@ function EditPanel({ panel }) {
         </div>
       ))}
       {node?.type === 'script' && (
-        <Code value={node.code} onChange={code => (node.code = code)} />
+        <CodeEditor value={node.code} onChange={code => (node.code = code)} />
       )}
     </div>
-  )
-}
-
-function Code({ value, onChange }) {
-  const [current, setCurrent] = useState(value)
-  return (
-    <textarea
-      css={css``}
-      value={current}
-      onChange={e => {
-        setCurrent(e.target.value)
-        onChange(e.target.value)
-      }}
-    />
   )
 }
