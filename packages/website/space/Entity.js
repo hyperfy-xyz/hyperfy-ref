@@ -176,6 +176,12 @@ export class Entity {
       }
       this.space.entities.incActive(this)
     }
+    if (this.mode === 'dead') {
+      // move root children to world space
+      while (this.root.children.length) {
+        this.root.detach(this.root.children[0])
+      }
+    }
     this.prevMode = this.mode
     this.prevModeClientId = this.modeClientId
   }
@@ -189,7 +195,7 @@ export class Entity {
       try {
         this.emit('update', delta)
       } catch (err) {
-        console.error('entity update failed', this)
+        // console.error('entity update failed', this)
         console.error(err)
         this.kill()
       }

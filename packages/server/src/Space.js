@@ -177,8 +177,8 @@ export class Space {
         this.broadcast('update-entity', {
           id: entity.id,
           props: {
-            mode: 'active',
-            modeClientId: null,
+            mode: entity.mode,
+            modeClientId: entity.modeClientId,
           },
         })
       }

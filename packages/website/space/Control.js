@@ -197,8 +197,8 @@ export class Control extends System {
       this.moving.entity.checkMode()
       this.space.network.pushEntityUpdate(this.moving.entity.id, update => {
         if (!update.props) update.props = {}
-        update.props.mode = 'active'
-        update.props.modeClientId = null
+        update.props.mode = this.moving.entity.mode
+        update.props.modeClientId = this.moving.entity.modeClientId
         update.props.position = this.moving.entity.root.position.toArray()
         update.props.quaternion = this.moving.entity.root.quaternion.toArray()
       })
@@ -586,7 +586,7 @@ object.on('update', delta => {
         label: 'Move',
         icon: HandIcon,
         visible: this.space.permissions.canMoveEntity(entity),
-        disabled: entity.mode !== 'active',
+        disabled: entity.mode !== 'active' && entity.mode !== 'dead',
         execute: () => {
           this.space.network.server.send('entity-mode-request', {
             entityId: entity.id,
@@ -598,7 +598,7 @@ object.on('update', delta => {
         label: 'Edit',
         icon: PencilRulerIcon,
         visible: this.space.permissions.canEditEntity(entity),
-        disabled: entity.mode !== 'active',
+        disabled: entity.mode !== 'active' && entity.mode !== 'dead',
         execute: () => {
           this.space.network.server.send('entity-mode-request', {
             entityId: entity.id,
