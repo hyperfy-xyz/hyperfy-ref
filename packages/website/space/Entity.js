@@ -43,6 +43,7 @@ export class Entity {
     })
     this.stateChanges = null
     this.scripts = []
+    this.bindings = {}
     this.positionLerp = new Vector3Lerp(this.root.position, MOVING_SEND_RATE)
     this.quaternionLerp = new QuaternionLerp(this.root.quaternion, MOVING_SEND_RATE) // prettier-ignore
     this.checkMode()
@@ -79,6 +80,7 @@ export class Entity {
     })
     this.nodes.clear()
     this.scripts = []
+    this.bindings = {}
     // build
     if (this.mode === 'dead') {
       this.buildNodes(this.root, [
@@ -127,28 +129,42 @@ export class Entity {
           this.scripts.push(node)
         }
       })
-      // initialise scripts
+      // instantiate scripts
       for (const node of this.scripts) {
         try {
-          node.init()
+          node.instantiate()
         } catch (err) {
-          console.error('entity init failed', this)
+          console.error('entity instantiate failed', this)
           console.error(err)
           this.kill()
+        }
+      }
+      // call script 'setup' bindings (pre-world-space)
+      if (this.bindings.setup) {
+        for (const callback of this.bindings.setup) {
+          try {
+            callback()
+          } catch (err) {
+            console.error('entity setup failed', this)
+            console.error(err)
+            this.kill()
+          }
         }
       }
       // move root children to world space
       while (this.root.children.length) {
         this.root.detach(this.root.children[0])
       }
-      // start scripts
-      for (const node of this.scripts) {
-        try {
-          node.start()
-        } catch (err) {
-          console.error('entity start failed', this)
-          console.error(err)
-          this.kill()
+      // call script 'start' bindings (world-space)
+      if (this.bindings.start) {
+        for (const callback of this.bindings.start) {
+          try {
+            callback()
+          } catch (err) {
+            console.error('entity start failed', this)
+            console.error(err)
+            this.kill()
+          }
         }
       }
       // register for script update/fixedUpdate etc
@@ -178,13 +194,15 @@ export class Entity {
     // - its being moved
     // also applies to fixed/late update
     if (this.mode === 'active') {
-      for (const node of this.scripts) {
-        try {
-          node.script.update?.(delta)
-        } catch (err) {
-          console.error('entiy update failed', this)
-          console.error(err)
-          this.kill()
+      if (this.bindings.update) {
+        for (const callback of this.bindings.update) {
+          try {
+            callback(delta)
+          } catch (err) {
+            console.error('entity update failed', this)
+            console.error(err)
+            this.kill()
+          }
         }
       }
     }
@@ -202,13 +220,15 @@ export class Entity {
 
   fixedUpdate(delta) {
     if (this.mode === 'active') {
-      for (const node of this.scripts) {
-        try {
-          node.script.fixedUpdate?.(delta)
-        } catch (err) {
-          console.error('entiy fixedUpdate failed', this)
-          console.error(err)
-          this.kill()
+      if (this.bindings.fixedUpdate) {
+        for (const callback of this.bindings.fixedUpdate) {
+          try {
+            callback(delta)
+          } catch (err) {
+            console.error('entity fixedUpdate failed', this)
+            console.error(err)
+            this.kill()
+          }
         }
       }
     }
@@ -216,13 +236,15 @@ export class Entity {
 
   lateUpdate(delta) {
     if (this.mode === 'active') {
-      for (const node of this.scripts) {
-        try {
-          node.script.lateUpdate?.(delta)
-        } catch (err) {
-          console.error('entiy lateUpdate failed', this)
-          console.error(err)
-          this.kill()
+      if (this.bindings.lateUpdate) {
+        for (const callback of this.bindings.lateUpdate) {
+          try {
+            callback(delta)
+          } catch (err) {
+            console.error('entity lateUpdate failed', this)
+            console.error(err)
+            this.kill()
+          }
         }
       }
     }
@@ -239,7 +261,16 @@ export class Entity {
       const entity = this
       const space = this.space
       const proxy = {
-        find(name) {
+        on(event, callback) {
+          if (!entity.bindings[event]) {
+            entity.bindings[event] = new Set()
+          }
+          entity.bindings[event].add(callback)
+        },
+        off(event, callback) {
+          entity.bindings[event]?.delete(callback)
+        },
+        get(name) {
           const node = entity.nodes.get(name)
           if (!node) return null
           return node.getProxy()

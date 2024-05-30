@@ -8,6 +8,7 @@ import { useForceUpdate } from '@/components/useForceUpdate'
 import { Space } from '@/space/Space'
 import { XIcon } from 'lucide-react'
 import { CodeEditor } from '@/components/CodeEditor'
+import { wrapRawCode } from '@/utils/wrapRawCode'
 
 export default function Page() {
   const { auth } = useAuth()
@@ -389,7 +390,13 @@ function EditPanel({ panel }) {
         </div>
       ))}
       {node?.type === 'script' && (
-        <CodeEditor value={node.code} onChange={code => (node.code = code)} />
+        <CodeEditor
+          value={node.raw}
+          onChange={raw => {
+            node.raw = raw
+            node.code = wrapRawCode(raw)
+          }}
+        />
       )}
     </div>
   )

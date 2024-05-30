@@ -47,6 +47,7 @@ export class Space extends EventEmitter {
       DEG2RAD: DEG2RAD,
       RAD2DEG: RAD2DEG,
     })
+    this.scripts = new Map()
     this.stats = new Stats({
       logsPerSecond: 20,
       samplesLog: 100,
@@ -145,6 +146,15 @@ export class Space extends EventEmitter {
     this.physics.lateUpdate(delta)
     this.entities.lateUpdate(delta)
     this.graphics.lateUpdate(delta)
+  }
+
+  evaluate(code) {
+    let script = this.scripts.get(code)
+    if (!script) {
+      script = this.compartment.evaluate(code)
+      this.scripts.set(code, script)
+    }
+    return script
   }
 
   stop() {

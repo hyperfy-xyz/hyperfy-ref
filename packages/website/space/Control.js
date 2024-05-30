@@ -21,8 +21,10 @@ import {
   UnlinkIcon,
   UserIcon,
 } from 'lucide-react'
-import { num } from '@/utils/num'
 import { cloneDeep } from 'lodash-es'
+
+import { num } from '@/utils/num'
+import { wrapRawCode } from '@/utils/wrapRawCode'
 
 const PI_2 = Math.PI / 2
 const LOOK_SPEED = 0.005
@@ -525,6 +527,18 @@ export class Control extends System {
         visible: this.space.permissions.canCreatePrototype(),
         disabled: false,
         execute: () => {
+          const script = `
+let box
+
+object.on('setup', () => {
+  box = object.get('box')
+})
+
+object.on('update', delta => {
+  box.rotation.y += 10 * delta
+  box.dirty()
+})
+          `
           const schema = {
             id: this.space.network.makeId(),
             type: 'prototype',
@@ -538,21 +552,8 @@ export class Control extends System {
               {
                 type: 'script',
                 name: 'my-script',
-                code: `
-                  (function(){
-                    return entity => {
-                      return class Script {
-                        init() {
-                          this.box = entity.find('box')
-                        }
-                        update(delta) {
-                          this.box.rotation.y += 10 * delta
-                          this.box.dirty()
-                        }
-                      }
-                    }
-                  })()
-                `,
+                raw: script,
+                code: wrapRawCode(script),
               },
             ],
           }
