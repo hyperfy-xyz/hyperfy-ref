@@ -12,8 +12,9 @@ import { wrapRawCode } from '@/utils/wrapRawCode'
 
 export default function Page() {
   const { auth } = useAuth()
+  const { id } = useRoute().params
   if (!auth) return null // TODO: loading
-  return <Content />
+  return <Content key={id} />
 }
 
 function Content() {

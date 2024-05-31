@@ -86,7 +86,6 @@ object.on('setup', () => {
 })
 
 object.on('start', () => {
-  console.log('START-1')
   if (object.isAuthority()) {
     object.requestControl()
     const control = object.getControl()
