@@ -1,5 +1,6 @@
 import { SockServer } from './SockServer'
 import { api } from './api'
+import { avatarSchema } from './avatarSchema'
 
 let ids = 0
 
@@ -10,6 +11,7 @@ export class Space {
     this.meta = null
     this.permissions = null
     this.schemas = new Map()
+    this.schemas.set('$avatar', avatarSchema)
     this.instances = new Map()
     this.clients = new Map()
     this.checkInterval = setInterval(() => this.checkConnections(), 10000)
@@ -161,7 +163,8 @@ export class Space {
     // remove clients avatar
     const toRemove = []
     this.instances.forEach(entity => {
-      if (entity.schemaId === '$avatar' && entity.authority === client.id) {
+      const schema = this.schemas.get(entity.schemaId)
+      if (schema.type === 'avatar' && entity.authority === client.id) {
         toRemove.push(entity)
       }
     })
