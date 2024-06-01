@@ -1,14 +1,20 @@
 import { useRef, useEffect, useState, useMemo, useLayoutEffect } from 'react'
 import { cls, css, useRoute } from 'firebolt'
+import { XIcon } from 'lucide-react'
 
 import { Header } from '@/components/Header'
 import { useAuth } from '@/components/AuthProvider'
 import { useForceUpdate } from '@/components/useForceUpdate'
 
-import { Space } from '@/space/Space'
-import { XIcon } from 'lucide-react'
+import { Verse } from '@/space/Verse'
 import { CodeEditor } from '@/components/CodeEditor'
 import { wrapRawCode } from '@/utils/wrapRawCode'
+
+let verse
+const getVerse = () => {
+  if (!verse) verse = new Verse()
+  return verse
+}
 
 export default function Page() {
   const { auth } = useAuth()
@@ -18,44 +24,51 @@ export default function Page() {
 }
 
 function Content() {
+  const verse = getVerse()
   const viewportRef = useRef()
-  const spaceRef = useRef()
   const [status, setStatus] = useState({ type: 'connecting' })
   const { auth } = useAuth()
   const { id } = useRoute().params
   const [context, setContext] = useState(null)
   useEffect(() => {
     const viewport = viewportRef.current
-    const space = new Space({ id, auth, viewport })
-    spaceRef.current = space
-    space.on('connect', () => {
+    function onConnect() {
       setStatus({ type: 'connected' })
-    })
-    space.on('active', () => {
+    }
+    function onActive() {
       setStatus({ type: 'active' })
-    })
-    space.on('disconnect', msg => {
+    }
+    function onDisconnect() {
       setStatus({ type: 'disconnected' })
-    })
-    space.on('context:open', context => {
+    }
+    function onContextOpen(msg) {
       setContext(context)
-    })
-    space.on('context:close', () => {
+    }
+    function onContextClose() {
       setContext(null)
-    })
+    }
+    verse.on('connect', onConnect)
+    verse.on('active', onActive)
+    verse.on('disconnect', onDisconnect)
+    verse.on('context:open', onContextOpen)
+    verse.on('context:close', onContextClose)
+    verse.launch(id, auth, viewport)
     return () => {
-      space.destroy()
+      verse.off('connect', onConnect)
+      verse.off('active', onActive)
+      verse.off('disconnect', onDisconnect)
+      verse.off('context:open', onContextOpen)
+      verse.off('context:close', onContextClose)
+      verse.stop()
     }
   }, [])
   useEffect(() => {
-    const space = spaceRef.current
-    space.setAuth(auth)
+    verse.network.setAuth(auth)
   }, [auth])
-  const space = spaceRef.current
   return (
     <>
       <Header inSpace />
-      <title>{space?.network.meta?.name || 'Space'}</title>
+      <title>{verse.network.meta?.name || 'Space'}</title>
       <div
         className='space'
         css={css`
@@ -99,7 +112,7 @@ function Content() {
         {context && (
           <Context x={context.x} y={context.y} actions={context.actions} />
         )}
-        {space && <Panels space={space} />}
+        <Panels verse={verse} />
       </div>
     </>
   )
@@ -315,12 +328,12 @@ const RadialButton = ({
   )
 }
 
-function Panels({ space }) {
+function Panels({ verse }) {
   const update = useForceUpdate()
   useEffect(() => {
-    return space.panels.subscribe(update)
+    return verse.panels.subscribe(update)
   }, [])
-  const panel = space.panels.panel
+  const panel = verse.panels.panel
   if (!panel) return null
   return (
     <div

@@ -14,12 +14,9 @@ import { Stats } from './Stats'
 const FIXED_TIMESTEP = 1 / 60 // 60Hz
 const FIXED_TIME_MAX = FIXED_TIMESTEP * 20
 
-export class Space extends EventEmitter {
-  constructor({ id, auth, viewport }) {
+export class Verse extends EventEmitter {
+  constructor() {
     super()
-    this.id = id
-    this.auth = auth
-    this.viewport = viewport
     this.systems = []
     this.time = 0
     this.fixedTime = 0
@@ -36,8 +33,16 @@ export class Space extends EventEmitter {
     this.graphics = this.register(Graphics)
     this.stats = this.register(Stats)
 
-    this.init()
-    window.space = this
+    this.world = null
+
+    this.ready = new Promise(async resolve => {
+      for (const system of this.systems) {
+        await system.init()
+      }
+      resolve()
+    })
+
+    window.verse = this
   }
 
   register(System) {
@@ -46,18 +51,31 @@ export class Space extends EventEmitter {
     return system
   }
 
-  async init() {
-    for (const system of this.systems) {
-      await system.init()
-    }
-    this.start()
-  }
-
-  start() {
+  async launch(id, auth, viewport) {
+    await this.ready
     for (const system of this.systems) {
       system.start()
     }
+    this.graphics.setViewport(viewport)
     this.graphics.renderer.setAnimationLoop(this.tick)
+
+    if (!this.world) {
+      this.world = new World(this, {
+        type: 'local',
+        auth,
+      })
+    }
+    const world = new World(this, {
+      type: 'remote',
+      id,
+      auth,
+      onConnect: () => {
+        if (this.world) {
+          this.world.destroy()
+        }
+        this.world = world
+      },
+    })
   }
 
   tick = time => {
@@ -95,19 +113,20 @@ export class Space extends EventEmitter {
   }
 
   stop() {
+    this.graphics.setViewport(null)
     this.graphics.renderer.setAnimationLoop(null)
   }
 
-  setAuth(auth) {
-    this.auth = auth
-    this.emit('auth-change')
-  }
+  // setAuth(auth) {
+  //   this.auth = auth
+  //   this.emit('auth-change')
+  // }
 
-  destroy() {
-    this.stop()
-    for (const system of this.systems) {
-      system.destroy()
-    }
-    this.systems = []
-  }
+  // destroy() {
+  //   this.stop()
+  //   for (const system of this.systems) {
+  //     system.destroy()
+  //   }
+  //   this.systems = []
+  // }
 }
