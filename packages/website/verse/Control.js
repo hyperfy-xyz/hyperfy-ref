@@ -36,8 +36,8 @@ const MOVING_SEND_RATE = 1 / 5
 const vec2 = new THREE.Vector2()
 
 export class Control extends System {
-  constructor(space) {
-    super(space)
+  constructor(world) {
+    super(world)
     this.keys = {}
     this.controls = []
     this.current = null
@@ -72,16 +72,16 @@ export class Control extends System {
     this.current.move.normalize() // prevent surfing
 
     if (this.moving) {
-      const hit = this.space.graphics.raycastViewport(
-        this.space.control.pointer.coords,
-        this.space.graphics.maskMoving
+      const hit = this.world.graphics.raycastViewport(
+        this.world.control.pointer.coords,
+        this.world.graphics.maskMoving
       )
       if (hit) {
         this.moving.entity.positionLerp.push(hit.point, true)
         this.moving.entity.root.dirty()
         this.moving.lastSend += delta
         if (this.moving.lastSend >= MOVING_SEND_RATE) {
-          this.space.network.pushEntityUpdate(this.moving.entity.id, update => {
+          this.world.network.pushEntityUpdate(this.moving.entity.id, update => {
             if (!update.props) update.props = {}
             update.props.position = this.moving.entity.root.position.toArray()
             update.props.quaternion = this.moving.entity.root.quaternion.toArray() // prettier-ignore
@@ -94,8 +94,8 @@ export class Control extends System {
 
   lateUpdate() {
     if (!this.current) return
-    const rig = this.space.graphics.cameraRig
-    const cam = this.space.graphics.camera
+    const rig = this.world.graphics.cameraRig
+    const cam = this.world.graphics.camera
     rig.position.copy(this.current.camera.position)
     rig.quaternion.copy(this.current.camera.quaternion)
     cam.position.z = this.current.camera.distance
@@ -197,7 +197,7 @@ export class Control extends System {
       this.moving.entity.mode = 'active'
       this.moving.entity.modeClientId = null
       this.moving.entity.checkMode()
-      this.space.network.pushEntityUpdate(this.moving.entity.id, update => {
+      this.world.network.pushEntityUpdate(this.moving.entity.id, update => {
         if (!update.props) update.props = {}
         update.props.mode = this.moving.entity.mode
         update.props.modeClientId = this.moving.entity.modeClientId
@@ -418,7 +418,7 @@ export class Control extends System {
 
   openContext(x, y) {
     vec2.set(x, y)
-    const hit = this.space.graphics.raycastViewport(vec2)
+    const hit = this.world.graphics.raycastViewport(vec2)
     if (!hit) return // void
     const entity = hit?.object?.node?.entity
     const actions = []
@@ -432,8 +432,8 @@ export class Control extends System {
       })
     }
     const hitVoid = !hit
-    const hitSpace = hit && !entity
-    const hitSelf = entity === this.space.network.avatar
+    const hitWorld = hit && !entity
+    const hitSelf = entity === this.world.network.avatar
     const hitAvatar = !hitSelf && entity?.schema.type === 'avatar'
     const hitPrototype = entity?.schema.type === 'prototype'
     const hitItem = entity?.schema.type === 'item'
@@ -444,7 +444,7 @@ export class Control extends System {
         visible: true,
         disabled: false,
         execute: () => {
-          this.space.panels.inspect(entity)
+          this.world.panels.inspect(entity)
         },
       })
       add({
@@ -473,7 +473,7 @@ export class Control extends System {
         visible: true,
         disabled: false,
         execute: () => {
-          this.space.panels.inspect(entity)
+          this.world.panels.inspect(entity)
         },
       })
       add({
@@ -522,11 +522,11 @@ export class Control extends System {
         },
       })
     }
-    if (hitSpace || hitPrototype || hitItem) {
+    if (hitWorld || hitPrototype || hitItem) {
       add({
         label: 'Create',
         icon: PlusCircleIcon,
-        visible: this.space.permissions.canCreatePrototype(),
+        visible: this.world.permissions.canCreatePrototype(),
         disabled: false,
         execute: () => {
           const script = `
@@ -542,7 +542,7 @@ object.on('update', delta => {
 })
           `
           const schema = {
-            id: this.space.network.makeId(),
+            id: this.world.network.makeId(),
             type: 'prototype',
             nodes: [
               {
@@ -559,14 +559,14 @@ object.on('update', delta => {
               },
             ],
           }
-          this.space.entities.upsertSchemaLocal(schema)
-          this.space.entities.addInstanceLocal({
-            id: this.space.network.makeId(),
+          this.world.entities.upsertSchemaLocal(schema)
+          this.world.entities.addInstanceLocal({
+            id: this.world.network.makeId(),
             schemaId: schema.id,
-            creator: this.space.network.client.user.id,
-            authority: this.space.network.client.id,
+            creator: this.world.network.client.user.id,
+            authority: this.world.network.client.id,
             mode: 'editing',
-            modeClientId: this.space.network.client.id,
+            modeClientId: this.world.network.client.id,
             position: hit.point.toArray(),
             quaternion: [0, 0, 0, 1],
             state: {},
@@ -581,16 +581,16 @@ object.on('update', delta => {
         visible: true,
         disabled: false,
         execute: () => {
-          this.space.panels.inspect(entity)
+          this.world.panels.inspect(entity)
         },
       })
       add({
         label: 'Move',
         icon: HandIcon,
-        visible: this.space.permissions.canMoveEntity(entity),
+        visible: this.world.permissions.canMoveEntity(entity),
         disabled: entity.mode !== 'active' && entity.mode !== 'dead',
         execute: () => {
-          this.space.network.server.send('entity-mode-request', {
+          this.world.network.server.send('entity-mode-request', {
             entityId: entity.id,
             mode: 'moving',
           })
@@ -599,55 +599,55 @@ object.on('update', delta => {
       add({
         label: 'Edit',
         icon: PencilRulerIcon,
-        visible: this.space.permissions.canEditEntity(entity),
+        visible: this.world.permissions.canEditEntity(entity),
         disabled: entity.mode !== 'active' && entity.mode !== 'dead',
         execute: () => {
-          this.space.network.server.send('entity-mode-request', {
+          this.world.network.server.send('entity-mode-request', {
             entityId: entity.id,
             mode: 'editing',
           })
         },
       })
-      if (this.space.entities.countInstancesBySchema(entity.schema.id) > 1) {
+      if (this.world.entities.countInstancesBySchema(entity.schema.id) > 1) {
         add({
           label: 'Unlink',
           icon: UnlinkIcon,
-          visible: this.space.permissions.canEditEntity(entity), // ???
+          visible: this.world.permissions.canEditEntity(entity), // ???
           disabled: false,
           execute: () => {
             // duplicate schema
             const schema = cloneDeep(entity.schema)
-            schema.id = this.space.network.makeId()
-            this.space.entities.upsertSchemaLocal(schema)
+            schema.id = this.world.network.makeId()
+            this.world.entities.upsertSchemaLocal(schema)
             // replace current instance with new one
-            this.space.entities.addInstanceLocal({
-              id: this.space.network.makeId(),
+            this.world.entities.addInstanceLocal({
+              id: this.world.network.makeId(),
               schemaId: schema.id,
-              creator: this.space.network.client.user.id, // ???
-              authority: this.space.network.client.id,
+              creator: this.world.network.client.user.id, // ???
+              authority: this.world.network.client.id,
               mode: 'active',
               modeClientId: null,
               position: entity.root.position.toArray(),
               quaternion: entity.root.quaternion.toArray(),
               state: entity.state,
             })
-            this.space.entities.removeInstanceLocal(entity.id)
+            this.world.entities.removeInstanceLocal(entity.id)
           },
         })
       }
       add({
         label: 'Duplicate',
         icon: CopyIcon,
-        visible: this.space.permissions.canEditEntity(entity),
+        visible: this.world.permissions.canEditEntity(entity),
         disabled: false,
         execute: () => {
-          this.space.entities.addInstanceLocal({
-            id: this.space.network.makeId(),
+          this.world.entities.addInstanceLocal({
+            id: this.world.network.makeId(),
             schemaId: entity.schema.id,
-            creator: this.space.network.client.user.id, // ???
-            authority: this.space.network.client.id,
+            creator: this.world.network.client.user.id, // ???
+            authority: this.world.network.client.id,
             mode: 'moving',
-            modeClientId: this.space.network.client.id,
+            modeClientId: this.world.network.client.id,
             position: entity.root.position.toArray(),
             quaternion: entity.root.quaternion.toArray(),
             state: {},
@@ -661,11 +661,11 @@ object.on('update', delta => {
       //   disabled: false,
       //   execute: () => {
       //     for (let i = 0; i < 1000; i++) {
-      //       this.space.entities.addInstanceLocal({
-      //         id: this.space.network.makeId(),
+      //       this.world.entities.addInstanceLocal({
+      //         id: this.world.network.makeId(),
       //         schemaId: entity.schema.id,
-      //         creator: this.space.network.client.user.id, // ???
-      //         authority: this.space.network.client.id,
+      //         creator: this.world.network.client.user.id, // ???
+      //         authority: this.world.network.client.id,
       //         mode: 'active',
       //         modeClientId: null,
       //         position: [num(-10, 10, 2), num(-10, 10, 2), num(-10, 10, 2)],
@@ -678,10 +678,10 @@ object.on('update', delta => {
       add({
         label: 'Destroy',
         icon: Trash2Icon,
-        visible: this.space.permissions.canDestroyEntity(entity),
+        visible: this.world.permissions.canDestroyEntity(entity),
         disabled: false,
         execute: () => {
-          this.space.entities.removeInstanceLocal(entity.id)
+          this.world.entities.removeInstanceLocal(entity.id)
         },
       })
       // add({
@@ -690,7 +690,7 @@ object.on('update', delta => {
       //   visible: true,
       //   disabled: false,
       //   execute: () => {
-      //     // this.space.entities.removeInstanceLocal(entity.id)
+      //     // this.world.entities.removeInstanceLocal(entity.id)
       //   },
       // })
     }
@@ -701,7 +701,7 @@ object.on('update', delta => {
         y,
         actions,
       }
-      this.space.emit('context', this.context)
+      this.world.emit('context', this.context)
     }
   }
 
@@ -719,7 +719,7 @@ object.on('update', delta => {
   closeContext() {
     if (!this.context) return
     this.context = null
-    this.space.emit('context', null)
+    this.world.emit('context', null)
   }
 
   destroy() {
@@ -746,11 +746,11 @@ object.on('update', delta => {
 
 // LOTSA STATIC CUBES
 // for (let i = 0; i < 1000; i++) {
-//   this.space.entities.addInstanceLocal({
-//     id: this.space.network.makeId(),
+//   this.world.entities.addInstanceLocal({
+//     id: this.world.network.makeId(),
 //     type: 'prototype',
-//     creator: this.space.network.client.user.id,
-//     authority: this.space.network.client.id,
+//     creator: this.world.network.client.user.id,
+//     authority: this.world.network.client.id,
 //     mode: 'active',
 //     modeClientId: null,
 //     position: [num(-100, 100, 2), 0, num(-100, 100, 2)],
@@ -769,11 +769,11 @@ object.on('update', delta => {
 // LOTSA CUBES
 // console.time('lotsa')
 // for (let i = 0; i < 1000; i++) {
-//   this.space.entities.addInstanceLocal({
-//     id: this.space.network.makeId(),
+//   this.world.entities.addInstanceLocal({
+//     id: this.world.network.makeId(),
 //     type: 'prototype',
-//     creator: this.space.network.client.user.id,
-//     authority: this.space.network.client.id,
+//     creator: this.world.network.client.user.id,
+//     authority: this.world.network.client.id,
 //     mode: 'active',
 //     modeClientId: null,
 //     position: [num(-100, 100, 2), num(-100, 100, 2), num(-100, 100, 2)],
@@ -810,11 +810,11 @@ object.on('update', delta => {
 // }
 // console.timeEnd('lotsa')
 // SPINNING CUBES
-// this.space.entities.addInstanceLocal({
-//   id: this.space.network.makeId(),
+// this.world.entities.addInstanceLocal({
+//   id: this.world.network.makeId(),
 //   type: 'prototype',
-//   creator: this.space.network.client.user.id,
-//   authority: this.space.network.client.id,
+//   creator: this.world.network.client.user.id,
+//   authority: this.world.network.client.id,
 //   mode: 'active',
 //   modeClientId: null,
 //   position: hit.point.toArray(),
@@ -849,11 +849,11 @@ object.on('update', delta => {
 //   ],
 // })
 // PHYSICS CUBES
-// this.space.entities.addInstanceLocal({
-//   id: this.space.network.makeId(),
+// this.world.entities.addInstanceLocal({
+//   id: this.world.network.makeId(),
 //   type: 'prototype',
-//   creator: this.space.network.client.user.id,
-//   authority: this.space.network.client.id,
+//   creator: this.world.network.client.user.id,
+//   authority: this.world.network.client.id,
 //   mode: 'active',
 //   modeClientId: null,
 //   position: hit.point.toArray(),

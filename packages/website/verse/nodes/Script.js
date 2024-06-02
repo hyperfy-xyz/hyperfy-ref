@@ -10,7 +10,7 @@ export class Script extends Node {
 
   instantiate() {
     // evaluate uses code as a key so it only evaluates it once
-    const script = this.space.scripts.resolve(this.code)
+    const script = this.world.scripts.resolve(this.code)
     this.script = script(this.entity.getProxy())
   }
 

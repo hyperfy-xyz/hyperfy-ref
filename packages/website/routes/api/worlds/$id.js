@@ -3,17 +3,17 @@ import moment from 'moment'
 export async function get(ctx) {
   if (!ctx.hasApiSecret) return Response.error()
   const { id } = ctx.params
-  let space = await ctx.db('spaces').where('id', id).first()
-  if (!space) {
+  let world = await ctx.db('worlds').where('id', id).first()
+  if (!world) {
     const now = moment().toISOString()
-    space = {
+    world = {
       id,
-      name: 'New Space',
+      name: 'New World',
       ownerId: null,
       createdAt: now,
       updatedAt: now,
     }
-    await ctx.db('spaces').insert(space)
+    await ctx.db('worlds').insert(world)
   }
-  return space
+  return world
 }

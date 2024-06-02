@@ -4,7 +4,7 @@ import { avatarSchema } from './avatarSchema'
 
 let ids = 0
 
-export class Space {
+export class World {
   constructor(id, onDestroy) {
     this.id = id
     this.onDestroy = onDestroy
@@ -23,7 +23,7 @@ export class Space {
 
   async init() {
     try {
-      this.meta = await api.get(`/spaces/${this.id}`)
+      this.meta = await api.get(`/worlds/${this.id}`)
       this.permissions = await api.get(`/permissions/${this.id}`)
 
       // temp
@@ -31,7 +31,7 @@ export class Space {
       // this.permissions.prototypeEdit = false
       // this.permissions.prototypeDestroy = false
 
-      const entities = await api.get(`/entities?spaceId=${this.id}`)
+      const entities = await api.get(`/entities?worldId=${this.id}`)
       for (const entity of entities) {
         this.instances.set(entity.id, entity)
       }
@@ -221,8 +221,8 @@ export class Space {
 }
 
 class Client {
-  constructor(space, ws) {
-    this.space = space
+  constructor(world, ws) {
+    this.world = world
     this.sock = new SockServer(ws)
     this.id = ++ids
     this.user = null
@@ -250,51 +250,51 @@ class Client {
 
   canMoveEntity(entity) {
     const userId = this.user.id
-    const spacePerms = this.space.permissions
+    const worldPerms = this.world.permissions
     const userPerms = this.permissions
-    const schema = this.space.schemas.get(entity.schemaId)
+    const schema = this.world.schemas.get(entity.schemaId)
     if (schema.type === 'prototype') {
       // if you created it you can move it if you still have the create permission
       if (entity.creator === userId) {
-        return spacePerms.prototypeCreate || userPerms.prototypeCreate
+        return worldPerms.prototypeCreate || userPerms.prototypeCreate
       }
       // otherwise you can only move if you have move permission
-      return spacePerms.prototypeMove || userPerms.prototypeMove
+      return worldPerms.prototypeMove || userPerms.prototypeMove
     }
     if (schema.type === 'item') {
-      return spacePerms.itemMove || userPerms.itemMove
+      return worldPerms.itemMove || userPerms.itemMove
     }
     return false
   }
 
   canEditEntity(entity) {
     const userId = this.user.id
-    const spacePerms = this.space.permissions
+    const worldPerms = this.world.permissions
     const userPerms = this.permissions
-    const schema = this.space.schemas.get(entity.schemaId)
+    const schema = this.world.schemas.get(entity.schemaId)
     if (schema.type === 'prototype') {
       // if you created it you can edit it if you still have the create permission
       if (entity.creator === userId) {
-        return spacePerms.prototypeCreate || userPerms.prototypeCreate
+        return worldPerms.prototypeCreate || userPerms.prototypeCreate
       }
       // otherwise you can only edit if you have edit permission
-      return spacePerms.prototypeEdit || userPerms.prototypeEdit
+      return worldPerms.prototypeEdit || userPerms.prototypeEdit
     }
     return false
   }
 
   canDestroyEntity(entity) {
     const userId = this.user.id
-    const spacePerms = this.space.permissions
+    const worldPerms = this.world.permissions
     const userPerms = this.permissions
-    const schema = this.space.schemas.get(entity.schemaId)
+    const schema = this.world.schemas.get(entity.schemaId)
     if (schema.type === 'prototype') {
       // if you created it you can destroy it if you still have the create permission
       if (entity.creator === userId) {
-        return spacePerms.prototypeCreate || userPerms.prototypeCreate
+        return worldPerms.prototypeCreate || userPerms.prototypeCreate
       }
       // otherwise you can only destroy if you have destroy permission
-      return spacePerms.prototypeDestroy || userPerms.prototypeDestroy
+      return worldPerms.prototypeDestroy || userPerms.prototypeDestroy
     }
     return false
   }

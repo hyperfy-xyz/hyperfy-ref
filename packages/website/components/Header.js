@@ -3,10 +3,10 @@ import { Link, cls, css } from 'firebolt'
 import { AuthWidget } from './AuthWidget'
 import { ThemeBtn } from './ThemeBtn'
 
-export function Header({ inSpace = false }) {
+export function Header({ inWorld = false }) {
   return (
     <div
-      className={cls('header', { inSpace })}
+      className={cls('header', { inWorld })}
       css={css`
         position: fixed;
         top: 0;
@@ -24,7 +24,7 @@ export function Header({ inSpace = false }) {
         .header-gap {
           flex: 1;
         }
-        &.inSpace {
+        &.inWorld {
           color: white;
         }
       `}

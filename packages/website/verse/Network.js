@@ -11,8 +11,8 @@ const SEND_RATE = 1 / 5 // 5Hz (5 times per second)
 let ids = 0
 
 export class Network extends System {
-  constructor(space) {
-    super(space)
+  constructor(world) {
+    super(world)
     this.server = null
     this.meta = null
     this.permissions = null
@@ -24,7 +24,7 @@ export class Network extends System {
   }
 
   async init() {
-    const url = `${process.env.PUBLIC_CONTROLLER_WS}/space/${this.space.id}`
+    const url = `${process.env.PUBLIC_CONTROLLER_WS}/world/${this.world.id}`
     this.log('connecting', url)
 
     this.server = new SockClient(url, false)
@@ -39,7 +39,7 @@ export class Network extends System {
     this.server.on('remove-entity', this.onRemoveEntity)
     this.server.on('disconnect', this.onDisconnect)
 
-    this.space.on('auth-change', this.updateClient)
+    this.world.on('auth-change', this.updateClient)
   }
 
   update(delta) {
@@ -60,9 +60,9 @@ export class Network extends System {
 
   onConnect = async () => {
     this.status = 'connected'
-    this.space.emit('status', this.status)
-    await this.space.ready
-    this.server.send('auth', this.space.auth.token)
+    this.world.emit('status', this.status)
+    await this.world.ready
+    this.server.send('auth', this.world.auth.token)
   }
 
   onInit = async data => {
@@ -77,24 +77,24 @@ export class Network extends System {
     const client = this.clients.get(data.clientId)
     this.client = client
     for (const schema of data.schemas) {
-      this.space.entities.upsertSchema(schema)
+      this.world.entities.upsertSchema(schema)
     }
     for (const entity of data.instances) {
-      this.space.entities.addInstance(entity)
+      this.world.entities.addInstance(entity)
     }
 
     // TODO: preload stuff and get it going
-    // await this.space.loader.preload()
-    // const place = this.space.items.findPlace('spawn')
-    // this.space.avatars.spawn(place)
-    // await this.server.call('auth', this.space.token)
+    // await this.world.loader.preload()
+    // const place = this.world.items.findPlace('spawn')
+    // this.world.avatars.spawn(place)
+    // await this.server.call('auth', this.world.token)
 
     this.status = 'active'
-    this.space.emit('status', this.status)
+    this.world.emit('status', this.status)
 
     this.updateClient()
 
-    // const avatar = this.space.entities.addInstanceLocal({
+    // const avatar = this.world.entities.addInstanceLocal({
     //   id: this.makeId(),
     //   type: 'avatar',
     //   creator: this.client.user.id,
@@ -115,7 +115,7 @@ export class Network extends System {
     //   ],
     // })
 
-    this.avatar = this.space.entities.addInstanceLocal({
+    this.avatar = this.world.entities.addInstanceLocal({
       id: this.makeId(),
       schemaId: '$avatar',
       creator: this.client.user.id,
@@ -149,7 +149,7 @@ export class Network extends System {
 
   updateClient = () => {
     if (this.status !== 'active') return
-    const user = this.space.auth.user
+    const user = this.world.auth.user
     const client = this.client
     client.name = user.name
     client.address = user.address
@@ -180,17 +180,17 @@ export class Network extends System {
   }
 
   onUpsertSchema = schema => {
-    this.space.entities.upsertSchema(schema)
+    this.world.entities.upsertSchema(schema)
   }
 
   onAddEntity = data => {
     this.log('add-entity', data)
-    this.space.entities.addInstance(data)
+    this.world.entities.addInstance(data)
   }
 
   onUpdateEntity = data => {
     // this.log('update-entity', data)
-    const entity = this.space.entities.getInstance(data.id)
+    const entity = this.world.entities.getInstance(data.id)
     if (data.state) {
       entity.onRemoteStateChanges(data.state)
     }
@@ -201,12 +201,12 @@ export class Network extends System {
 
   onRemoveEntity = id => {
     this.log('remove-entity', id)
-    this.space.entities.removeInstance(id)
+    this.world.entities.removeInstance(id)
   }
 
   onDisconnect = () => {
     this.status === 'disconnected'
-    this.space.emit('status', this.status)
+    this.world.emit('status', this.status)
   }
 
   log(...args) {

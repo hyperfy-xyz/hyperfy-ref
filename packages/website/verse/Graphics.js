@@ -29,8 +29,8 @@ const vec2 = new THREE.Vector2()
 const FOV = 70
 
 export class Graphics extends System {
-  constructor(space) {
-    super(space)
+  constructor(world) {
+    super(world)
   }
 
   async init() {
@@ -118,7 +118,7 @@ export class Graphics extends System {
 
     // hdr
     {
-      const texture = await this.space.loader.load('/static/day2.hdr')
+      const texture = await this.world.loader.load('/static/day2.hdr')
       // texture.colorSpace = THREE.SRGBColorSpace
       texture.mapping = THREE.EquirectangularReflectionMapping
       this.scene.environment = texture

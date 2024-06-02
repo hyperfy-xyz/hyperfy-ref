@@ -2,8 +2,8 @@ import { System } from './System'
 import { Entity } from './Entity'
 
 export class Entities extends System {
-  constructor(space) {
-    super(space)
+  constructor(world) {
+    super(world)
     this.schemas = new Map()
     this.instances = new Map()
     this.dirtyNodes = []
@@ -37,7 +37,7 @@ export class Entities extends System {
 
   upsertSchemaLocal(schema) {
     this.upsertSchema(schema)
-    this.space.network.pushSchema(schema)
+    this.world.network.pushSchema(schema)
     return schema
   }
 
@@ -46,14 +46,14 @@ export class Entities extends System {
   }
 
   addInstance(data) {
-    const entity = new Entity(this.space, data)
+    const entity = new Entity(this.world, data)
     this.instances.set(entity.id, entity)
     return entity
   }
 
   addInstanceLocal(data) {
     const entity = this.addInstance(data)
-    this.space.network.pushEntityUpdate(data.id, update => {
+    this.world.network.pushEntityUpdate(data.id, update => {
       update.add = data
     })
     return entity
@@ -65,14 +65,14 @@ export class Entities extends System {
 
   removeInstance(id) {
     const entity = this.instances.get(id)
-    this.space.panels.onEntityRemoved(entity)
+    this.world.panels.onEntityRemoved(entity)
     entity.destroy() // todo: cleanup
     this.instances.delete(id)
   }
 
   removeInstanceLocal(id) {
     this.removeInstance(id)
-    this.space.network.pushEntityUpdate(id, update => {
+    this.world.network.pushEntityUpdate(id, update => {
       update.remove = true
     })
   }

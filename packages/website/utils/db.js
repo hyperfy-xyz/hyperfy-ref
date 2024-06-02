@@ -19,9 +19,9 @@ export async function migrate() {
       table.timestamp('updatedAt').notNullable()
     })
   }
-  const hasSpacesTable = await db.schema.hasTable('spaces')
-  if (!hasSpacesTable) {
-    await db.schema.createTable('spaces', table => {
+  const hasWorldsTable = await db.schema.hasTable('worlds')
+  if (!hasWorldsTable) {
+    await db.schema.createTable('worlds', table => {
       table.string('id').primary()
       table.string('name').notNullable()
       table.string('ownerId')
@@ -43,8 +43,8 @@ export async function migrate() {
   if (!hasPermissionsTable) {
     await db.schema.createTable('permissions', table => {
       table.string('id').primary()
-      table.boolean('spaceAdmin').notNullable()
-      table.boolean('spaceMeta').notNullable()
+      table.boolean('worldAdmin').notNullable()
+      table.boolean('worldMeta').notNullable()
       table.boolean('prototypeCreate').notNullable()
       table.boolean('prototypeEdit').notNullable()
       table.boolean('prototypeMove').notNullable()

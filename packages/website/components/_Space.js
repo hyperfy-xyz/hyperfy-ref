@@ -3,7 +3,7 @@ import { css } from 'firebolt'
 
 import { Client } from '@/client/Client'
 
-export function Space({ spaceId }) {
+export function World({ worldId }) {
   const canvasRef = useRef()
   useEffect(() => {
     const canvas = canvasRef.current

@@ -17,7 +17,7 @@ const defaults = {
 
 // WIP batch mesh - has issues, eg no per-mesh layers and stuff
 // const batchGroups = {} // [key] [...batches]
-// const getBatch = (space, color) => {
+// const getBatch = (world, color) => {
 //   const key = color
 //   let group = batchGroups[key]
 //   if (!group) {
@@ -28,7 +28,7 @@ const defaults = {
 //   if (!batch) {
 //     const material = new THREE.MeshStandardMaterial({ color })
 //     batch = new THREE.BatchedMesh(100, 8*100, undefined, material)
-//     space.graphics.scene.add(batch)
+//     world.graphics.scene.add(batch)
 //     group.push(batch)
 //   }
 //   return batch
@@ -61,7 +61,7 @@ export class Box extends Node {
       this.mesh.matrixWorld.copy(this.matrixWorld)
       this.mesh.node = this
       if (this.layer) this.mesh.layers.set(this.layer)
-      this.space.graphics.scene.add(this.mesh)
+      this.world.graphics.scene.add(this.mesh)
     }
     if (this.physics) {
       const geometry = new PHYSX.PxBoxGeometry(
@@ -69,13 +69,13 @@ export class Box extends Node {
         this.size[1] / 2,
         this.size[2] / 2
       )
-      const material = this.space.physics.physics.createMaterial(0.5, 0.5, 0.5)
+      const material = this.world.physics.physics.createMaterial(0.5, 0.5, 0.5)
       const flags = new PHYSX.PxShapeFlags(
         PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE |
           PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE
       )
       const tmpFilterData = new PHYSX.PxFilterData(1, 1, 0, 0)
-      const shape = this.space.physics.physics.createShape(
+      const shape = this.world.physics.physics.createShape(
         geometry,
         material,
         true,
@@ -87,20 +87,20 @@ export class Box extends Node {
       _v1.toPxTransform(transform)
       _q1.toPxTransform(transform)
       if (this.physics === 'dynamic') {
-        this.body = this.space.physics.physics.createRigidDynamic(transform)
+        this.body = this.world.physics.physics.createRigidDynamic(transform)
         this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
         this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
       } else if (this.physics === 'kinematic') {
-        this.body = this.space.physics.physics.createRigidStatic(transform)
+        this.body = this.world.physics.physics.createRigidStatic(transform)
         this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
         this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
       } else {
-        this.body = this.space.physics.physics.createRigidStatic(transform)
+        this.body = this.world.physics.physics.createRigidStatic(transform)
       }
       this.body.attachShape(shape)
-      this.space.physics.scene.addActor(this.body)
+      this.world.physics.scene.addActor(this.body)
       if (this.physics === 'dynamic') {
-        this.unbind = this.space.physics.bind(this.body, this)
+        this.unbind = this.world.physics.bind(this.body, this)
       }
     }
   }
@@ -113,10 +113,10 @@ export class Box extends Node {
 
   unmount() {
     if (this.mesh) {
-      this.space.graphics.scene.remove(this.mesh)
+      this.world.graphics.scene.remove(this.mesh)
     }
     if (this.body) {
-      this.space.physics.scene.removeActor(this.body)
+      this.world.physics.scene.removeActor(this.body)
       this.unbind?.()
     }
   }

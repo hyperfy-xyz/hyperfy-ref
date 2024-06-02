@@ -8,8 +8,8 @@ let errorCb
 let foundation
 
 export class Physics extends System {
-  constructor(space) {
-    super(space)
+  constructor(world) {
+    super(world)
   }
 
   async init() {

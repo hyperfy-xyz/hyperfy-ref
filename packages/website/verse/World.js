@@ -19,7 +19,6 @@ export class World extends EventEmitter {
     super()
     this.id = id
     this.auth = auth
-    this.viewport = null
 
     this.systems = []
     this.time = 0
@@ -43,12 +42,7 @@ export class World extends EventEmitter {
       }
       resolve()
     })
-    // this.init()
-    window.space = this
-  }
-
-  setViewport(viewport) {
-    this.viewport = viewport
+    window.world = this
   }
 
   setAuth(auth) {
@@ -62,18 +56,10 @@ export class World extends EventEmitter {
     return system
   }
 
-  // async init() {
-  //   for (const system of this.systems) {
-  //     await system.init()
-  //   }
-  //   this.start()
-  // }
-
   async start(viewport) {
     await this.ready
     for (const system of this.systems) {
       system.start(viewport)
-      // system.start(this.viewport)
     }
     this.graphics.renderer.setAnimationLoop(this.tick)
   }
@@ -112,12 +98,8 @@ export class World extends EventEmitter {
     }
   }
 
-  stop() {
-    this.graphics.renderer.setAnimationLoop(null)
-  }
-
   destroy() {
-    this.stop()
+    this.graphics.renderer.setAnimationLoop(null)
     for (const system of this.systems) {
       system.destroy()
     }

@@ -6,10 +6,10 @@ import { QuaternionLerp } from '@/utils/QuaternionLerp'
 const MOVING_SEND_RATE = 1 / 5
 
 export class Entity {
-  constructor(space, data) {
-    this.space = space
+  constructor(world, data) {
+    this.world = world
     this.id = data.id
-    this.schema = this.space.entities.getSchema(data.schemaId)
+    this.schema = this.world.entities.getSchema(data.schemaId)
     this.creator = data.creator
     this.authority = data.authority
     this.mode = data.mode
@@ -28,7 +28,7 @@ export class Entity {
       set: (target, key, value) => {
         if (target[key] !== value) {
           target[key] = value
-          space.network.pushEntityUpdate(this.id, update => {
+          world.network.pushEntityUpdate(this.id, update => {
             if (!update.state) {
               update.state = {}
             }
@@ -105,14 +105,14 @@ export class Entity {
     // cleanup previous
     if (prevMode === 'active') {
       if (this.scripts.length) {
-        this.space.entities.decActive(this)
+        this.world.entities.decActive(this)
       }
     }
     if (prevMode === 'moving') {
-      this.space.entities.decActive(this)
+      this.world.entities.decActive(this)
     }
     if (prevMode === 'editing') {
-      this.space.entities.decActive(this)
+      this.world.entities.decActive(this)
     }
     // rebuild
     this.rebuild()
@@ -161,20 +161,20 @@ export class Entity {
       }
       // register for script update/fixedUpdate etc
       if (this.scripts.length) {
-        this.space.entities.incActive(this)
+        this.world.entities.incActive(this)
       }
     }
     if (this.mode === 'moving') {
-      if (modeClientId === this.space.network.client.id) {
-        this.space.control.setMoving(this)
+      if (modeClientId === this.world.network.client.id) {
+        this.world.control.setMoving(this)
       }
-      this.space.entities.incActive(this)
+      this.world.entities.incActive(this)
     }
     if (this.mode === 'editing') {
-      if (modeClientId === this.space.network.client.id) {
-        this.space.panels.edit(this)
+      if (modeClientId === this.world.network.client.id) {
+        this.world.panels.edit(this)
       }
-      this.space.entities.incActive(this)
+      this.world.entities.incActive(this)
     }
     if (this.mode === 'dead') {
       // move root children to world space
@@ -264,7 +264,7 @@ export class Entity {
   getProxy() {
     if (!this.proxy) {
       const entity = this
-      const space = this.space
+      const world = this.world
       const proxy = {
         on(name, callback) {
           entity.on(name, callback)
@@ -292,16 +292,16 @@ export class Entity {
           return proxy
         },
         isAuthority() {
-          return entity.authority === space.network.client.id
+          return entity.authority === world.network.client.id
         },
         requestControl() {
-          space.control.request(entity)
+          world.control.request(entity)
         },
         getControl() {
-          return space.control.get(entity)
+          return world.control.get(entity)
         },
         releaseControl() {
-          return space.control.release(entity)
+          return world.control.release(entity)
         },
         getState() {
           return entity.stateProxy
@@ -341,7 +341,7 @@ export class Entity {
   }
 
   destroy() {
-    this.space.entities.decActive(this, true)
+    this.world.entities.decActive(this, true)
     this.nodes.forEach(node => {
       if (node.mounted) {
         node.unmount()

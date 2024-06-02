@@ -3,15 +3,15 @@ import moment from 'moment'
 export async function get(ctx) {
   if (!ctx.hasApiSecret) return Response.error()
   const { id } = ctx.params
-  const isSpace = !id.includes('@')
+  const isWorld = !id.includes('@')
   let permissions = await ctx.db('permissions').where('id', id).first()
   if (!permissions) {
     const now = moment().toISOString()
-    if (isSpace) {
+    if (isWorld) {
       permissions = {
         id,
-        spaceAdmin: false,
-        spaceMeta: false,
+        worldAdmin: false,
+        worldMeta: false,
         prototypeCreate: true,
         prototypeEdit: true,
         prototypeMove: true,
@@ -28,8 +28,8 @@ export async function get(ctx) {
     } else {
       permissions = {
         id,
-        spaceAdmin: false,
-        spaceMeta: false,
+        worldAdmin: false,
+        worldMeta: false,
         prototypeCreate: false,
         prototypeEdit: false,
         prototypeMove: false,

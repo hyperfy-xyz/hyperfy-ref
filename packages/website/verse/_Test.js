@@ -12,8 +12,8 @@ import { System } from './System'
 // https://github.com/Aliremu/ventea/blob/311418c0f6b05884395195a58081d186c388d5fe/src/Physics/physx.worker.ts#L140
 
 export class Test extends System {
-  constructor(space) {
-    super(space)
+  constructor(world) {
+    super(world)
   }
 
   async start() {
@@ -22,10 +22,10 @@ export class Test extends System {
     //   const geometry = new THREE.BoxGeometry(1, 1, 1)
     //   const material = new THREE.MeshBasicMaterial({ color: 'red' })
     //   this.mesh = new THREE.Mesh(geometry, material)
-    //   this.space.graphics.scene.add(this.mesh)
+    //   this.world.graphics.scene.add(this.mesh)
     // }
     // {
-    //   const physics = this.space.physics.physics
+    //   const physics = this.world.physics.physics
     //   const geometry = new PHYSX.PxBoxGeometry(0.5, 0.5, 0.5)
     //   const flags = new PHYSX.PxShapeFlags(
     //     PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE |
@@ -40,14 +40,14 @@ export class Test extends System {
     //   const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
     //   this.body = physics.createRigidDynamic(transform)
     //   this.body.attachShape(shape)
-    //   this.space.physics.scene.addActor(this.body)
+    //   this.world.physics.scene.addActor(this.body)
     // }
     // cube (triangle mesh)
     {
       const geometry = new THREE.DodecahedronGeometry(1)
       const material = new THREE.MeshBasicMaterial({ color: 'blue' })
       this.mesh = new THREE.Mesh(geometry, material)
-      this.space.graphics.scene.add(this.mesh)
+      this.world.graphics.scene.add(this.mesh)
     }
     {
       // PxTriangleMeshDesc meshDesc;
@@ -106,7 +106,7 @@ export class Test extends System {
       desc.triangles.data = triangles.data()
       // console.log('val?', desc.isValid())
 
-      const physics = this.space.physics.physics
+      const physics = this.world.physics.physics
       const cookingParams = physics.cookingParams
       const mesh = PHYSX.PxTopLevelFunctions.prototype.CreateTriangleMesh(
         cookingParams,
@@ -133,7 +133,7 @@ export class Test extends System {
       const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
       this.body = physics.createRigidDynamic(transform)
       this.body.attachShape(shape)
-      this.space.physics.scene.addActor(this.body)
+      this.world.physics.scene.addActor(this.body)
 
       PHYSX.destroy(scale)
       PHYSX.destroy(desc)

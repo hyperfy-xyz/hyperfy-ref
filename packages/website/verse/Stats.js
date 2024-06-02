@@ -20,13 +20,13 @@ const get = () => {
 }
 
 export class Stats extends System {
-  constructor(space) {
-    super(space)
+  constructor(world) {
+    super(world)
     this.stats = get()
   }
 
   start(viewport) {
-    this.stats.init(this.space.graphics.renderer)
+    this.stats.init(this.world.graphics.renderer)
     document.body.appendChild(this.stats.dom)
   }
 

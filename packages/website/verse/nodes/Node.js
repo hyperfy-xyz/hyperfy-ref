@@ -11,7 +11,7 @@ const _q1 = new THREE.Quaternion()
 export class Node {
   constructor(entity, data) {
     this.entity = entity
-    this.space = entity.space
+    this.world = entity.world
     this.type = data.type
     this.name = data.name
     this.parent = null
@@ -78,7 +78,7 @@ export class Node {
   dirty() {
     // TODO:
     this.isDirty = true
-    this.space.entities.dirtyNodes.push(this)
+    this.world.entities.dirtyNodes.push(this)
   }
 
   apply() {

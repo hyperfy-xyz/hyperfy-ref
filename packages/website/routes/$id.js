@@ -9,7 +9,7 @@ import { CodeEditor } from '@/components/CodeEditor'
 
 import { wrapRawCode } from '@/utils/wrapRawCode'
 
-import { Verse } from '@/space/Verse'
+import { Verse } from '@/verse/Verse'
 
 let verse
 const getVerse = () => {
@@ -57,19 +57,19 @@ function Content() {
 
   return (
     <>
-      <Header inSpace />
+      <Header inWorld />
       <title>{world?.network.meta?.name || 'World'}</title>
       <div
-        className='space'
+        className='world'
         css={css`
           position: relative;
           height: 100vh;
           background: black;
-          .space-viewport {
+          .world-viewport {
             position: absolute;
             inset: 0;
           }
-          .space-overlay {
+          .world-overlay {
             position: absolute;
             inset: 0;
             background: blue;
@@ -81,7 +81,7 @@ function Content() {
               font-size: 20px;
             }
           }
-          .space-next {
+          .world-next {
             position: absolute;
             bottom: 20px;
             right: 20px;
@@ -92,19 +92,19 @@ function Content() {
           }
         `}
       >
-        <div className='space-viewport' ref={viewportRef} />
+        <div className='world-viewport' ref={viewportRef} />
         {status === 'connecting' && (
-          <div className='space-overlay'>
+          <div className='world-overlay'>
             <div>Connecting</div>
           </div>
         )}
         {status === 'connected' && (
-          <div className='space-overlay'>
+          <div className='world-overlay'>
             <div>Preparing</div>
           </div>
         )}
         {status === 'disconnected' && (
-          <div className='space-overlay'>
+          <div className='world-overlay'>
             <div>Disconnected</div>
           </div>
         )}
@@ -112,7 +112,7 @@ function Content() {
           <Context x={context.x} y={context.y} actions={context.actions} />
         )}
         {world && <Panels world={world} />}
-        {verse.next && <div className='space-next'>Loading next world</div>}
+        {verse.next && <div className='world-next'>Loading next world</div>}
       </div>
     </>
   )

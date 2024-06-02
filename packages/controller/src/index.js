@@ -16,7 +16,7 @@ const proxy = httpProxy.createProxyServer({})
 server.on('upgrade', (req, sock, head) => {
   const url = new URL(req.url, 'http://supaverse')
   const pathname = url.pathname
-  const match = /^\/space\/([^\/]+)\/?$/.exec(pathname)
+  const match = /^\/world\/([^\/]+)\/?$/.exec(pathname)
   let id = match?.[1] || null
   if (!id) return error(sock, 'id_required')
   id = id.toLowerCase()

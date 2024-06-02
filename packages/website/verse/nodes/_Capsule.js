@@ -29,17 +29,17 @@ export class Capsule extends Node {
       this.mesh.matrixWorldAutoUpdate = false
       this.mesh.matrix.copy(this.matrix)
       this.mesh.matrixWorld.copy(this.matrixWorld)
-      this.space.graphics.scene.add(this.mesh)
+      this.world.graphics.scene.add(this.mesh)
     }
     if (this.physics) {
       const geometry = new PHYSX.PxCapsuleGeometry(this.radius, this.height / 2)
-      const material = this.space.physics.physics.createMaterial(0.5, 0.5, 0.5)
+      const material = this.world.physics.physics.createMaterial(0.5, 0.5, 0.5)
       const flags = new PHYSX.PxShapeFlags(
         PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE |
           PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE
       )
       const tmpFilterData = new PHYSX.PxFilterData(1, 1, 0, 0)
-      const shape = this.space.physics.physics.createShape(
+      const shape = this.world.physics.physics.createShape(
         geometry,
         material,
         true,
@@ -57,7 +57,7 @@ export class Capsule extends Node {
       transform.q.z = _q1.z
       transform.q.w = _q1.w
       if (this.physics === 'dynamic') {
-        this.body = this.space.physics.physics.createRigidDynamic(transform)
+        this.body = this.world.physics.physics.createRigidDynamic(transform)
         this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
         this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
         if (this.physicsAngularLock[0]) {
@@ -80,16 +80,16 @@ export class Capsule extends Node {
         }
         // this.body.setMass(50) // todo: data.mass
       } else if (this.physics === 'kinematic') {
-        this.body = this.space.physics.physics.createRigidStatic(transform)
+        this.body = this.world.physics.physics.createRigidStatic(transform)
         this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
         this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
       } else {
-        this.body = this.space.physics.physics.createRigidStatic(transform)
+        this.body = this.world.physics.physics.createRigidStatic(transform)
       }
       this.body.attachShape(shape)
-      this.space.physics.scene.addActor(this.body)
+      this.world.physics.scene.addActor(this.body)
       if (this.physics === 'dynamic') {
-        this.unbind = this.space.physics.bind(this.body, this)
+        this.unbind = this.world.physics.bind(this.body, this)
       }
     }
   }
@@ -116,7 +116,7 @@ export class Capsule extends Node {
 
   unmount() {
     if (this.mesh) {
-      this.space.graphics.scene.remove(this.mesh)
+      this.world.graphics.scene.remove(this.mesh)
     }
     if (this.body) {
       this.unbind()

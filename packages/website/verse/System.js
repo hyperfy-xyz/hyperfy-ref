@@ -1,6 +1,6 @@
 export class System {
-  constructor(space) {
-    this.space = space
+  constructor(world) {
+    this.world = world
   }
 
   async init() {

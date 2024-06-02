@@ -3,7 +3,7 @@ import 'dotenv-flow/config'
 import http from 'http'
 import express from 'express'
 import { WebSocketServer } from 'ws'
-import { Space } from './Space'
+import { World } from './World'
 
 const prod = process.env.NODE_ENV === 'production'
 
@@ -14,24 +14,24 @@ const app = express()
 const server = http.createServer(app)
 const wss = new WebSocketServer({ noServer: true })
 
-const spaces = new Map()
+const worlds = new Map()
 
 server.on('upgrade', (req, sock, head) => {
   wss.handleUpgrade(req, sock, head, ws => {
     const url = new URL(req.url, 'http://supaverse')
     const pathname = url.pathname
-    const match = /^\/space\/([^\/]+)\/?$/.exec(pathname)
+    const match = /^\/world\/([^\/]+)\/?$/.exec(pathname)
     let id = match?.[1] || null
     if (!id) return ws.close()
     id = id.toLowerCase()
-    let space = spaces.get(id)
-    if (!space) {
-      space = new Space(id, () => {
-        spaces.delete(id)
+    let world = worlds.get(id)
+    if (!world) {
+      world = new World(id, () => {
+        worlds.delete(id)
       })
-      spaces.set(id, space)
+      worlds.set(id, world)
     }
-    space.onConnect(ws)
+    world.onConnect(ws)
   })
 })
 

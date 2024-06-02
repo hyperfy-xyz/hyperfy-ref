@@ -7,8 +7,8 @@ import { System } from './System'
 THREE.Cache.enabled = true
 
 export class Loader extends System {
-  constructor(space) {
-    super(space)
+  constructor(world) {
+    super(world)
     this.rgbeLoader = new RGBELoader()
   }
 

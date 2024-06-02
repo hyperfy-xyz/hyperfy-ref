@@ -1,8 +1,8 @@
 import { System } from './System'
 
 export class Panels extends System {
-  constructor(space) {
-    super(space)
+  constructor(world) {
+    super(world)
     this.panel = null
     this.listeners = new Set()
   }
@@ -19,8 +19,8 @@ export class Panels extends System {
       }
     }
     if (entity.schema.type === 'avatar') {
-      const user = this.space.network.findUser(entity.creator)
-      const me = this.space.network.client.user
+      const user = this.world.network.findUser(entity.creator)
+      const me = this.world.network.client.user
       if (user.id === me.id) {
         this.panel = {
           type: 'inspect-self',
@@ -52,12 +52,12 @@ export class Panels extends System {
         if (!entity.destroyed) {
           entity.mode = 'active'
           entity.modeClientId = null
-          this.space.network.pushEntityUpdate(entity.id, update => {
+          this.world.network.pushEntityUpdate(entity.id, update => {
             if (!update.props) update.props = {}
             update.props.mode = 'active'
             update.props.modeClientId = null
           })
-          this.space.entities.upsertSchemaLocal(entity.schema) // this causes a respawn for all instances
+          this.world.entities.upsertSchemaLocal(entity.schema) // this causes a respawn for all instances
         }
         this.panel = null
         this.emit()

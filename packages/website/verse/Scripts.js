@@ -8,8 +8,8 @@ import { num } from '@/utils/num'
 import { System } from './System'
 
 export class Scripts extends System {
-  constructor(space) {
-    super(space)
+  constructor(world) {
+    super(world)
     this.compartment = new Compartment({
       console: {
         log: (...args) => console.log(...args),
