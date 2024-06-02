@@ -20,14 +20,14 @@ export class Network extends System {
     this.client = null
     this.packet = {}
     this.lastSendTime = 0
-    this.active = false
+    this.status = 'connecting'
   }
 
   async init() {
     const url = `${process.env.PUBLIC_CONTROLLER_WS}/space/${this.space.id}`
     this.log('connecting', url)
 
-    this.server = new SockClient(url)
+    this.server = new SockClient(url, false)
     this.server.on('connect', this.onConnect)
     this.server.on('init', this.onInit)
     this.server.on('add-client', this.onAddClient)
@@ -58,14 +58,16 @@ export class Network extends System {
     return `${this.client.id}.${++ids}`
   }
 
-  onConnect = () => {
-    this.log('connect')
-    this.space.emit('connect')
+  onConnect = async () => {
+    this.status = 'connected'
+    this.space.emit('status', this.status)
+    await this.space.ready
     this.server.send('auth', this.space.auth.token)
   }
 
   onInit = async data => {
     this.log('init', data)
+    this.server.useQueue = true
     this.meta = data.meta
     this.permissions = data.permissions
     for (const clientData of data.clients) {
@@ -87,8 +89,8 @@ export class Network extends System {
     // this.space.avatars.spawn(place)
     // await this.server.call('auth', this.space.token)
 
-    this.active = true
-    this.space.emit('active')
+    this.status = 'active'
+    this.space.emit('status', this.status)
 
     this.updateClient()
 
@@ -146,7 +148,7 @@ export class Network extends System {
   }
 
   updateClient = () => {
-    if (!this.active) return
+    if (this.status !== 'active') return
     const user = this.space.auth.user
     const client = this.client
     client.name = user.name
@@ -203,8 +205,8 @@ export class Network extends System {
   }
 
   onDisconnect = () => {
-    this.log('disconnect')
-    this.space.emit('disconnect')
+    this.status === 'disconnected'
+    this.space.emit('status', this.status)
   }
 
   log(...args) {

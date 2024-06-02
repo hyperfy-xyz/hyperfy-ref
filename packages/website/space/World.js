@@ -14,12 +14,13 @@ import { Stats } from './Stats'
 const FIXED_TIMESTEP = 1 / 60 // 60Hz
 const FIXED_TIME_MAX = FIXED_TIMESTEP * 20
 
-export class Space extends EventEmitter {
-  constructor({ id, auth, viewport }) {
+export class World extends EventEmitter {
+  constructor({ id, auth }) {
     super()
     this.id = id
     this.auth = auth
-    this.viewport = viewport
+    this.viewport = null
+
     this.systems = []
     this.time = 0
     this.fixedTime = 0
@@ -36,8 +37,23 @@ export class Space extends EventEmitter {
     this.graphics = this.register(Graphics)
     this.stats = this.register(Stats)
 
-    this.init()
+    this.ready = new Promise(async resolve => {
+      for (const system of this.systems) {
+        await system.init()
+      }
+      resolve()
+    })
+    // this.init()
     window.space = this
+  }
+
+  setViewport(viewport) {
+    this.viewport = viewport
+  }
+
+  setAuth(auth) {
+    this.auth = auth
+    this.emit('auth-change')
   }
 
   register(System) {
@@ -46,16 +62,18 @@ export class Space extends EventEmitter {
     return system
   }
 
-  async init() {
-    for (const system of this.systems) {
-      await system.init()
-    }
-    this.start()
-  }
+  // async init() {
+  //   for (const system of this.systems) {
+  //     await system.init()
+  //   }
+  //   this.start()
+  // }
 
-  start() {
+  async start(viewport) {
+    await this.ready
     for (const system of this.systems) {
-      system.start()
+      system.start(viewport)
+      // system.start(this.viewport)
     }
     this.graphics.renderer.setAnimationLoop(this.tick)
   }
@@ -96,11 +114,6 @@ export class Space extends EventEmitter {
 
   stop() {
     this.graphics.renderer.setAnimationLoop(null)
-  }
-
-  setAuth(auth) {
-    this.auth = auth
-    this.emit('auth-change')
   }
 
   destroy() {

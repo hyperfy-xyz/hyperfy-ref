@@ -23,11 +23,11 @@ export class Stats extends System {
   constructor(space) {
     super(space)
     this.stats = get()
-    document.body.appendChild(this.stats.dom)
   }
 
-  start() {
+  start(viewport) {
     this.stats.init(this.space.graphics.renderer)
+    document.body.appendChild(this.stats.dom)
   }
 
   update(delta) {

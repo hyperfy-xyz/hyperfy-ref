@@ -51,14 +51,15 @@ export class Control extends System {
     this.moving = null
   }
 
-  start() {
+  start(viewport) {
+    this.viewport = viewport
     window.addEventListener('keydown', this.onKeyDown)
     window.addEventListener('keyup', this.onKeyUp)
     document.addEventListener('pointerlockchange', this.onPointerLockChange)
-    this.space.viewport.addEventListener('pointerdown', this.onPointerDown)
+    this.viewport.addEventListener('pointerdown', this.onPointerDown)
     window.addEventListener('pointermove', this.onPointerMove)
-    this.space.viewport.addEventListener('wheel', this.onWheel, { passive: false }) // prettier-ignore
-    this.space.viewport.addEventListener('contextmenu', this.onContextMenu)
+    this.viewport.addEventListener('wheel', this.onWheel, { passive: false }) // prettier-ignore
+    this.viewport.addEventListener('contextmenu', this.onContextMenu)
   }
 
   update(delta) {
@@ -211,8 +212,8 @@ export class Control extends System {
     this.pointer.downAt = performance.now()
     this.pointer.rmb = e.button === 2
     this.pointer.move.set(0, 0)
-    // this.space.viewport.setPointerCapture(e.pointerId)
-    this.space.viewport.addEventListener('pointerup', this.onPointerUp)
+    // this.viewport.setPointerCapture(e.pointerId)
+    this.viewport.addEventListener('pointerup', this.onPointerUp)
     if (this.current) {
       this.current.look.active = true
       this.current.look.locked = e.button === 2
@@ -221,7 +222,7 @@ export class Control extends System {
   }
 
   onPointerMove = e => {
-    const rect = this.space.viewport.getBoundingClientRect()
+    const rect = this.viewport.getBoundingClientRect()
     const offsetX = e.pageX - rect.left // - window.scrollX
     const offsetY = e.pageY - rect.top // - window.scrollY
     this.pointer.coords.x = offsetX
@@ -260,8 +261,8 @@ export class Control extends System {
         this.openContext(e.clientX, e.clientY)
       }
     }
-    // this.space.viewport.releasePointerCapture(e.pointerId)
-    this.space.viewport.removeEventListener('pointerup', this.onPointerUp)
+    // this.viewport.releasePointerCapture(e.pointerId)
+    this.viewport.removeEventListener('pointerup', this.onPointerUp)
     if (this.current) {
       this.current.look.active = false
       this.current.look.locked = false
@@ -326,7 +327,7 @@ export class Control extends System {
 
   async requestPointerLock() {
     try {
-      await this.space.viewport.requestPointerLock()
+      await this.viewport.requestPointerLock()
       return true
     } catch (err) {
       // console.log('pointerlock denied, too quick?')
@@ -700,7 +701,7 @@ object.on('update', delta => {
         y,
         actions,
       }
-      this.space.emit('context:open', this.context)
+      this.space.emit('context', this.context)
     }
   }
 
@@ -718,17 +719,17 @@ object.on('update', delta => {
   closeContext() {
     if (!this.context) return
     this.context = null
-    this.space.emit('context:close')
+    this.space.emit('context', null)
   }
 
   destroy() {
     window.removeEventListener('keydown', this.onKeyDown)
     window.removeEventListener('keyup', this.onKeyUp)
     document.removeEventListener('pointerlockchange', this.onPointerLockChange)
-    this.space.viewport.removeEventListener('pointerdown', this.onPointerDown)
+    this.viewport.removeEventListener('pointerdown', this.onPointerDown)
     window.removeEventListener('pointermove', this.onPointerMove)
-    this.space.viewport.removeEventListener('wheel', this.onWheel, { passive: false }) // prettier-ignore
-    this.space.viewport.removeEventListener('contextmenu', this.onContextMenu)
+    this.viewport.removeEventListener('wheel', this.onWheel, { passive: false }) // prettier-ignore
+    this.viewport.removeEventListener('contextmenu', this.onContextMenu)
     this.controls = []
     this.current = null
     // while(this.controls.length) {

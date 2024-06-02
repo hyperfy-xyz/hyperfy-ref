@@ -31,17 +31,12 @@ const FOV = 70
 export class Graphics extends System {
   constructor(space) {
     super(space)
-    this.viewport = space.viewport
   }
 
   async init() {
-    this.width = this.viewport.offsetWidth
-    this.height = this.viewport.offsetHeight
+    this.width = 200
+    this.height = 200
     this.aspect = this.width / this.height
-    this.resizer = new ResizeObserver(() => {
-      this.resize(this.viewport.offsetWidth, this.viewport.offsetHeight)
-    })
-    this.resizer.observe(this.viewport)
 
     this.scene = new THREE.Scene()
     // this.scene.matrixAutoUpdate = false
@@ -52,15 +47,14 @@ export class Graphics extends System {
       // antialias: true,
       powerPreference: 'high-performance',
     })
+    this.renderer.setSize(this.width, this.height)
     this.renderer.setClearColor(0xffffff, 0)
     this.renderer.setPixelRatio(1) // window.devicePixelRatio
-    this.renderer.setSize(this.viewport.offsetWidth, this.viewport.offsetHeight)
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
     // this.renderer.toneMapping = THREE.ACESFilmicToneMapping
     // this.renderer.toneMappingExposure = 1
     // this.renderer.outputColorSpace = THREE.SRGBColorSpace
-    this.viewport.appendChild(this.renderer.domElement)
 
     this.csm = new CSM({
       mode: 'practical', // uniform, logarithmic, practical, custom
@@ -142,6 +136,20 @@ export class Graphics extends System {
     }
   }
 
+  start(viewport) {
+    this.viewport = viewport
+    this.width = this.viewport.offsetWidth
+    this.height = this.viewport.offsetHeight
+    this.aspect = this.width / this.height
+    this.resizer = new ResizeObserver(() => {
+      this.resize(this.viewport.offsetWidth, this.viewport.offsetHeight)
+    })
+    this.resizer.observe(this.viewport)
+    this.resize(this.width, this.height)
+    this.renderer.setSize(this.width, this.height)
+    this.viewport.appendChild(this.renderer.domElement)
+  }
+
   resize(width, height) {
     this.width = width
     this.height = height
@@ -164,12 +172,12 @@ export class Graphics extends System {
     this.render()
   }
 
-  start() {
-    // const geometry = new THREE.BoxGeometry(1, 1, 1)
-    // const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
-    // const cube = new THREE.Mesh(geometry, material)
-    // this.scene.add(cube)
-  }
+  // start() {
+  //   // const geometry = new THREE.BoxGeometry(1, 1, 1)
+  //   // const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+  //   // const cube = new THREE.Mesh(geometry, material)
+  //   // this.scene.add(cube)
+  // }
 
   update(delta) {
     this.csm.update()
@@ -204,5 +212,9 @@ export class Graphics extends System {
     const hit = this.raycastHits[0]
     this.raycastHits.length = 0
     return hit
+  }
+
+  destroy() {
+    this.viewport.removeChild(this.renderer.domElement)
   }
 }

@@ -1,4 +1,4 @@
-import { cls, css } from 'firebolt'
+import { Link, cls, css } from 'firebolt'
 
 import { AuthWidget } from './AuthWidget'
 import { ThemeBtn } from './ThemeBtn'
@@ -31,6 +31,8 @@ export function Header({ inSpace = false }) {
     >
       <div className='header-logo'>SumVerse</div>
       <div className='header-gap' />
+      <Link href='/123'>123</Link>
+      <Link href='/1234'>1234</Link>
       <AuthWidget />
     </div>
   )

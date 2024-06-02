@@ -1,61 +1,64 @@
 import { useRef, useEffect, useState, useMemo, useLayoutEffect } from 'react'
 import { cls, css, useRoute } from 'firebolt'
+import { XIcon } from 'lucide-react'
 
 import { Header } from '@/components/Header'
 import { useAuth } from '@/components/AuthProvider'
 import { useForceUpdate } from '@/components/useForceUpdate'
-
-import { Space } from '@/space/Space'
-import { XIcon } from 'lucide-react'
 import { CodeEditor } from '@/components/CodeEditor'
+
 import { wrapRawCode } from '@/utils/wrapRawCode'
+
+import { Verse } from '@/space/Verse'
+
+let verse
+const getVerse = () => {
+  if (!verse) verse = new Verse()
+  return verse
+}
 
 export default function Page() {
   const { auth } = useAuth()
-  const { id } = useRoute().params
   if (!auth) return null // TODO: loading
-  return <Content key={id} />
+  return <Content />
 }
 
 function Content() {
+  const verse = getVerse()
   const viewportRef = useRef()
-  const spaceRef = useRef()
-  const [status, setStatus] = useState({ type: 'connecting' })
-  const { auth } = useAuth()
+  const update = useForceUpdate()
   const { id } = useRoute().params
+  const { auth } = useAuth()
+  const [status, setStatus] = useState('connecting')
   const [context, setContext] = useState(null)
+
+  useMemo(() => {
+    verse.connect(id, auth)
+  }, [id, auth])
+
+  const world = verse.world
+
   useEffect(() => {
     const viewport = viewportRef.current
-    const space = new Space({ id, auth, viewport })
-    spaceRef.current = space
-    space.on('connect', () => {
-      setStatus({ type: 'connected' })
-    })
-    space.on('active', () => {
-      setStatus({ type: 'active' })
-    })
-    space.on('disconnect', msg => {
-      setStatus({ type: 'disconnected' })
-    })
-    space.on('context:open', context => {
-      setContext(context)
-    })
-    space.on('context:close', () => {
-      setContext(null)
-    })
+    world.on('status', setStatus)
+    world.on('context', setContext)
+    world.on('swap', update)
+    world.start(viewport)
     return () => {
-      space.destroy()
+      world.off('status', setStatus)
+      world.off('context', setContext)
+      world.off('swap', update)
     }
-  }, [])
+  }, [world])
+
   useEffect(() => {
-    const space = spaceRef.current
-    space.setAuth(auth)
-  }, [auth])
-  const space = spaceRef.current
+    return () => verse.destroy()
+  }, [])
+
   return (
     <>
       <Header inSpace />
-      <title>{space?.network.meta?.name || 'Space'}</title>
+      <title>{world?.network.meta?.name || 'World'}</title>
       <div
         className='space'
         css={css`
@@ -78,20 +81,29 @@ function Content() {
               font-size: 20px;
             }
           }
+          .space-next {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: black;
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+          }
         `}
       >
         <div className='space-viewport' ref={viewportRef} />
-        {status.type === 'connecting' && (
+        {status === 'connecting' && (
           <div className='space-overlay'>
             <div>Connecting</div>
           </div>
         )}
-        {status.type === 'connected' && (
+        {status === 'connected' && (
           <div className='space-overlay'>
             <div>Preparing</div>
           </div>
         )}
-        {status.type === 'disconnected' && (
+        {status === 'disconnected' && (
           <div className='space-overlay'>
             <div>Disconnected</div>
           </div>
@@ -99,7 +111,8 @@ function Content() {
         {context && (
           <Context x={context.x} y={context.y} actions={context.actions} />
         )}
-        {space && <Panels space={space} />}
+        {world && <Panels world={world} />}
+        {verse.next && <div className='space-next'>Loading next world</div>}
       </div>
     </>
   )
@@ -315,12 +328,12 @@ const RadialButton = ({
   )
 }
 
-function Panels({ space }) {
+function Panels({ world }) {
   const update = useForceUpdate()
   useEffect(() => {
-    return space.panels.subscribe(update)
-  }, [])
-  const panel = space.panels.panel
+    return world.panels.subscribe(update)
+  }, [world])
+  const panel = world.panels.panel
   if (!panel) return null
   return (
     <div
