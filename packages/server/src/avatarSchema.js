@@ -97,6 +97,7 @@ object.on('start', () => {
       vrm.rotation.y = ctrl.rotation.y
       ctrl.rotation.y = 0
       control.camera.rotation.y = vrm.rotation.y
+      control.camera.distance = control.look.zoom * ZOOM_DISTANCE
       vrm.dirty()
       ctrl.dirty()
     }

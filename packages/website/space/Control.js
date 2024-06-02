@@ -25,6 +25,7 @@ import { cloneDeep } from 'lodash-es'
 
 import { num } from '@/utils/num'
 import { wrapRawCode } from '@/utils/wrapRawCode'
+import { DEG2RAD } from '@/utils/general'
 
 const PI_2 = Math.PI / 2
 const LOOK_SPEED = 0.005
@@ -362,7 +363,7 @@ export class Control extends System {
       },
       camera: {
         position: new THREE.Vector3(),
-        rotation: new THREE.Euler(0, 0, 0, 'YXZ'),
+        rotation: new THREE.Euler(-20 * DEG2RAD, 0, 0, 'YXZ'),
         quaternion: new THREE.Quaternion(),
         distance: 0,
       },
