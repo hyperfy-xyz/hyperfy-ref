@@ -12,6 +12,7 @@ export class Verse {
   }
 
   connect(id, auth) {
+    this.dead = false
     if (!browser) return
     if (!this.world) {
       this.world = new World({ id, auth })
@@ -33,22 +34,24 @@ export class Verse {
       this.next.destroy()
     }
     this.log('create next')
-    this.next = new World({ id, auth })
+    const next = new World({ id, auth })
     const onStatus = status => {
       if (this.dead) return
+      if (this.next !== next) return
       if (status === 'active') {
-        this.log('next active, swapping', this.next)
-        this.next.off('status', onStatus)
+        this.log('next active, swapping', next)
+        next.off('status', onStatus)
         const old = this.world
-        this.world = this.next
+        this.world = next
         this.next = null
         if (old) {
-          old.emit('swap')
           old.destroy()
+          old.emit('swap')
         }
       }
     }
-    this.next.on('status', onStatus)
+    next.on('status', onStatus)
+    this.next = next
   }
 
   log(...args) {
