@@ -64,15 +64,19 @@ export class Node {
   }
 
   detach(node) {
-    const idx = this.children.indexOf(node)
-    if (idx === -1) return
-    this.project()
-    node.parent = null
-    this.children.splice(idx, 1)
-    node.matrix.copy(node.matrixWorld)
-    node.matrix.decompose(node.position, node.quaternion, node.scale)
-    node.project()
-    node.update()
+    if (node) {
+      const idx = this.children.indexOf(node)
+      if (idx === -1) return
+      this.project()
+      node.parent = null
+      this.children.splice(idx, 1)
+      node.matrix.copy(node.matrixWorld)
+      node.matrix.decompose(node.position, node.quaternion, node.scale)
+      node.project()
+      node.update()
+    } else {
+      this.parent?.detach(this)
+    }
   }
 
   dirty() {
@@ -168,6 +172,9 @@ export class Node {
         },
         getParent() {
           return self.parent?.getProxy()
+        },
+        detach(node) {
+          self.detach(node)
         },
       }
       this.proxy = proxy

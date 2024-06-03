@@ -15,7 +15,8 @@ const ZOOM_SPEED = 6
 
 const jumpHeight = 1.5
 const turnSpeed = 3
-const moveSpeed = 5
+const walkSpeed = 5
+const runSpeed = 20
 const displacement = new Vector3(0, 0, 0)
 const gravity = 20 // 9.81
 
@@ -29,7 +30,6 @@ let lastPush = 0
 let base
 let ctrl
 let vrm
-let face
 
 let remotePosition
 let remoteQuaternion
@@ -43,50 +43,24 @@ object.on('setup', () => {
       radius: 0.4,
       height: 1,
     })
-    vrm = object.create({
-      type: 'box',
-      name: 'vrm',
-      size: [1, 1.8, 1],
-      color: 'red',
-      position: [0, 1.8 / 2 , 0]
-    })
-    face = object.create({
-      type: 'box',
-      name: 'face',
-      size: [0.3,0.1,0.1],
-      color: 'red',
-      position: [0, 1, -0.5]
-    })
+    vrm = object.get('HumanLow') // TODO
     object.add(ctrl)
     ctrl.add(vrm)
-    vrm.add(face)
   } else {
     base = object.create({
       type: 'group',
       name: 'base',
     })
-    vrm = object.create({
-      type: 'box',
-      name: 'vrm',
-      size: [1, 1.8, 1],
-      color: 'red',
-      position: [0, 1.8 / 2 , 0]
-    })
-    face = object.create({
-      type: 'box',
-      name: 'face',
-      size: [0.3,0.1,0.1],
-      color: 'red',
-      position: [0, 1, -0.5]
-    })
+    vrm = object.get('HumanLow') // TODO
     object.add(base)
     base.add(vrm)
-    vrm.add(face)
   }
 })
 
 object.on('start', () => {
-  if (object.isAuthority()) {
+  const authority = object.isAuthority()
+  if (authority) {
+    ctrl.detach()
     object.requestControl()
     const control = object.getControl()
     if (control) {
@@ -121,6 +95,7 @@ object.on('update', delta => {
   const authority = object.isAuthority()
   if (authority) {
     const control = object.getControl()
+    const speed = control.run ? runSpeed : walkSpeed
     displacement.set(0, 0, 0)
     // movement is either:
     // a) no mouse down = WS forward/back relative to vrm direction + AD to turn left/right + camera constantly tries to stay behind
@@ -143,12 +118,12 @@ object.on('update', delta => {
     }
     // forward/back displacement only (eg turning not strafing)
     if ((fp && !active) || (!fp && !active) || (!fp && active && !locked)) {
-      displacement.set(0, 0, move.z).multiplyScalar(moveSpeed * delta)
+      displacement.set(0, 0, move.z).multiplyScalar(speed * delta)
       displacement.applyQuaternion(vrm.quaternion)
     }
     // forward/back and strafe
     else {
-      displacement.set(move.x, 0, move.z).multiplyScalar(moveSpeed * delta)
+      displacement.set(move.x, 0, move.z).multiplyScalar(speed * delta)
       e1.copy(vrm.rotation)
       e1.x = 0
       e1.z = 0
@@ -268,14 +243,9 @@ function is(value) {
 export const avatarSchema = {
   id: '$avatar',
   type: 'avatar',
-  nodes: [
-    {
-      type: 'script',
-      name: 'avatar',
-      raw: AVATAR_SCRIPT,
-      code: wrapRawCode(AVATAR_SCRIPT),
-    },
-  ],
+  glb: '/static/avatar.glb',
+  script: wrapRawCode(AVATAR_SCRIPT),
+  scriptRaw: AVATAR_SCRIPT,
 }
 
 function wrapRawCode(code) {

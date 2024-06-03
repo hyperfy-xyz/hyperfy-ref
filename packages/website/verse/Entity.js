@@ -2,6 +2,7 @@ import * as Nodes from './nodes'
 
 import { Vector3Lerp } from '@/utils/Vector3Lerp'
 import { QuaternionLerp } from '@/utils/QuaternionLerp'
+import { Group } from './nodes/Group'
 
 const MOVING_SEND_RATE = 1 / 5
 
@@ -42,21 +43,16 @@ export class Entity {
       },
     })
     this.stateChanges = null
-    this.scripts = []
+    // this.script = null
     this.events = {}
     this.positionLerp = new Vector3Lerp(this.root.position, MOVING_SEND_RATE)
     this.quaternionLerp = new QuaternionLerp(this.root.quaternion, MOVING_SEND_RATE) // prettier-ignore
-    this.checkMode()
+    this.load()
   }
 
-  buildNodes(parent, nodes) {
-    for (const data of nodes) {
-      const node = this.createNode(data)
-      parent.add(node)
-      if (data.children) {
-        this.buildNodes(node, data.children)
-      }
-    }
+  async load() {
+    this.glb = await this.world.loader.load(this.schema.glb, 'glb')
+    this.checkMode()
   }
 
   createNode(data) {
@@ -79,20 +75,66 @@ export class Entity {
       node.unmount() // todo: destroy nodes?
     })
     this.nodes.clear()
-    this.scripts = []
+    // script
+    // this.script = null
     this.events = {}
     // build
     if (this.mode === 'dead') {
-      this.buildNodes(this.root, [
-        {
-          type: 'box',
-          name: 'error',
-          color: 'blue',
-          position: [0, 0.5, 0],
-        },
-      ])
-    } else {
-      this.buildNodes(this.root, this.schema.nodes)
+      const box = this.createNode({
+        type: 'box',
+        name: 'error',
+        color: 'blue',
+        position: [0, 0.5, 0],
+      })
+      this.root.add(box)
+    }
+    if (this.mode !== 'dead') {
+      const convert = (object3d, parentNode) => {
+        let node
+        if (
+          object3d.type === 'Scene' ||
+          object3d.type === 'Group' ||
+          object3d.type === 'Object3D'
+        ) {
+          node = this.createNode({
+            type: 'group',
+            name: object3d.name,
+            position: object3d.position.toArray(),
+            quaternion: object3d.quaternion.toArray(),
+            scale: object3d.scale.toArray(),
+          })
+        }
+        if (object3d.type === 'Mesh') {
+          console.log('rebuild mesh', object3d, this)
+          node = this.createNode({
+            type: 'mesh',
+            name: object3d.name,
+            mesh: object3d,
+            position: object3d.position.toArray(),
+            quaternion: object3d.quaternion.toArray(),
+            scale: object3d.scale.toArray(),
+          })
+        }
+        if (node) {
+          parentNode.add(node)
+        } else {
+          console.log('unsupported', object3d)
+        }
+        for (const child of object3d.children) {
+          convert(child, node)
+        }
+      }
+      for (const object3d of this.glb.scene.children) {
+        convert(object3d, this.root)
+      }
+      // TEMP box
+      // const box = this.createNode({
+      //   type: 'box',
+      //   name: 'error',
+      //   color: 'blue',
+      //   position: [0, 0.5, 0],
+      // })
+      // this.root.add(box)
     }
   }
 
@@ -104,7 +146,7 @@ export class Entity {
     if (prevMode === mode && !forceRespawn) return
     // cleanup previous
     if (prevMode === 'active') {
-      if (this.scripts.length) {
+      if (this.schema.script) {
         this.world.entities.decActive(this)
       }
     }
@@ -124,15 +166,11 @@ export class Entity {
     })
     // configure new
     if (this.mode === 'active') {
-      this.root.traverse(node => {
-        if (node.type === 'script') {
-          this.scripts.push(node)
-        }
-      })
-      // instantiate scripts
-      for (const node of this.scripts) {
+      // instantiate script
+      if (this.schema.script) {
+        const script = this.world.scripts.resolve(this.schema.script)
         try {
-          node.instantiate()
+          script(this.getProxy())
         } catch (err) {
           console.error('entity instantiate failed', this)
           console.error(err)
@@ -147,10 +185,6 @@ export class Entity {
         console.error(err)
         this.kill()
       }
-      // move root children to world space
-      while (this.root.children.length) {
-        this.root.detach(this.root.children[0])
-      }
       // emit script 'start' event (world-space)
       try {
         this.emit('start')
@@ -160,7 +194,7 @@ export class Entity {
         this.kill()
       }
       // register for script update/fixedUpdate etc
-      if (this.scripts.length) {
+      if (this.schema.script) {
         this.world.entities.incActive(this)
       }
     }
@@ -178,9 +212,9 @@ export class Entity {
     }
     if (this.mode === 'dead') {
       // move root children to world space
-      while (this.root.children.length) {
-        this.root.detach(this.root.children[0])
-      }
+      // while (this.root.children.length) {
+      //   this.root.detach(this.root.children[0])
+      // }
     }
     this.prevMode = this.mode
     this.prevModeClientId = this.modeClientId

@@ -398,12 +398,12 @@ function EditPanel({ panel }) {
   return (
     <div>
       <div>Edit</div>
-      {entity.schema.nodes.map(node => (
+      {/* {entity.schema.nodes.map(node => (
         <div key={node.name} onClick={() => setNode(node)}>
           {node.name}
         </div>
-      ))}
-      {node?.type === 'script' && (
+      ))} */}
+      {/* {node?.type === 'script' && (
         <CodeEditor
           value={node.raw}
           onChange={raw => {
@@ -411,7 +411,7 @@ function EditPanel({ panel }) {
             node.code = wrapRawCode(raw)
           }}
         />
-      )}
+      )} */}
     </div>
   )
 }

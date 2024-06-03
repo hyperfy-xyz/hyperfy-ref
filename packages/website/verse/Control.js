@@ -26,6 +26,7 @@ import { cloneDeep } from 'lodash-es'
 import { num } from '@/utils/num'
 import { wrapRawCode } from '@/utils/wrapRawCode'
 import { DEG2RAD } from '@/utils/general'
+import { DnD } from './extras/DnD'
 
 const PI_2 = Math.PI / 2
 const LOOK_SPEED = 0.005
@@ -53,6 +54,7 @@ export class Control extends System {
 
   start(viewport) {
     this.viewport = viewport
+    this.dnd = new DnD(viewport, this.onDnD)
     window.addEventListener('keydown', this.onKeyDown)
     window.addEventListener('keyup', this.onKeyUp)
     document.addEventListener('pointerlockchange', this.onPointerLockChange)
@@ -101,6 +103,44 @@ export class Control extends System {
     cam.position.z = this.current.camera.distance
   }
 
+  onDnD = async ({ event, file, url }) => {
+    console.log(event, file, url)
+
+    if (file) {
+      // hash
+      const buf = await file.arrayBuffer()
+      const hashBuf = await crypto.subtle.digest('SHA-256', buf)
+      const hash = Array.from(new Uint8Array(hashBuf))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('')
+      console.log(hash)
+      // TODO: upload UI
+      const url = 'https://temp.com/' + hash
+      // const url = URL.createObjectURL(file) // await this.world.network.uploadFile(file)
+      const localUrl = URL.createObjectURL(file)
+      this.world.loader.redirect(url, localUrl, true)
+      const schema = {
+        id: this.world.network.makeId(),
+        type: 'prototype',
+        glb: url,
+        script: null,
+        scriptRaw: null,
+      }
+      this.world.entities.upsertSchemaLocal(schema)
+      this.world.entities.addInstanceLocal({
+        id: this.world.network.makeId(),
+        schemaId: schema.id,
+        creator: this.world.network.client.user.id,
+        authority: this.world.network.client.id,
+        mode: 'moving',
+        modeClientId: this.world.network.client.id,
+        position: [0, 0, 0], // hit.point.toArray(),
+        quaternion: [0, 0, 0, 1],
+        state: {},
+      })
+    }
+  }
+
   onKeyDown = e => {
     if (e.repeat) return
     if (this.isInputFocused()) return
@@ -146,6 +186,13 @@ export class Control extends System {
           }
         }
         break
+      case 'ShiftLeft':
+      case 'ShiftRight':
+        this.keys.shift = true
+        if (this.current) {
+          this.current.run = true
+        }
+        break
     }
   }
 
@@ -187,6 +234,13 @@ export class Control extends System {
           if (this.current) {
             this.current.jump = false
           }
+        }
+        break
+      case 'ShiftLeft':
+      case 'ShiftRight':
+        this.keys.shift = false
+        if (this.current) {
+          this.current.run = false
         }
         break
     }
@@ -353,6 +407,7 @@ export class Control extends System {
     const control = {
       entityId: entity.id,
       move: new THREE.Vector3(),
+      run: false,
       jump: false,
       look: {
         rotation: new THREE.Euler(0, 0, 0, 'YXZ'),
@@ -419,8 +474,17 @@ export class Control extends System {
   openContext(x, y) {
     vec2.set(x, y)
     const hit = this.world.graphics.raycastViewport(vec2)
+    console.log('hit', hit)
     if (!hit) return // void
-    const entity = hit?.object?.node?.entity
+    let entity
+    if (hit.object) {
+      if (hit.object.instanceGroup) {
+        entity = hit.object.instanceGroup.getNode(hit.instanceId)?.entity
+      } else {
+        entity = hit.object.node?.entity
+      }
+    }
+    // const entity = hit?.object?.node?.entity
     const actions = []
     const add = opts => {
       actions.push({
@@ -654,27 +718,28 @@ object.on('update', delta => {
           })
         },
       })
-      // add({
-      //   label: 'Bomb',
-      //   icon: BombIcon,
-      //   visible: true,
-      //   disabled: false,
-      //   execute: () => {
-      //     for (let i = 0; i < 1000; i++) {
-      //       this.world.entities.addInstanceLocal({
-      //         id: this.world.network.makeId(),
-      //         schemaId: entity.schema.id,
-      //         creator: this.world.network.client.user.id, // ???
-      //         authority: this.world.network.client.id,
-      //         mode: 'active',
-      //         modeClientId: null,
-      //         position: [num(-10, 10, 2), num(-10, 10, 2), num(-10, 10, 2)],
-      //         quaternion: [0, 0, 0, 1],
-      //         state: entity.state,
-      //       })
-      //     }
-      //   },
-      // })
+      add({
+        label: 'Bomb',
+        icon: BombIcon,
+        visible: true,
+        disabled: false,
+        execute: () => {
+          for (let i = 0; i < 3000; i++) {
+            this.world.entities.addInstanceLocal({
+              id: this.world.network.makeId(),
+              schemaId: entity.schema.id,
+              creator: this.world.network.client.user.id, // ???
+              authority: this.world.network.client.id,
+              mode: 'active',
+              modeClientId: null,
+              position: [num(-300, 300, 3), 0, num(-300, 300, 3)], // ground
+              // position: [num(-30, 30, 3), num(0, 30, 3), num(-30, 30, 3)], // everywhere
+              quaternion: [0, 0, 0, 1],
+              state: entity.state,
+            })
+          }
+        },
+      })
       add({
         label: 'Destroy',
         icon: Trash2Icon,
@@ -730,6 +795,7 @@ object.on('update', delta => {
     window.removeEventListener('pointermove', this.onPointerMove)
     this.viewport.removeEventListener('wheel', this.onWheel, { passive: false }) // prettier-ignore
     this.viewport.removeEventListener('contextmenu', this.onContextMenu)
+    this.dnd.destroy()
     this.controls = []
     this.current = null
     // while(this.controls.length) {

@@ -16,7 +16,7 @@ import { Layers } from '@/utils/Layers'
 // three-mesh-bvh
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree
 THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree
-THREE.Mesh.prototype.raycast = acceleratedRaycast
+// THREE.Mesh.prototype.raycast = acceleratedRaycast
 
 // THREE.Object3D.DEFAULT_MATRIX_AUTO_UPDATE = false
 // THREE.Object3D.DEFAULT_MATRIX_WORLD_AUTO_UPDATE = false
@@ -127,6 +127,7 @@ export class Graphics extends System {
     // ground
     {
       const geometry = new THREE.BoxGeometry(1000, 1, 1000)
+      geometry.computeBoundsTree()
       const material = new THREE.MeshStandardMaterial({ color: 'green' })
       const mesh = new THREE.Mesh(geometry, material)
       mesh.receiveShadow = true
@@ -145,9 +146,8 @@ export class Graphics extends System {
       this.resize(this.viewport.offsetWidth, this.viewport.offsetHeight)
     })
     this.resizer.observe(this.viewport)
-    this.resize(this.width, this.height)
-    this.renderer.setSize(this.width, this.height)
     this.viewport.appendChild(this.renderer.domElement)
+    this.resize(this.width, this.height)
   }
 
   resize(width, height) {
@@ -166,9 +166,9 @@ export class Graphics extends System {
     //   this.camera.fov = FOV
     // }
     this.camera.updateProjectionMatrix()
+    this.csm.updateFrustums()
     this.renderer.setSize(this.width, this.height)
     this.composer.setSize(this.width, this.height)
-    this.csm.updateFrustums()
     this.render()
   }
 
@@ -201,9 +201,9 @@ export class Graphics extends System {
   }
 
   raycastViewport(coords, layers = this.maskNone, min = 0, max = Infinity) {
-    const rect = this.viewport.getBoundingClientRect()
-    vec2.x = ((coords.x - rect.left) / (rect.right - rect.left)) * 2 - 1
-    vec2.y = -((coords.y - rect.top) / (rect.bottom - rect.top)) * 2 + 1
+    const rect = this.renderer.domElement.getBoundingClientRect()
+    vec2.x = ((coords.x - rect.left) / rect.width) * 2 - 1
+    vec2.y = -((coords.y - rect.top) / rect.height) * 2 + 1
     this.raycaster.setFromCamera(vec2, this.camera)
     this.raycaster.layers = layers
     this.raycaster.near = min
