@@ -13,6 +13,7 @@ const defaults = {
 export class Controller extends Node {
   constructor(entity, data) {
     super(entity, data)
+    this.isController = true
     this.radius = isNumber(data.radius) ? data.radius : defaults.radius
     this.height = isNumber(data.height) ? data.height : defaults.height
     this.visible = isBoolean(data.visible) ? data.visible : defaults.visible

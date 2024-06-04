@@ -733,7 +733,7 @@ object.on('update', delta => {
               authority: this.world.network.client.id,
               mode: 'active',
               modeClientId: null,
-              position: [num(-300, 300, 3), 0, num(-300, 300, 3)], // ground
+              position: [num(-100, 100, 3), 0, num(-100, 100, 3)], // ground
               // position: [num(-30, 30, 3), num(0, 30, 3), num(-30, 30, 3)], // everywhere
               quaternion: [0, 0, 0, 1],
               state: entity.state,

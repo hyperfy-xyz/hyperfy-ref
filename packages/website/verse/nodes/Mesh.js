@@ -5,6 +5,7 @@ import { Layers } from '@/utils/Layers'
 export class Mesh extends Node {
   constructor(entity, data) {
     super(entity, data)
+    this.isMesh = true
     this.mesh = data.mesh
 
     // this.mesh = data.mesh.clone()
@@ -55,6 +56,21 @@ export class Mesh extends Node {
     this.instance?.setLayer(this.layer)
 
     // this.mesh?.layers.set(this.layer)
+  }
+
+  getStats() {
+    let triangles = 0
+    if (this.mesh) {
+      const geometry = this.mesh.geometry
+      if (geometry.index !== null) {
+        triangles += geometry.index.count / 3
+      } else {
+        triangles += geometry.attributes.position.count / 3
+      }
+    }
+    return {
+      triangles,
+    }
   }
 
   getProxy() {

@@ -3,6 +3,7 @@ import { Node } from './Node'
 export class Script extends Node {
   constructor(entity, data) {
     super(entity, data)
+    this.isScript = true
     this.raw = data.raw
     this.code = data.code
     this.script = null

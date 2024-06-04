@@ -70,9 +70,11 @@ export class World extends EventEmitter {
     const delta = (this.time ? time - this.time : 0) / 1000
     this.time = time
     this.frame++
+    // console.time('tick')
     this.update(delta)
     this.fixedUpdate(delta)
     this.lateUpdate(delta)
+    // console.timeEnd('tick')
   }
 
   update(delta) {

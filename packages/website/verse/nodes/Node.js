@@ -149,6 +149,10 @@ export class Node {
     return vec3
   }
 
+  getStats() {
+    return null
+  }
+
   getProxy() {
     if (!this.proxy) {
       const self = this

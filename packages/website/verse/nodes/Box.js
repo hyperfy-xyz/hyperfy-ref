@@ -38,6 +38,7 @@ const defaults = {
 export class Box extends Node {
   constructor(entity, data) {
     super(entity, data)
+    this.isBox = true
     this.size = data.size || defaults.size
     this.color = data.color || defaults.color
     this.physics = data.physics || defaults.physics

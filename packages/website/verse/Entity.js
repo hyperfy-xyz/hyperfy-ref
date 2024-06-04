@@ -108,7 +108,7 @@ export class Entity {
           })
         }
         if (object3d.type === 'Mesh') {
-          console.log('rebuild mesh', object3d, this)
+          // console.log('rebuild mesh', object3d, this)
           node = this.createNode({
             type: 'mesh',
             name: object3d.name,
@@ -167,6 +167,8 @@ export class Entity {
     this.nodes.forEach(node => {
       node.setMode(this.mode)
     })
+    // console.log('entity', this)
+    // console.log('stats', this.getStats())
     // configure new
     if (this.mode === 'active') {
       // instantiate script
@@ -374,6 +376,19 @@ export class Entity {
       this.mode = data.mode
       this.modeClientId = data.modeClientId
       this.checkMode()
+    }
+  }
+
+  getStats() {
+    let triangles = 0
+    this.root.traverse(node => {
+      const nStats = node.getStats()
+      if (nStats) {
+        triangles += nStats.triangles
+      }
+    })
+    return {
+      triangles,
     }
   }
 
