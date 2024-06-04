@@ -1,3 +1,5 @@
+const allowedExt = ['glb', 'vox']
+
 export class DnD {
   constructor(viewport, emit) {
     this.viewport = viewport
@@ -32,12 +34,10 @@ export class DnD {
     e.preventDefault()
     this.dropping = false
     const dt = e.dataTransfer
-    let file = dt.files[0]
-    if (file && !file.name.endsWith('.glb')) {
-      file = null
-    }
-    if (file) {
-      return this.emit({ event: 'file', file })
+    const file = dt.files[0]
+    const ext = file.name.slice(-3)
+    if (allowedExt.includes(ext)) {
+      return this.emit({ event: 'file', file, ext })
     }
     // const url = dt.getData('URL') || dt.getData('text/uri-list')
     // if (url) {

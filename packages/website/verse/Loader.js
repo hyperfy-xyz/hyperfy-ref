@@ -3,6 +3,7 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 import { System } from './System'
+import { VOXLoader } from './extras/VoxLoader'
 
 // cache across loaders
 THREE.Cache.enabled = true
@@ -14,6 +15,7 @@ export class Loader extends System {
     this.cache = new Map() // url -> promise
     this.rgbeLoader = new RGBELoader()
     this.gltfLoader = new GLTFLoader()
+    this.voxLoader = new VOXLoader()
   }
 
   redirect(from, to, immutable) {
@@ -34,13 +36,30 @@ export class Loader extends System {
       type = url.split('.').pop()
     }
     if (type === 'glb') {
-      const promise = this.gltfLoader.loadAsync(url)
-      this.cache.set(url, promise)
-      return promise
+      return this.loadGLB(url)
+    }
+    if (type === 'vox') {
+      return this.loadVOX(url)
     }
     if (type === 'hdr') {
-      return this.rgbeLoader.loadAsync(url)
+      return this.loadHDR(url)
     }
+  }
+
+  loadGLB(url) {
+    const promise = this.gltfLoader.loadAsync(url)
+    this.cache.set(url, promise)
+    return promise
+  }
+
+  loadVOX(url) {
+    const promise = this.voxLoader.loadAsync(url)
+    this.cache.set(url, promise)
+    return promise
+  }
+
+  loadHDR(url) {
+    return this.rgbeLoader.loadAsync(url)
   }
 
   log(...args) {

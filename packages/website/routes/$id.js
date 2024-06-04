@@ -394,24 +394,20 @@ function Panels({ world }) {
 
 function EditPanel({ panel }) {
   const entity = panel.entity
-  const [node, setNode] = useState(null)
+  const [scriptEdit, setScriptEdit] = useState(false)
   return (
     <div>
       <div>Edit</div>
-      {/* {entity.schema.nodes.map(node => (
-        <div key={node.name} onClick={() => setNode(node)}>
-          {node.name}
-        </div>
-      ))} */}
-      {/* {node?.type === 'script' && (
+      <div onClick={() => setScriptEdit(true)}>Edit Code</div>
+      {scriptEdit && (
         <CodeEditor
-          value={node.raw}
+          value={entity.schema.scriptRaw || '// ...'}
           onChange={raw => {
-            node.raw = raw
-            node.code = wrapRawCode(raw)
+            entity.schema.scriptRaw = raw
+            entity.schema.script = wrapRawCode(raw)
           }}
         />
-      )} */}
+      )}
     </div>
   )
 }

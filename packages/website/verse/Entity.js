@@ -51,7 +51,10 @@ export class Entity {
   }
 
   async load() {
-    this.glb = await this.world.loader.load(this.schema.glb, 'glb')
+    this.model = await this.world.loader.load(
+      this.schema.model,
+      this.schema.modelType
+    )
     this.checkMode()
   }
 
@@ -124,7 +127,7 @@ export class Entity {
           convert(child, node)
         }
       }
-      for (const object3d of this.glb.scene.children) {
+      for (const object3d of this.model.scene.children) {
         convert(object3d, this.root)
       }
       // TEMP box

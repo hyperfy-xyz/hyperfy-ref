@@ -103,8 +103,8 @@ export class Control extends System {
     cam.position.z = this.current.camera.distance
   }
 
-  onDnD = async ({ event, file, url }) => {
-    console.log(event, file, url)
+  onDnD = async ({ event, file, ext, url }) => {
+    console.log(event, file, ext, url)
 
     if (file) {
       // hash
@@ -122,7 +122,8 @@ export class Control extends System {
       const schema = {
         id: this.world.network.makeId(),
         type: 'prototype',
-        glb: url,
+        model: url,
+        modelType: ext,
         script: null,
         scriptRaw: null,
       }
@@ -724,7 +725,7 @@ object.on('update', delta => {
         visible: true,
         disabled: false,
         execute: () => {
-          for (let i = 0; i < 3000; i++) {
+          for (let i = 0; i < 500; i++) {
             this.world.entities.addInstanceLocal({
               id: this.world.network.makeId(),
               schemaId: entity.schema.id,

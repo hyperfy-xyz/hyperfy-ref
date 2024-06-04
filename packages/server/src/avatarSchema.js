@@ -243,7 +243,8 @@ function is(value) {
 export const avatarSchema = {
   id: '$avatar',
   type: 'avatar',
-  glb: '/static/avatar.glb',
+  model: '/static/avatar.glb',
+  modelType: 'glb',
   script: wrapRawCode(AVATAR_SCRIPT),
   scriptRaw: AVATAR_SCRIPT,
 }
