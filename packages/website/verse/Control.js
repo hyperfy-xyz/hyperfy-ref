@@ -609,20 +609,10 @@ object.on('update', delta => {
           const schema = {
             id: this.world.network.makeId(),
             type: 'prototype',
-            nodes: [
-              {
-                type: 'box',
-                name: 'box',
-                color: 'red',
-                position: [0, 0.5, 0],
-              },
-              {
-                type: 'script',
-                name: 'my-script',
-                raw: script,
-                code: wrapRawCode(script),
-              },
-            ],
+            model: '/static/cube.glb',
+            modelType: 'glb',
+            script: null,
+            scriptRaw: null,
           }
           this.world.entities.upsertSchemaLocal(schema)
           this.world.entities.addInstanceLocal({
