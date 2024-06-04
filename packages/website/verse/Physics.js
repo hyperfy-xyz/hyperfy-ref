@@ -1,4 +1,4 @@
-import { extendThreePhysX } from '@/utils/extendThreePhysX'
+import { extendThreePhysX } from './extras/extendThreePhysX'
 
 import { System } from './System'
 

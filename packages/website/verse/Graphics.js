@@ -8,10 +8,11 @@ import {
 } from 'three-mesh-bvh'
 import { N8AOPass } from 'n8ao'
 
-import { System } from './System'
+import { Layers } from './extras/Layers'
+
 import { CSM } from './libs/csm/CSM'
 
-import { Layers } from '@/utils/Layers'
+import { System } from './System'
 
 // three-mesh-bvh
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree

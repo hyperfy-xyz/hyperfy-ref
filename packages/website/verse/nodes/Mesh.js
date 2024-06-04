@@ -1,6 +1,6 @@
-import { Node } from './Node'
+import { Layers } from '../extras/Layers'
 
-import { Layers } from '@/utils/Layers'
+import { Node } from './Node'
 
 export class Mesh extends Node {
   constructor(entity, data) {

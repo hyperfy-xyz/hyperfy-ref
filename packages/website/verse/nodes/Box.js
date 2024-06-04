@@ -1,9 +1,9 @@
 import * as THREE from 'three'
 import { isBoolean } from 'lodash-es'
 
-import { Node } from './Node'
+import { Layers } from '../extras/Layers'
 
-import { Layers } from '@/utils/Layers'
+import { Node } from './Node'
 
 const _v1 = new THREE.Vector3()
 const _v2 = new THREE.Vector3()

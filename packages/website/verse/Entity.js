@@ -1,8 +1,7 @@
 import * as Nodes from './nodes'
 
-import { Vector3Lerp } from '@/utils/Vector3Lerp'
-import { QuaternionLerp } from '@/utils/QuaternionLerp'
-import { Group } from './nodes/Group'
+import { QuaternionLerp } from './extras/QuaternionLerp'
+import { Vector3Lerp } from './extras/Vector3Lerp'
 
 const MOVING_SEND_RATE = 1 / 5
 

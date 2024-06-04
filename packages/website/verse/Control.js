@@ -23,10 +23,9 @@ import {
 } from 'lucide-react'
 import { cloneDeep } from 'lodash-es'
 
-import { num } from '@/utils/num'
-import { wrapRawCode } from '@/utils/wrapRawCode'
-import { DEG2RAD } from '@/utils/general'
 import { DnD } from './extras/DnD'
+import { DEG2RAD } from './extras/general'
+import { num } from './extras/num'
 
 const PI_2 = Math.PI / 2
 const LOOK_SPEED = 0.005

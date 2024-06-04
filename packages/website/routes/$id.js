@@ -7,9 +7,8 @@ import { useAuth } from '@/components/AuthProvider'
 import { useForceUpdate } from '@/components/useForceUpdate'
 import { CodeEditor } from '@/components/CodeEditor'
 
-import { wrapRawCode } from '@/utils/wrapRawCode'
-
 import { Verse } from '@/verse/Verse'
+import { wrapRawCode } from '@/verse/extras/wrapRawCode'
 
 let verse
 const getVerse = () => {

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
-import { num } from '@/utils/num'
-import { DEG2RAD } from '@/utils/general'
+import { DEG2RAD } from './extras/general'
+import { num } from './extras/num'
 
 import { System } from './System'
 import { SockClient } from './SockClient'

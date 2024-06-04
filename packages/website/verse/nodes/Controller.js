@@ -1,8 +1,9 @@
 import * as THREE from 'three'
 import { isNumber, isBoolean } from 'lodash-es'
 
+import { DEG2RAD } from '../extras/general'
+
 import { Node } from './Node'
-import { DEG2RAD } from '@/utils/general'
 
 const defaults = {
   radius: 0.4,

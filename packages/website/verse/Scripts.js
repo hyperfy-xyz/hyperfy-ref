@@ -1,9 +1,9 @@
 import * as THREE from 'three'
 
-import { Vector3Lerp } from '@/utils/Vector3Lerp'
-import { QuaternionLerp } from '@/utils/QuaternionLerp'
-import { DEG2RAD, RAD2DEG } from '@/utils/general'
-import { num } from '@/utils/num'
+import { DEG2RAD, RAD2DEG } from './extras/general'
+import { QuaternionLerp } from './extras/QuaternionLerp'
+import { Vector3Lerp } from './extras/Vector3Lerp'
+import { num } from './extras/num'
 
 import { System } from './System'
 
