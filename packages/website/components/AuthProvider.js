@@ -1,7 +1,5 @@
 import { createContext, useContext, useState, useMemo } from 'react'
 import { useAction, useCookie, useCookies } from 'firebolt'
-import moment from 'moment'
-import { recoverMessageAddress } from 'viem'
 
 import {
   http,
@@ -57,55 +55,15 @@ export function useAuth() {
 }
 
 export async function createUserAction(ctx) {
-  const name = await ctx.generateName()
-  const now = moment().toISOString()
-  const user = {
-    id: ctx.uuid(),
-    name,
-    address: null,
-    createdAt: now,
-    updatedAt: now,
-  }
-  await ctx.db('users').insert(user)
-  const token = await ctx.createToken({ userId: user.id })
-  return {
-    token,
-    user,
-  }
+  return await ctx.api.post('/user')
 }
 
 export async function getUserAction(ctx) {
-  if (!ctx.userId) ctx.error('not_authorized')
-  const user = await ctx.db('users').where('id', ctx.userId).first()
-  return user
+  return await ctx.api.get('/user')
 }
 
 export async function connectUserAction(ctx, address, signature) {
-  if (!address) ctx.error('address_required')
-  if (!signature) ctx.error('signature_required')
-  address = address.toLowerCase()
-  let recoveredAddress = await recoverMessageAddress({
-    message: 'Connect to Hypex!',
-    signature,
-  })
-  recoveredAddress = recoveredAddress.toLowerCase()
-  if (address !== recoveredAddress) {
-    ctx.error('not_authorized')
-  }
-  const now = moment().toISOString()
-  let user = await ctx.db('users').where('address', address).first()
-  if (!user) {
-    user = {
-      id: ctx.uuid(),
-      name: await ctx.generateName(),
-      address,
-      createdAt: now,
-      updatedAt: now,
-    }
-    await ctx.db('users').insert(user)
-  }
-  const token = await ctx.createToken({ userId: user.id })
-  const auth = { token, user }
+  const auth = await ctx.api.post('/connect', { address, signature })
   const auths = ctx.cookies.get('auths') || []
   auths.push(auth)
   ctx.cookies.set('auths', auths)
@@ -255,7 +213,7 @@ class Controller {
     let signature
     try {
       signature = await signMessage(config, {
-        message: 'Connect to Hypex!',
+        message: 'Connect to XYZ!',
       })
     } catch (err) {
       console.error(err)

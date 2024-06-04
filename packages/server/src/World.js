@@ -1,11 +1,16 @@
 import { SockServer } from './SockServer'
-import { api } from './api'
 import { avatarSchema } from './avatarSchema'
+import {
+  getEntitiesByWorld,
+  getOrCreatePermissions,
+  getOrCreateWorld,
+  getUserByToken,
+} from './fns'
 
 let ids = 0
 
 export class World {
-  constructor(id, onDestroy) {
+  constructor({ id, onDestroy }) {
     this.id = id
     this.onDestroy = onDestroy
     this.meta = null
@@ -23,15 +28,9 @@ export class World {
 
   async init() {
     try {
-      this.meta = await api.get(`/worlds/${this.id}`)
-      this.permissions = await api.get(`/permissions/${this.id}`)
-
-      // temp
-      // this.permissions.prototypeMove = false
-      // this.permissions.prototypeEdit = false
-      // this.permissions.prototypeDestroy = false
-
-      const entities = await api.get(`/entities?worldId=${this.id}`)
+      this.meta = await getOrCreateWorld(this.id)
+      this.permissions = await getOrCreatePermissions(this.id)
+      const entities = await getEntitiesByWorld(this.id)
       for (const entity of entities) {
         this.instances.set(entity.id, entity)
       }
@@ -52,8 +51,8 @@ export class World {
   onAuth = async (sock, token) => {
     await this.ready
     const client = sock.client
-    const user = await api.get(`/user-by-token?token=${token}`)
-    const permissions = await api.get(`/permissions/${user.id}@${this.id}`)
+    const user = await getUserByToken(token)
+    const permissions = await getOrCreatePermissions(`${user.id}@${this.id}`)
     client.user = user
     client.permissions = permissions
     this.clients.set(client.id, client)

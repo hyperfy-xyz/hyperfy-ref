@@ -24,7 +24,7 @@ export class Network extends System {
   }
 
   async init() {
-    const url = `${process.env.PUBLIC_CONTROLLER_WS}/world/${this.world.id}`
+    const url = `${process.env.PUBLIC_WORLDS_URL}/${this.world.id}`
     this.log('connecting', url)
 
     this.server = new SockClient(url, false)

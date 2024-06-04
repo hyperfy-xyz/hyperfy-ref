@@ -2,8 +2,10 @@ import './sourceMapSupport'
 import 'dotenv-flow/config'
 import http from 'http'
 import express from 'express'
+import cookieParser from 'cookie-parser'
 import { WebSocketServer } from 'ws'
 import { World } from './World'
+import { api } from './api'
 
 const prod = process.env.NODE_ENV === 'production'
 
@@ -14,20 +16,27 @@ const app = express()
 const server = http.createServer(app)
 const wss = new WebSocketServer({ noServer: true })
 
-const worlds = new Map()
+app.use(cookieParser())
+app.use(express.json())
 
+app.use('/api', api)
+
+const worlds = new Map()
 server.on('upgrade', (req, sock, head) => {
+  const url = new URL(req.url, 'http://supaverse')
+  const pathname = url.pathname
+  const match = /^\/worlds\/([^\/]+)\/?$/.exec(pathname)
+  let id = match?.[1] || null
+  if (!id) return sock.destroy()
+  id = id.toLowerCase()
   wss.handleUpgrade(req, sock, head, ws => {
-    const url = new URL(req.url, 'http://supaverse')
-    const pathname = url.pathname
-    const match = /^\/world\/([^\/]+)\/?$/.exec(pathname)
-    let id = match?.[1] || null
-    if (!id) return ws.close()
-    id = id.toLowerCase()
     let world = worlds.get(id)
     if (!world) {
-      world = new World(id, () => {
-        worlds.delete(id)
+      world = new World({
+        id,
+        onDestroy: () => {
+          worlds.delete(id)
+        },
       })
       worlds.set(id, world)
     }
