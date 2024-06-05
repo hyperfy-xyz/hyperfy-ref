@@ -44,6 +44,7 @@ export class World extends EventEmitter {
       }
       resolve()
     })
+
     window.world = this
   }
 
@@ -67,14 +68,14 @@ export class World extends EventEmitter {
   }
 
   tick = time => {
+    this.stats.begin()
     const delta = (this.time ? time - this.time : 0) / 1000
     this.time = time
     this.frame++
-    // console.time('tick')
     this.update(delta)
     this.fixedUpdate(delta)
     this.lateUpdate(delta)
-    // console.timeEnd('tick')
+    this.stats.end()
   }
 
   update(delta) {

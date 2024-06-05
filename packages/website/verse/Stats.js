@@ -1,7 +1,6 @@
-import * as THREE from 'three'
-import StatsGL from 'stats-gl'
-
 import { System } from './System'
+
+import StatsGL from './libs/stats-gl'
 
 let stats
 const get = () => {
@@ -26,11 +25,16 @@ export class Stats extends System {
   }
 
   start(viewport) {
-    this.stats.init(this.world.graphics.renderer)
+    this.stats.init(this.world.graphics.renderer, false)
     document.body.appendChild(this.stats.dom)
   }
 
-  update(delta) {
+  begin() {
+    this.stats.begin()
+  }
+
+  end() {
+    this.stats.end()
     this.stats.update()
   }
 

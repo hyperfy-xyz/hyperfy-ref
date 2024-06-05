@@ -6,4 +6,4 @@
 node_modules
 arch
 dist
-*.db
+db

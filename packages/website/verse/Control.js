@@ -714,7 +714,7 @@ object.on('update', delta => {
         visible: true,
         disabled: false,
         execute: () => {
-          for (let i = 0; i < 500; i++) {
+          for (let i = 0; i < 9999; i++) {
             this.world.entities.addInstanceLocal({
               id: this.world.network.makeId(),
               schemaId: entity.schema.id,

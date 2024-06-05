@@ -18,6 +18,10 @@ export class Instances extends System {
     }
     return group.create(worldMatrix)
   }
+
+  update(delta) {
+    this.groups.forEach(group => group.update(delta))
+  }
 }
 
 class Group {
@@ -33,6 +37,17 @@ class Group {
     this.iMesh = null
     this.instances = []
     this.count = 0
+    this.dirty = false
+  }
+
+  update(delta) {
+    // when instances add/remove/move the bounding sphere needs to be updated.
+    // its updated here so that its just once per frame.
+    if (this.dirty && this.iMesh) {
+      this.iMesh.instanceMatrix.needsUpdate = true
+      this.iMesh.computeBoundingSphere()
+      this.dirty = false
+    }
   }
 
   getNode(idx = 0) {
@@ -56,8 +71,9 @@ class Instance {
       this.log('adding one to iMesh')
       this.group.iMesh.setMatrixAt(this.idx, worldMatrix)
       this.group.iMesh.count++
-      this.group.iMesh.instanceMatrix.needsUpdate = true
-      this.group.iMesh.computeBoundingSphere()
+      this.group.dirty = true
+      // this.group.iMesh.instanceMatrix.needsUpdate = true
+      // this.group.iMesh.computeBoundingSphere()
       // this.group.iMesh.computeBoundingBox()
       return
     }
@@ -70,7 +86,7 @@ class Instance {
       this.group.iMesh = new THREE.InstancedMesh(
         this.group.mesh.geometry,
         this.group.mesh.material,
-        10000
+        30000
       )
       // TODO: dynamic increase max count
       this.group.iMesh.instanceGroup = this.group
@@ -83,8 +99,9 @@ class Instance {
       this.group.iMesh.setMatrixAt(0, this.group.mesh.matrix)
       this.group.iMesh.setMatrixAt(1, worldMatrix)
       this.group.iMesh.count = 2
-      this.group.iMesh.instanceMatrix.needsUpdate = true
-      this.group.iMesh.computeBoundingSphere()
+      this.group.dirty = true
+      // this.group.iMesh.instanceMatrix.needsUpdate = true
+      // this.group.iMesh.computeBoundingSphere()
       // this.group.iMesh.computeBoundingBox()
       this.group.world.graphics.scene.remove(this.group.mesh)
       this.group.world.graphics.scene.add(this.group.iMesh)
@@ -105,8 +122,9 @@ class Instance {
   move(worldMatrix) {
     if (this.group.iMesh) {
       this.group.iMesh.setMatrixAt(this.idx, worldMatrix)
-      this.group.iMesh.instanceMatrix.needsUpdate = true
-      this.group.iMesh.computeBoundingSphere()
+      this.group.dirty = true
+      // this.group.iMesh.instanceMatrix.needsUpdate = true
+      // this.group.iMesh.computeBoundingSphere()
       // this.group.iMesh.computeBoundingBox()
     } else {
       this.group.mesh.matrix.copy(worldMatrix)
@@ -131,8 +149,9 @@ class Instance {
         this.group.count--
         this.group.instances.pop()
         this.group.iMesh.count--
-        this.group.iMesh.instanceMatrix.needsUpdate = true
-        this.group.iMesh.computeBoundingSphere()
+        this.group.dirty = true
+        // this.group.iMesh.instanceMatrix.needsUpdate = true
+        // this.group.iMesh.computeBoundingSphere()
         // this.group.iMesh.computeBoundingBox()
       } else {
         // there are other instances after this one in the buffer, swap it with the last one and pop it off the end
@@ -143,8 +162,9 @@ class Instance {
         this.group.instances[this.idx] = last
         this.group.instances.pop()
         this.group.iMesh.count--
-        this.group.iMesh.instanceMatrix.needsUpdate = true
-        this.group.iMesh.computeBoundingSphere()
+        this.group.dirty = true
+        // this.group.iMesh.instanceMatrix.needsUpdate = true
+        // this.group.iMesh.computeBoundingSphere()
         // this.group.iMesh.computeBoundingBox()
         this.group.count--
       }
