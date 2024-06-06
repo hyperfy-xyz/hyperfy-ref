@@ -10,7 +10,6 @@ export class Models extends System {
     super(world)
     this.scene = null
     this.camera = null
-    this.cameraPos = new THREE.Vector3()
     this.models = new Set()
     this.items = [] // { model, lod, idx, matrix }
     this.cursor = 0
@@ -29,8 +28,6 @@ export class Models extends System {
   }
 
   update() {
-    this.cameraPos.set(this.camera.matrixWorld.elements[12], this.camera.matrixWorld.elements[13], this.camera.matrixWorld.elements[14]) // prettier-ignore
-
     // check if lods need to switch (batched over multiple frames)
     const size = Math.min(this.items.length, BATCH_SIZE)
     for (let i = 0; i < size; i++) {
@@ -148,7 +145,7 @@ class LOD {
   }
 
   check(item) {
-    const cameraPos = this.model.manager.cameraPos
+    const cameraPos = this.model.manager.camera.position
     const itemPos = v1.set(item.matrix.elements[12], item.matrix.elements[13], item.matrix.elements[14]) // prettier-ignore
     const distance = cameraPos.distanceTo(itemPos)
     const lod = item.model.findLod(distance)
