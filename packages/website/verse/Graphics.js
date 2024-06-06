@@ -131,6 +131,7 @@ export class Graphics extends System {
       geometry.computeBoundsTree()
       const material = new THREE.MeshStandardMaterial({ color: 'green' })
       const mesh = new THREE.Mesh(geometry, material)
+      mesh.name = 'ground'
       mesh.receiveShadow = true
       mesh.castShadow = true
       mesh.position.y = -0.5
@@ -140,15 +141,15 @@ export class Graphics extends System {
 
   start(viewport) {
     this.viewport = viewport
-    this.width = this.viewport.offsetWidth
-    this.height = this.viewport.offsetHeight
-    this.aspect = this.width / this.height
+    // this.width = this.viewport.offsetWidth
+    // this.height = this.viewport.offsetHeight
+    // this.aspect = this.width / this.height
     this.resizer = new ResizeObserver(() => {
       this.resize(this.viewport.offsetWidth, this.viewport.offsetHeight)
     })
     this.resizer.observe(this.viewport)
     this.viewport.appendChild(this.renderer.domElement)
-    this.resize(this.width, this.height)
+    this.resize(this.viewport.offsetWidth, this.viewport.offsetHeight)
   }
 
   resize(width, height) {

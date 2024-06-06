@@ -5,6 +5,8 @@ import { Vector3Lerp } from './extras/Vector3Lerp'
 
 const MOVING_SEND_RATE = 1 / 5
 
+const tempModels = new Map()
+
 export class Entity {
   constructor(world, data) {
     this.world = world
@@ -108,10 +110,51 @@ export class Entity {
         }
         if (object3d.type === 'Mesh') {
           // console.log('rebuild mesh', object3d, this)
+          object3d.geometry.computeBoundsTree()
+          let model = tempModels.get(object3d)
+          if (!model) {
+            model = this.world.models.create([
+              {
+                mesh: object3d,
+                maxDistance: 10,
+              },
+              // {
+              //   mesh: new THREE.Mesh(
+              //     new THREE.SphereGeometry(0.5, 32, 16),
+              //     new THREE.MeshStandardMaterial({ color: 'white' })
+              //   ),
+              //   maxDistance: 10,
+              // },
+              {
+                mesh: (() => {
+                  const mesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(),
+                    new THREE.MeshStandardMaterial({ color: 'orange' })
+                  )
+                  mesh.geometry.computeBoundsTree()
+                  return mesh
+                })(),
+                maxDistance: 20,
+              },
+              {
+                mesh: (() => {
+                  const mesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(),
+                    new THREE.MeshStandardMaterial({ color: 'red' })
+                  )
+                  mesh.geometry.computeBoundsTree()
+                  return mesh
+                })(),
+                maxDistance: Infinity, // TODO: test hide
+              },
+            ])
+            tempModels.set(object3d, model)
+          }
           node = this.createNode({
             type: 'mesh',
             name: object3d.name,
-            mesh: object3d,
+            // mesh: object3d,
+            model,
             position: object3d.position.toArray(),
             quaternion: object3d.quaternion.toArray(),
             scale: object3d.scale.toArray(),

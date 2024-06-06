@@ -6,45 +6,37 @@ export class Mesh extends Node {
   constructor(entity, data) {
     super(entity, data)
     this.isMesh = true
-    this.mesh = data.mesh
-
-    // this.mesh = data.mesh.clone()
-    // this.mesh.node = this
+    // this.mesh = data.mesh
+    this.model = data.model
   }
 
   mount() {
-    this.instance = this.world.instances.add(this.mesh, this.matrixWorld)
-    this.instance.setNode(this)
-    if (this.layer) {
-      this.instance.setLayer(this.layer)
-    }
-
-    // this.world.graphics.scene.add(this.mesh)
-    // this.mesh.matrix.copy(this.matrix)
-    // this.mesh.matrixWorld.copy(this.matrixWorld)
-    // this.mesh.matrixAutoUpdate = false
-    // this.mesh.matrixWorldAutoUpdate = false
+    // this.instance = this.world.instances.add(this.mesh, this.matrixWorld)
+    // this.instance.setNode(this)
+    // if (this.layer) {
+    //   this.instance.setLayer(this.layer)
+    // }
+    this.item = this.model.add(this, this.matrixWorld)
   }
 
   update() {
-    if (this.instance) {
-      this.instance.move(this.matrixWorld)
-    }
-    // console.log(this.name)
-    // if (this.name === 'HumanLow') {
-    //   console.log('HumanLow.update', this.matrixWorld.toArray().join(','))
+    // if (this.instance) {
+    //   this.instance.move(this.matrixWorld)
     // }
-
-    // this.mesh.matrix.copy(this.matrixWorld)
+    if (this.item) {
+      this.model.move(this.item, this.matrixWorld)
+    }
   }
 
   unmount() {
-    if (this.instance) {
-      this.instance.remove()
-      this.instance = null
+    // if (this.instance) {
+    //   this.instance.remove()
+    //   this.instance = null
+    // }
+    if (this.item) {
+      this.model.remove(this.item)
+      this.item = null
     }
-
-    // this.world.graphics.scene.remove(this.mesh)
   }
 
   setMode(mode) {
@@ -53,21 +45,19 @@ export class Mesh extends Node {
     } else {
       this.layer = Layers.DEFAULT
     }
-    this.instance?.setLayer(this.layer)
-
-    // this.mesh?.layers.set(this.layer)
+    // this.instance?.setLayer(this.layer)
   }
 
   getStats() {
     let triangles = 0
-    if (this.mesh) {
-      const geometry = this.mesh.geometry
-      if (geometry.index !== null) {
-        triangles += geometry.index.count / 3
-      } else {
-        triangles += geometry.attributes.position.count / 3
-      }
-    }
+    // if (this.mesh) {
+    //   const geometry = this.mesh.geometry
+    //   if (geometry.index !== null) {
+    //     triangles += geometry.index.count / 3
+    //   } else {
+    //     triangles += geometry.attributes.position.count / 3
+    //   }
+    // }
     return {
       triangles,
     }

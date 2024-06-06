@@ -33,7 +33,7 @@ const WHEEL_SPEED = 0.002
 
 const MOVING_SEND_RATE = 1 / 5
 
-const vec2 = new THREE.Vector2()
+// const RAY_RATE = 1 / 10
 
 export class Control extends System {
   constructor(world) {
@@ -49,6 +49,7 @@ export class Control extends System {
       move: new THREE.Vector2(),
     }
     this.moving = null
+    // this.lastRay = 0
   }
 
   start(viewport) {
@@ -71,6 +72,16 @@ export class Control extends System {
     if (this.keys.left) this.current.move.x -= 1
     if (this.keys.right) this.current.move.x += 1
     this.current.move.normalize() // prevent surfing
+
+    // For some reason not using three-mesh-bvh is faster
+    // this.lastRay += delta
+    // if (this.lastRay > RAY_RATE) {
+    //   console.time('hit')
+    //   const hit = this.world.graphics.raycastViewport(this.pointer.coords)
+    //   // console.log(hit?.instanceId)
+    //   console.timeEnd('hit')
+    //   this.lastRay = 0
+    // }
 
     if (this.moving) {
       const hit = this.world.graphics.raycastViewport(
@@ -312,7 +323,7 @@ export class Control extends System {
     if (this.pointer.rmb) {
       const elapsed = performance.now() - this.pointer.downAt
       if (elapsed < 500 && this.pointer.move.length() < 10) {
-        this.openContext(e.clientX, e.clientY)
+        this.openContext()
       }
     }
     // this.viewport.releasePointerCapture(e.pointerId)
@@ -471,15 +482,14 @@ export class Control extends System {
     }
   }
 
-  openContext(x, y) {
-    vec2.set(x, y)
-    const hit = this.world.graphics.raycastViewport(vec2)
-    console.log('hit', hit)
+  openContext() {
+    const coords = this.pointer.coords
+    const hit = this.world.graphics.raycastViewport(coords)
     if (!hit) return // void
     let entity
     if (hit.object) {
-      if (hit.object.instanceGroup) {
-        entity = hit.object.instanceGroup.getNode(hit.instanceId)?.entity
+      if (hit.object._lod) {
+        entity = hit.object._lod.getNode(hit.instanceId)?.entity
       } else {
         entity = hit.object.node?.entity
       }
@@ -714,7 +724,7 @@ object.on('update', delta => {
         visible: true,
         disabled: false,
         execute: () => {
-          for (let i = 0; i < 9999; i++) {
+          for (let i = 0; i < 5000; i++) {
             this.world.entities.addInstanceLocal({
               id: this.world.network.makeId(),
               schemaId: entity.schema.id,
@@ -752,8 +762,8 @@ object.on('update', delta => {
     const hasVisibleActions = actions.find(action => action.visible)
     if (hasVisibleActions) {
       this.context = {
-        x,
-        y,
+        x: coords.x,
+        y: coords.y,
         actions,
       }
       this.world.emit('context', this.context)
