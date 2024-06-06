@@ -84,10 +84,11 @@ export class Control extends System {
     // }
 
     if (this.moving) {
-      const hit = this.world.graphics.raycastViewport(
+      const hits = this.world.graphics.raycastViewport(
         this.world.control.pointer.coords,
         this.world.graphics.maskMoving
       )
+      const hit = this.findHit(hits)
       if (hit) {
         this.moving.entity.positionLerp.push(hit.point, true)
         this.moving.entity.root.dirty()
@@ -482,9 +483,28 @@ export class Control extends System {
     }
   }
 
+  findHit(hits) {
+    // ignores moving targets
+    return hits.find(hit => {
+      let entity
+      if (hit.object) {
+        if (hit.object._lod) {
+          entity = hit.object._lod.getNode(hit.instanceId)?.entity
+        } else {
+          entity = hit.object.node?.entity
+        }
+      }
+      if (entity) {
+        return entity.mode !== 'moving'
+      }
+      return true
+    })
+  }
+
   openContext() {
     const coords = this.pointer.coords
-    const hit = this.world.graphics.raycastViewport(coords)
+    const hits = this.world.graphics.raycastViewport(coords)
+    const hit = this.findHit(hits)
     if (!hit) return // void
     let entity
     if (hit.object) {

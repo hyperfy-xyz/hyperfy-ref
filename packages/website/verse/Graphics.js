@@ -196,10 +196,9 @@ export class Graphics extends System {
     this.raycaster.layers = layers
     this.raycaster.near = min
     this.raycaster.far = max
-    this.raycaster.intersectObjects(this.scene.children, true, this.raycastHits)
-    const hit = this.raycastHits[0]
     this.raycastHits.length = 0
-    return hit
+    this.raycaster.intersectObjects(this.scene.children, true, this.raycastHits)
+    return this.raycastHits
   }
 
   raycastViewport(coords, layers = this.maskNone, min = 0, max = Infinity) {
@@ -210,10 +209,9 @@ export class Graphics extends System {
     this.raycaster.layers = layers
     this.raycaster.near = min
     this.raycaster.far = max
-    this.raycaster.intersectObjects(this.scene.children, true, this.raycastHits)
-    const hit = this.raycastHits[0]
     this.raycastHits.length = 0
-    return hit
+    this.raycaster.intersectObjects(this.scene.children, true, this.raycastHits)
+    return this.raycastHits
   }
 
   destroy() {
