@@ -6,6 +6,7 @@ import { VOXLoader } from './extras/VoxLoader'
 import { glbToNodes } from './extras/glbToNodes'
 
 import { System } from './System'
+import { voxToNodes } from './extras/voxToNodes'
 
 // cache across loaders
 THREE.Cache.enabled = true
@@ -58,8 +59,7 @@ export class Loader extends System {
 
   loadVOX(url) {
     const promise = this.voxLoader.loadAsync(url).then(vox => {
-      console.error('TODO: voxToNodes')
-      return new VOXModel(vox)
+      return voxToNodes(vox, world)
     })
     this.cache.set(url, promise)
     return promise
