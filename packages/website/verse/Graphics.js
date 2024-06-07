@@ -152,7 +152,7 @@ export class Graphics extends System {
     }
   }
 
-  start(viewport) {
+  mount(viewport) {
     this.viewport = viewport
     // this.width = this.viewport.offsetWidth
     // this.height = this.viewport.offsetHeight
@@ -162,7 +162,7 @@ export class Graphics extends System {
     })
     this.resizer.observe(this.viewport)
     this.viewport.appendChild(this.renderer.domElement)
-    this.resize(this.viewport.offsetWidth, this.viewport.offsetHeight)
+    // this.resize(this.viewport.offsetWidth, this.viewport.offsetHeight)
   }
 
   resize(width, height) {
@@ -228,6 +228,7 @@ export class Graphics extends System {
   }
 
   destroy() {
+    if (!this.viewport) return
     this.viewport.removeChild(this.renderer.domElement)
   }
 }

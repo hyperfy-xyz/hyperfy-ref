@@ -24,7 +24,7 @@ export class Stats extends System {
     this.stats = get()
   }
 
-  start(viewport) {
+  mount(viewport) {
     this.stats.init(this.world.graphics.renderer, false)
     document.body.appendChild(this.stats.dom)
   }

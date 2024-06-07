@@ -38,16 +38,15 @@ export class Verse {
     const onStatus = status => {
       if (this.dead) return
       if (this.next !== next) return
-      if (status === 'active') {
-        this.log('next active, swapping', next)
-        next.off('status', onStatus)
-        const old = this.world
-        this.world = next
-        this.next = null
-        if (old) {
-          old.destroy()
-          old.emit('swap')
-        }
+      if (status !== 'active') return
+      this.log('next active, swapping', next)
+      next.off('status', onStatus)
+      const old = this.world
+      this.world = next
+      this.next = null
+      if (old) {
+        old.destroy()
+        old.emit('swap') // why not just use destroy event?
       }
     }
     next.on('status', onStatus)

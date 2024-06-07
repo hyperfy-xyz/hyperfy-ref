@@ -52,7 +52,7 @@ export class Control extends System {
     // this.lastRay = 0
   }
 
-  start(viewport) {
+  mount(viewport) {
     this.viewport = viewport
     this.dnd = new DnD(viewport, this.onDnD)
     window.addEventListener('keydown', this.onKeyDown)
@@ -434,6 +434,11 @@ export class Control extends System {
         rotation: new THREE.Euler(-20 * DEG2RAD, 0, 0, 'YXZ'),
         quaternion: new THREE.Quaternion(),
         distance: 0,
+        ready: () => {
+          // our avatar calls this after spawning.
+          // network system is listening!
+          this.world.network.onCameraReady?.()
+        },
       },
     }
     control.camera.rotation._onChange(() => {
@@ -753,7 +758,7 @@ object.on('update', delta => {
               mode: 'active',
               modeClientId: null,
               position: [num(-100, 100, 3), 0, num(-100, 100, 3)], // ground
-              // position: [num(-30, 30, 3), num(0, 30, 3), num(-30, 30, 3)], // everywhere
+              // position: [num(-100, 100, 3), num(0, 100, 3), num(-100, 100, 3)], // everywhere
               quaternion: [0, 0, 0, 1],
               state: entity.state,
             })
@@ -808,6 +813,7 @@ object.on('update', delta => {
   }
 
   destroy() {
+    if (!this.viewport) return
     window.removeEventListener('keydown', this.onKeyDown)
     window.removeEventListener('keyup', this.onKeyUp)
     document.removeEventListener('pointerlockchange', this.onPointerLockChange)

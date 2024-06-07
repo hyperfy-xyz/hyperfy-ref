@@ -42,7 +42,7 @@ function Content() {
     world.on('status', setStatus)
     world.on('context', setContext)
     world.on('swap', update)
-    world.start(viewport)
+    world.mount(viewport)
     return () => {
       world.off('status', setStatus)
       world.off('context', setContext)

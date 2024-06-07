@@ -11,6 +11,10 @@ export class System {
     // ...
   }
 
+  mount() {
+    // ...
+  }
+
   update(delta) {
     // ...
   }

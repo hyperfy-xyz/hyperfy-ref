@@ -74,6 +74,7 @@ object.on('start', () => {
       control.camera.distance = control.look.zoom * ZOOM_DISTANCE
       vrm.dirty()
       ctrl.dirty()
+      control.camera.ready()
     }
   } else {
     const state = object.getState()

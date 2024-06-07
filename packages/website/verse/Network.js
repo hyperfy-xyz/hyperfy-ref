@@ -23,7 +23,7 @@ export class Network extends System {
     this.status = 'connecting'
   }
 
-  async init() {
+  async start() {
     const url = `${process.env.PUBLIC_WORLDS_URL}/${this.world.id}`
     this.log('connecting', url)
 
@@ -61,7 +61,6 @@ export class Network extends System {
   onConnect = async () => {
     this.status = 'connected'
     this.world.emit('status', this.status)
-    await this.world.ready
     this.server.send('auth', this.world.auth.token)
   }
 
@@ -89,9 +88,6 @@ export class Network extends System {
     // this.world.avatars.spawn(place)
     // await this.server.call('auth', this.world.token)
 
-    this.status = 'active'
-    this.world.emit('status', this.status)
-
     this.updateClient()
 
     // const avatar = this.world.entities.addInstanceLocal({
@@ -114,6 +110,19 @@ export class Network extends System {
     //     },
     //   ],
     // })
+
+    // when the avatar below is created, it will call control.camera.ready() when it has
+    // successfully spawned, which in turn will notify us here to continue.
+    // this allows us to mount the viewport at the perfect time without flickering or
+    // incorrect camera transforms
+    this.onCameraReady = () => {
+      // yeah yeah its a timeout
+      setTimeout(() => {
+        this.status = 'active'
+        this.world.emit('status', this.status)
+      }, 100)
+      this.onCameraReady = null
+    }
 
     this.avatar = this.world.entities.addInstanceLocal({
       id: this.makeId(),

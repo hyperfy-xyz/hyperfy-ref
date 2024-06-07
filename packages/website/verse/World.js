@@ -38,12 +38,10 @@ export class World extends EventEmitter {
     this.graphics = this.register(Graphics)
     this.stats = this.register(Stats)
 
-    this.ready = new Promise(async resolve => {
-      for (const system of this.systems) {
-        await system.init()
-      }
-      resolve()
+    this.started = new Promise(resolve => {
+      this.startedResolve = resolve
     })
+    this.init()
 
     window.world = this
   }
@@ -59,12 +57,27 @@ export class World extends EventEmitter {
     return system
   }
 
-  async start(viewport) {
-    await this.ready
+  async init() {
     for (const system of this.systems) {
-      system.start(viewport)
+      await system.init()
+    }
+    this.start()
+  }
+
+  async start() {
+    if (this.dead) return
+    for (const system of this.systems) {
+      system.start()
     }
     this.graphics.renderer.setAnimationLoop(this.tick)
+    this.startedResolve()
+  }
+
+  async mount(viewport) {
+    await this.started
+    for (const system of this.systems) {
+      system.mount(viewport)
+    }
   }
 
   tick = time => {
@@ -109,5 +122,6 @@ export class World extends EventEmitter {
       system.destroy()
     }
     this.systems = []
+    this.dead = true
   }
 }

@@ -10,10 +10,6 @@ export class Entities extends System {
     this.activeEntities = new Set()
   }
 
-  init() {
-    // ...
-  }
-
   upsertSchema(schema) {
     let existing = this.schemas.get(schema.id)
     if (existing) {
