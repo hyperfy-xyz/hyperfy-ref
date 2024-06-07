@@ -27,12 +27,28 @@ export function Header({ inWorld = false }) {
         &.inWorld {
           color: white;
         }
+        .templink {
+          margin-right: 10px;
+        }
       `}
     >
       <div className='header-logo'>SumVerse</div>
       <div className='header-gap' />
-      <Link href='/123'>123</Link>
-      <Link href='/1234'>1234</Link>
+      <div className='templink'>
+        <Link href='/1'>1</Link>
+      </div>
+      <div className='templink'>
+        <Link href='/2'>2</Link>
+      </div>
+      <div className='templink'>
+        <Link href='/3'>3</Link>
+      </div>
+      <div className='templink'>
+        <Link href='/4'>4</Link>
+      </div>
+      <div className='templink'>
+        <Link href='/5'>5</Link>
+      </div>
       <AuthWidget />
     </div>
   )
