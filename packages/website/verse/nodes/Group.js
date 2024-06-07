@@ -3,7 +3,13 @@ import { Node } from './Node'
 export class Group extends Node {
   constructor(entity, data) {
     super(entity, data)
+    this.type = 'group'
     this.isGroup = true
+  }
+
+  copy(source, recursive) {
+    super.copy(source, recursive)
+    return this
   }
 
   getProxy() {

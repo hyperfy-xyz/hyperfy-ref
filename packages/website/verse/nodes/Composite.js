@@ -2,27 +2,31 @@ import { Layers } from '../extras/Layers'
 
 import { Node } from './Node'
 
-export class Mesh extends Node {
-  constructor(entity, data) {
-    super(entity, data)
-    this.isMesh = true
-    this.model = data.model
+export class Composite extends Node {
+  constructor(data = {}) {
+    super(data)
+    this.type = 'composite'
+    this.isComposite = true
+    this.src = data.src
+    this.instance = null
   }
 
   mount() {
-    this.item = this.model.add(this, this.matrixWorld)
+    if (this.src) {
+      this.instance = this.src.add(this, this.matrixWorld)
+    }
   }
 
   update() {
-    if (this.item) {
-      this.model.move(this.item, this.matrixWorld)
+    if (this.instance) {
+      this.src.move(this.instance, this.matrixWorld)
     }
   }
 
   unmount() {
-    if (this.item) {
-      this.model.remove(this.item)
-      this.item = null
+    if (this.instance) {
+      this.src.remove(this.instance)
+      this.instance = null
     }
   }
 
@@ -38,8 +42,8 @@ export class Mesh extends Node {
 
   getStats() {
     let triangles = 0
-    if (this.model) {
-      const geometry = this.model.lods[0].mesh.geometry
+    if (this.src) {
+      const geometry = this.src.lods[0].mesh.geometry
       if (geometry.index !== null) {
         triangles += geometry.index.count / 3
       } else {
@@ -49,6 +53,12 @@ export class Mesh extends Node {
     return {
       triangles,
     }
+  }
+
+  copy(source, recursive) {
+    super.copy(source, recursive)
+    this.src = source.src
+    return this
   }
 
   getProxy() {

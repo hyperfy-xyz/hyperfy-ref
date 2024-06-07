@@ -5,8 +5,6 @@ import { Vector3Lerp } from './extras/Vector3Lerp'
 
 const MOVING_SEND_RATE = 1 / 5
 
-const tempModels = new Map()
-
 export class Entity {
   constructor(world, data) {
     this.world = world
@@ -17,14 +15,13 @@ export class Entity {
     this.mode = data.mode
     this.modeClientId = data.modeClientId // when mode=moving|editing
     this.nodes = new Map()
-    this.root = this.createNode({
-      type: 'group',
+    this.root = new Nodes.group({
       name: 'root',
       position: data.position,
       quaternion: data.quaternion,
     })
-    this.root.mounted = true
-    this.root.project()
+    this.positionLerp = new Vector3Lerp(this.root.position, MOVING_SEND_RATE)
+    this.quaternionLerp = new QuaternionLerp(this.root.quaternion, MOVING_SEND_RATE) // prettier-ignore
     this.state = data.state
     this.stateProxy = new Proxy(this.state, {
       set: (target, key, value) => {
@@ -44,15 +41,12 @@ export class Entity {
       },
     })
     this.stateChanges = null
-    // this.script = null
     this.events = {}
-    this.positionLerp = new Vector3Lerp(this.root.position, MOVING_SEND_RATE)
-    this.quaternionLerp = new QuaternionLerp(this.root.quaternion, MOVING_SEND_RATE) // prettier-ignore
     this.load()
   }
 
   async load() {
-    this.model = await this.world.loader.load(
+    this.blueprint = await this.world.loader.load(
       this.schema.model,
       this.schema.modelType
     )
@@ -61,126 +55,159 @@ export class Entity {
 
   createNode(data) {
     if (this.nodes.has(data.name)) {
-      console.error('node name already exists:', data.name)
+      console.error('node name already exists: ', data.name)
       return
     }
     const Node = Nodes[data.type]
-    const node = new Node(this, data)
+    const node = new Node(data)
     this.nodes.set(node.name, node)
     return node
   }
 
   rebuild() {
-    // destroy
-    while (this.root.children.length) {
-      this.root.detach(this.root.children[0])
-    }
-    this.nodes.forEach(node => {
-      node.unmount() // todo: destroy nodes?
-    })
-    this.nodes.clear()
-    // script
-    // this.script = null
+    // destroy current root
+    this.root.unbind()
+    // clear script events
     this.events = {}
-    // build
+    // reconstruct
     if (this.mode === 'dead') {
-      const box = this.createNode({
-        type: 'box',
+      // if dead, show dead!
+      this.root = new Nodes.group({
+        name: 'root',
+      })
+      const box = new Nodes.box({
         name: 'error',
         color: 'blue',
         position: [0, 0.5, 0],
       })
       this.root.add(box)
+    } else {
+      // reconstruct from blueprint
+      this.root = this.blueprint.clone(true)
     }
-    if (this.mode !== 'dead') {
-      const convert = (object3d, parentNode) => {
-        let node
-        if (
-          object3d.type === 'Scene' ||
-          object3d.type === 'Group' ||
-          object3d.type === 'Object3D'
-        ) {
-          node = this.createNode({
-            type: 'group',
-            name: object3d.name,
-            position: object3d.position.toArray(),
-            quaternion: object3d.quaternion.toArray(),
-            scale: object3d.scale.toArray(),
-          })
-        }
-        if (object3d.type === 'Mesh') {
-          // console.log('rebuild mesh', object3d, this)
-          object3d.geometry.computeBoundsTree()
-          let model = tempModels.get(object3d)
-          if (!model) {
-            model = this.world.models.create([
-              {
-                mesh: object3d,
-                maxDistance: 10,
-              },
-              // {
-              //   mesh: new THREE.Mesh(
-              //     new THREE.SphereGeometry(0.5, 32, 16),
-              //     new THREE.MeshStandardMaterial({ color: 'white' })
-              //   ),
-              //   maxDistance: 10,
-              // },
-              {
-                mesh: (() => {
-                  const mesh = new THREE.Mesh(
-                    new THREE.BoxGeometry(),
-                    new THREE.MeshStandardMaterial({ color: 'orange' })
-                  )
-                  mesh.geometry.computeBoundsTree()
-                  return mesh
-                })(),
-                maxDistance: 20,
-              },
-              {
-                mesh: (() => {
-                  const mesh = new THREE.Mesh(
-                    new THREE.BoxGeometry(),
-                    new THREE.MeshStandardMaterial({ color: 'red' })
-                  )
-                  mesh.geometry.computeBoundsTree()
-                  return mesh
-                })(),
-                maxDistance: Infinity, // TODO: test hide
-              },
-            ])
-            tempModels.set(object3d, model)
-          }
-          node = this.createNode({
-            type: 'mesh',
-            name: object3d.name,
-            // mesh: object3d,
-            model,
-            position: object3d.position.toArray(),
-            quaternion: object3d.quaternion.toArray(),
-            scale: object3d.scale.toArray(),
-          })
-        }
-        if (node) {
-          parentNode.add(node)
-        } else {
-          console.log('unsupported', object3d)
-        }
-        for (const child of object3d.children) {
-          convert(child, node)
-        }
+    // re-point the lerpers
+    this.root.position.copy(this.positionLerp.value)
+    this.positionLerp.value = this.root.position
+    this.root.quaternion.copy(this.quaternionLerp.value)
+    this.quaternionLerp.value = this.root.quaternion
+    this.positionLerp.snap()
+    this.quaternionLerp.snap()
+    // re-collect nodes by name
+    this.nodes.clear()
+    this.root.traverse(node => {
+      if (this.nodes.has(node.name)) {
+        console.warn('dupe node name', node.name)
       }
-      for (const object3d of this.model.scene.children) {
-        convert(object3d, this.root)
-      }
-      // TEMP box
-      // const box = this.createNode({
-      //   type: 'box',
-      //   name: 'error',
-      //   color: 'blue',
-      //   position: [0, 0.5, 0],
-      // })
-      // this.root.add(box)
-    }
+      this.nodes.set(node.name, node)
+    })
+    // bind (and mount)
+    this.root.bind(this)
+
+    // // rebuild it
+    // if (this.mode === 'dead') {
+    //   const node = new Node.box({
+    //     name: 'error',
+    //     color: 'blue',
+    //     position: [0, 0.5, 0],
+    //   })
+
+    //   const box = this.createNode({
+    //     type: 'box',
+    //     name: 'error',
+    //     color: 'blue',
+    //     position: [0, 0.5, 0],
+    //   })
+    //   this.root.add(box)
+    // }
+    // if (this.mode !== 'dead') {
+    //   const convert = (object3d, parentNode) => {
+    //     let node
+    //     if (
+    //       object3d.type === 'Scene' ||
+    //       object3d.type === 'Group' ||
+    //       object3d.type === 'Object3D'
+    //     ) {
+    //       node = this.createNode({
+    //         type: 'group',
+    //         name: object3d.name,
+    //         position: object3d.position.toArray(),
+    //         quaternion: object3d.quaternion.toArray(),
+    //         scale: object3d.scale.toArray(),
+    //       })
+    //     }
+    //     if (object3d.type === 'Mesh') {
+    //       // console.log('rebuild mesh', object3d, this)
+    //       object3d.geometry.computeBoundsTree()
+    //       let model = tempModels.get(object3d)
+    //       if (!model) {
+    //         model = this.world.models.create([
+    //           {
+    //             mesh: object3d,
+    //             maxDistance: 10,
+    //           },
+    //           // {
+    //           //   mesh: new THREE.Mesh(
+    //           //     new THREE.SphereGeometry(0.5, 32, 16),
+    //           //     new THREE.MeshStandardMaterial({ color: 'white' })
+    //           //   ),
+    //           //   maxDistance: 10,
+    //           // },
+    //           {
+    //             mesh: (() => {
+    //               const mesh = new THREE.Mesh(
+    //                 new THREE.BoxGeometry(),
+    //                 new THREE.MeshStandardMaterial({ color: 'orange' })
+    //               )
+    //               mesh.geometry.computeBoundsTree()
+    //               return mesh
+    //             })(),
+    //             maxDistance: 20,
+    //           },
+    //           {
+    //             mesh: (() => {
+    //               const mesh = new THREE.Mesh(
+    //                 new THREE.BoxGeometry(),
+    //                 new THREE.MeshStandardMaterial({ color: 'red' })
+    //               )
+    //               mesh.geometry.computeBoundsTree()
+    //               return mesh
+    //             })(),
+    //             maxDistance: Infinity, // TODO: test hide
+    //           },
+    //         ])
+    //         tempModels.set(object3d, model)
+    //       }
+    //       node = this.createNode({
+    //         type: 'mesh',
+    //         name: object3d.name,
+    //         // mesh: object3d,
+    //         model,
+    //         position: object3d.position.toArray(),
+    //         quaternion: object3d.quaternion.toArray(),
+    //         scale: object3d.scale.toArray(),
+    //       })
+    //     }
+    //     if (node) {
+    //       parentNode.add(node)
+    //     } else {
+    //       console.log('unsupported', object3d)
+    //     }
+    //     for (const child of object3d.children) {
+    //       convert(child, node)
+    //     }
+    //   }
+    //   for (const object3d of this.model.scene.children) {
+    //     convert(object3d, this.root)
+    //   }
+    //   // TEMP box
+    //   // const box = this.createNode({
+    //   //   type: 'box',
+    //   //   name: 'error',
+    //   //   color: 'blue',
+    //   //   position: [0, 0.5, 0],
+    //   // })
+    //   // this.root.add(box)
+    // }
   }
 
   checkMode(forceRespawn) {
@@ -203,9 +230,6 @@ export class Entity {
     }
     // rebuild
     this.rebuild()
-    this.positionLerp.snap()
-    this.quaternionLerp.snap()
-    this.root.dirty()
     this.nodes.forEach(node => {
       node.setMode(this.mode)
     })

@@ -2,8 +2,10 @@ import * as THREE from 'three'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
-import { System } from './System'
 import { VOXLoader } from './extras/VoxLoader'
+import { glbToNodes } from './extras/glbToNodes'
+
+import { System } from './System'
 
 // cache across loaders
 THREE.Cache.enabled = true
@@ -47,13 +49,18 @@ export class Loader extends System {
   }
 
   loadGLB(url) {
-    const promise = this.gltfLoader.loadAsync(url)
+    const promise = this.gltfLoader.loadAsync(url).then(glb => {
+      return glbToNodes(glb, world)
+    })
     this.cache.set(url, promise)
     return promise
   }
 
   loadVOX(url) {
-    const promise = this.voxLoader.loadAsync(url)
+    const promise = this.voxLoader.loadAsync(url).then(vox => {
+      console.error('TODO: voxToNodes')
+      return new VOXModel(vox)
+    })
     this.cache.set(url, promise)
     return promise
   }

@@ -9,11 +9,10 @@ const _v2 = new THREE.Vector3()
 const _q1 = new THREE.Quaternion()
 
 export class Node {
-  constructor(entity, data) {
-    this.entity = entity
-    this.world = entity.world
-    this.type = data.type
-    this.name = data.name
+  constructor(data = {}) {
+    this.entity = null
+    this.type = 'node'
+    this.name = data.name || ''
     this.parent = null
     this.children = []
     this.position = new THREE.Vector3()
@@ -35,6 +34,23 @@ export class Node {
     this.mounted = false
   }
 
+  bind(entity) {
+    this.project()
+    this.traverse(node => {
+      node.entity = entity
+      node.mounted = true
+      node.mount()
+    })
+  }
+
+  unbind() {
+    this.traverse(node => {
+      node.unmount()
+      node.mounted = false
+      node.entity = null
+    })
+  }
+
   add(node) {
     if (node.parent) {
       node.parent.remove(node)
@@ -44,6 +60,7 @@ export class Node {
     if (this.mounted) {
       node.project()
       node.traverse(node => {
+        node.entity = this.entity
         node.mounted = true
         node.mount()
       })
@@ -80,9 +97,8 @@ export class Node {
   }
 
   dirty() {
-    // TODO:
     this.isDirty = true
-    this.world.entities.dirtyNodes.push(this)
+    this.entity.world.entities.dirtyNodes.push(this)
   }
 
   apply() {
@@ -105,15 +121,19 @@ export class Node {
   }
 
   mount() {
-    // ...
+    // called when transforms are ready and this thing should be added to the scene
   }
 
   update() {
-    // ...
+    // called when transforms change and this thing should be updated in the scene
   }
 
   unmount() {
-    // ...
+    // called when this thing should be removed from scene
+  }
+
+  setMode(mode) {
+    // called when object changes mode, eg to disable physics when moving
   }
 
   project() {
@@ -121,10 +141,10 @@ export class Node {
       this.matrix.compose(this.position, this.quaternion, this.scale)
       this.isDirty = false
     }
-    if (!this.parent) {
-      this.matrixWorld.copy(this.matrix)
-    } else {
+    if (this.parent) {
       this.matrixWorld.multiplyMatrices(this.parent.matrixWorld, this.matrix)
+    } else {
+      this.matrixWorld.copy(this.matrix)
     }
     const children = this.children
     for (let i = 0, l = children.length; i < l; i++) {
@@ -140,10 +160,25 @@ export class Node {
     }
   }
 
-  setMode(mode) {
-    // ...
+  clone(recursive) {
+    return new this.constructor().copy(this, recursive)
   }
 
+  copy(source, recursive) {
+    this.name = source.name
+    this.position.copy(source.position)
+    this.quaternion.copy(source.quaternion)
+    this.scale.copy(source.scale)
+    if (recursive) {
+      for (let i = 0; i < source.children.length; i++) {
+        const child = source.children[i]
+        this.add(child.clone())
+      }
+    }
+    return this
+  }
+
+  // todo: getWorldQuaternion etc
   getWorldPosition(vec3 = _v1) {
     this.matrixWorld.decompose(vec3, _q1, _v2)
     return vec3

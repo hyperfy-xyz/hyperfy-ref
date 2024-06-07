@@ -12,8 +12,9 @@ const defaults = {
 }
 
 export class Controller extends Node {
-  constructor(entity, data) {
-    super(entity, data)
+  constructor(data = {}) {
+    super(data)
+    this.type = 'controller'
     this.isController = true
     this.radius = isNumber(data.radius) ? data.radius : defaults.radius
     this.height = isNumber(data.height) ? data.height : defaults.height
@@ -34,17 +35,21 @@ export class Controller extends Node {
       this.mesh.matrix.copy(this.matrix)
       this.mesh.matrixWorld.copy(this.matrixWorld)
       this.mesh.node = this
-      this.world.graphics.scene.add(this.mesh)
+      this.entity.world.graphics.scene.add(this.mesh)
     }
     const desc = new PHYSX.PxCapsuleControllerDesc()
     desc.height = this.height
     desc.radius = this.radius
     desc.climbingMode = PHYSX.PxCapsuleClimbingModeEnum.eCONSTRAINED
     desc.slopeLimit = Math.cos(60 * DEG2RAD) // 60 degrees
-    desc.material = this.world.physics.physics.createMaterial(0.2, 0.2, 0.2)
+    desc.material = this.entity.world.physics.physics.createMaterial(
+      0.2,
+      0.2,
+      0.2
+    )
     desc.contactOffset = 0.1 // PhysX default = 0.1
     desc.stepOffset = 0.5 // PhysX default = 0.5m
-    this.controller = this.world.physics.controllerManager.createController(desc) // prettier-ignore
+    this.controller = this.entity.world.physics.controllerManager.createController(desc) // prettier-ignore
     const worldPosition = this.getWorldPosition()
     this.controller.setFootPosition(worldPosition.toPxExtVec3())
     PHYSX.destroy(desc.material)
@@ -66,7 +71,7 @@ export class Controller extends Node {
 
   unmount() {
     if (this.mesh) {
-      this.world.graphics.scene.remove(this.mesh)
+      this.entity.world.graphics.scene.remove(this.mesh)
     }
     this.controller.release()
     this.controller = null
@@ -77,12 +82,20 @@ export class Controller extends Node {
       vec3.toPxVec3(),
       0,
       1 / 60,
-      this.world.physics.controllerFilters
+      this.entity.world.physics.controllerFilters
     )
     // this.isGrounded = moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN) // prettier-ignore
     const pos = this.controller.getFootPosition()
     this.position.copy(pos)
     this.didMove = true
+  }
+
+  copy(source, recursive) {
+    super.copy(source, recursive)
+    this.radius = source.radius
+    this.height = source.height
+    this.visible = source.visible
+    return this
   }
 
   getProxy() {

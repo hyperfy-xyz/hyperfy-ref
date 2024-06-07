@@ -53,7 +53,7 @@ class Model {
   constructor(manager, lods) {
     this.manager = manager
     this.lods = lods.map(lod => new LOD(this, lod.mesh, lod.maxDistance)) // todo: ensure lods are ordered maxDistance ascending
-    this.items = []
+    // this.items = []
   }
 
   findLod(distance) {
@@ -102,6 +102,8 @@ class LOD {
     this.iMesh.name = this.mesh.name
     this.iMesh.castShadow = true
     this.iMesh.receiveShadow = true
+    this.iMesh.matrixAutoUpdate = false
+    this.iMesh.matrixWorldAutoUpdate = false
     this.iMesh._lod = this
     this.items = []
   }
@@ -156,27 +158,15 @@ class LOD {
 
   clean() {
     if (!this.dirty) return
-    const max = this.iMesh.instanceMatrix.array.length / 16
+    const size = this.iMesh.instanceMatrix.array.length / 16
     const count = this.items.length
-    if (max < this.items.length) {
-      // console.log('increase', this.mesh.name, 'from', max, 'to', count + 100)
-      const oldIMesh = this.iMesh
-      this.model.manager.scene.remove(oldIMesh)
-      this.iMesh = new THREE.InstancedMesh(
-        this.mesh.geometry,
-        this.mesh.material,
-        count + 100
-      )
-      // this.iMesh.instanceMatrix.array.set(oldIMesh.instanceMatrix.array)
-      // console.time('fill', count)
-      for (const item of this.items) {
-        this.iMesh.setMatrixAt(item.idx, item.matrix)
+    if (size < this.items.length) {
+      const newSize = count + 100
+      // console.log('increase', this.mesh.name, 'from', size, 'to', newSize)
+      this.iMesh.resize(newSize)
+      for (let i = size; i < count; i++) {
+        this.iMesh.setMatrixAt(i, this.items[i].matrix)
       }
-      // console.timeEnd('fill')
-      this.iMesh.name = this.mesh.name
-      this.iMesh.castShadow = true
-      this.iMesh.receiveShadow = true
-      this.iMesh._lod = this
     }
     this.iMesh.count = count
     if (this.iMesh.parent && !count) {

@@ -24,6 +24,19 @@ THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree
 
 // THREE.ColorManagement.enabled = true
 
+const _identity = new THREE.Matrix4()
+THREE.InstancedMesh.prototype.resize = function (size) {
+  const prevSize = this.instanceMatrix.array.length / 16
+  if (size <= prevSize) return
+  const array = new Float32Array(size * 16)
+  array.set(this.instanceMatrix.array)
+  this.instanceMatrix = new THREE.InstancedBufferAttribute(array, 16)
+  this.instanceMatrix.needsUpdate = true
+  // for (let i = prevSize; i < size; i++) {
+  //   this.setMatrixAt(i, _identity)
+  // }
+}
+
 const v1 = new THREE.Vector3()
 const vec2 = new THREE.Vector2()
 

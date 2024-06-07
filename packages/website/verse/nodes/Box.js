@@ -36,10 +36,11 @@ const defaults = {
 // }
 
 export class Box extends Node {
-  constructor(entity, data) {
-    super(entity, data)
+  constructor(data = {}) {
+    super(data)
+    this.type = 'box'
     this.isBox = true
-    this.size = data.size || defaults.size
+    this.size = data.size || defaults.size.slice()
     this.color = data.color || defaults.color
     this.physics = data.physics || defaults.physics
     this.visible = isBoolean(data.visible) ? data.visible : defaults.visible
@@ -130,6 +131,15 @@ export class Box extends Node {
       this.layer = Layers.DEFAULT
     }
     this.mesh?.layers.set(this.layer)
+  }
+
+  copy(source, recursive) {
+    super.copy(source, recursive)
+    this.size = source.size.slice()
+    this.color = source.color
+    this.physics = source.physics
+    this.visible = source.visible
+    return this
   }
 
   getProxy() {
