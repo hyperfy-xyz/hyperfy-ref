@@ -36,6 +36,7 @@ export function glbToNodes(glb, world) {
       }
       if (object3d.type === 'Mesh') {
         object3d.geometry.computeBoundsTree() // three-mesh-bvh
+        enhanceMaterial(object3d.material)
         if (LOD_REGEX.test(object3d.name)) {
           let [name, maxDistance] = object3d.name.split(LOD_REGEX)
           maxDistance = parseInt(maxDistance)
@@ -70,4 +71,45 @@ export function glbToNodes(glb, world) {
   }
   parse(glb.scene.children, root)
   return root
+}
+
+function enhanceMaterial(material) {
+  // to have cross-fading we need transparent=true
+  // but this introduces sorting by threejs.
+  // with 100k cubes toggling transparent=true takes GPU from
+  // 10ms to 14ms
+  return
+  if (material.isMeshStandardMaterial) {
+    material.transparent = true
+    material.needsUpdate = true
+    material.onBeforeCompile = function (shader) {
+      console.log(shader)
+
+      // add the fade attribute to the vertex shader
+      shader.vertexShader =
+        'attribute float fade;\nvarying float vFade;\n' + shader.vertexShader
+
+      // pass fade value from vertex to fragment shader
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+         vFade = fade;`
+      )
+
+      // add varying to fragment shader
+      shader.fragmentShader = 'varying float vFade;\n' + shader.fragmentShader
+
+      // modify the diffuseColor alpha with fade value
+      shader.fragmentShader = shader.fragmentShader.replace(
+        'vec4 diffuseColor = vec4( diffuse, opacity );',
+        'vec4 diffuseColor = vec4( diffuse, opacity * (1.0 - vFade) );'
+      )
+
+      // ensure premultiplied alpha is handled correctly if used
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <premultiplied_alpha_fragment>',
+        'gl_FragColor.rgb *= gl_FragColor.a;\n#include <premultiplied_alpha_fragment>'
+      )
+    }
+  }
 }

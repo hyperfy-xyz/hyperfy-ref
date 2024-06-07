@@ -99,6 +99,7 @@ class LOD {
     this.mesh.matrixWorldAutoUpdate = false
     this.maxDistance = maxDistance
     this.iMesh = new THREE.InstancedMesh(mesh.geometry, mesh.material, 10)
+    this.iMesh.addFades()
     this.iMesh.name = this.mesh.name
     this.iMesh.castShadow = true
     this.iMesh.receiveShadow = true

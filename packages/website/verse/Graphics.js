@@ -25,6 +25,16 @@ THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree
 // THREE.ColorManagement.enabled = true
 
 const _identity = new THREE.Matrix4()
+THREE.InstancedMesh.prototype.addFades = function () {
+  const size = this.instanceMatrix.array.length / 16
+  const fades = new Float32Array(size)
+  // for (let i = 0; i < 10; i++) {
+  //   fades[i] = Math.random() // Assign random fade values (for demonstration)
+  // }
+  const fadeAttr = new THREE.InstancedBufferAttribute(fades, 1)
+  this.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+  this.geometry.setAttribute('fade', fadeAttr)
+}
 THREE.InstancedMesh.prototype.resize = function (size) {
   const prevSize = this.instanceMatrix.array.length / 16
   if (size <= prevSize) return
@@ -35,6 +45,12 @@ THREE.InstancedMesh.prototype.resize = function (size) {
   // for (let i = prevSize; i < size; i++) {
   //   this.setMatrixAt(i, _identity)
   // }
+  if (this.geometry.hasAttribute('fade')) {
+    const fades = new Float32Array(size)
+    fades.set(this.geometry.getAttribute('fade').array)
+    const fadeAttr = new THREE.InstancedBufferAttribute(fades, 1)
+    this.geometry.setAttribute('fade', fadeAttr)
+  }
 }
 
 const v1 = new THREE.Vector3()
