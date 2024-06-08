@@ -70,10 +70,10 @@ export class World {
       schemas,
       instances,
     }
-    client.sock.send('init', init)
     client.sock.on('update-client', this.onUpdateClient) // todo: move to 'update' event
     client.sock.on('packet', this.onPacket)
     client.sock.on('entity-mode-request', this.onEntityModeRequest)
+    client.sock.send('init', init)
     this.broadcast('add-client', client.serialize(), client)
     client.active = true
   }
@@ -89,7 +89,7 @@ export class World {
       this.schemas.set(schema.id, schema)
       this.broadcast('upsert-schema', schema, client)
       // TODO: remove schemas when not needed so they don't build up
-      // initial state sent to new clients?
+      // the initial state sent to new clients?
     }
     for (const entityId in data.entities) {
       const update = data.entities[entityId]
@@ -116,6 +116,9 @@ export class World {
         const entity = this.instances.get(entityId)
         if (!entity) return
         const props = update.props
+        if (props.hasOwnProperty('uploading')) {
+          entity.uploading = props.uploading
+        }
         if (props.mode) {
           entity.mode = props.mode
         }

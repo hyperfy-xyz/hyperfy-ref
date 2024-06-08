@@ -2,6 +2,8 @@ import './sourceMapSupport'
 import 'dotenv-flow/config'
 import http from 'http'
 import express from 'express'
+import cors from 'cors'
+import compression from 'compression'
 import cookieParser from 'cookie-parser'
 import { WebSocketServer } from 'ws'
 import { World } from './World'
@@ -16,8 +18,12 @@ const app = express()
 const server = http.createServer(app)
 const wss = new WebSocketServer({ noServer: true })
 
+app.use(cors())
+app.use(compression())
 app.use(cookieParser())
 app.use(express.json())
+
+app.use('/uploads', express.static('uploads'))
 
 app.use('/api', api)
 

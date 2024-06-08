@@ -60,11 +60,11 @@ export class Box extends Node {
       this.mesh.castShadow = true
       this.mesh.matrixAutoUpdate = false
       this.mesh.matrixWorldAutoUpdate = false
-      this.mesh.matrix.copy(this.matrix)
+      this.mesh.matrix.copy(this.matrixWorld)
       this.mesh.matrixWorld.copy(this.matrixWorld)
       this.mesh.node = this
       if (this.layer) this.mesh.layers.set(this.layer)
-      this.world.graphics.scene.add(this.mesh)
+      this.entity.world.graphics.scene.add(this.mesh)
     }
     if (this.physics) {
       const geometry = new PHYSX.PxBoxGeometry(
@@ -110,13 +110,14 @@ export class Box extends Node {
 
   update() {
     if (this.mesh) {
+      // this.matrixWorld.decompose(_v1, _q1, _v2)
       this.mesh.matrix.copy(this.matrixWorld)
     }
   }
 
   unmount() {
     if (this.mesh) {
-      this.world.graphics.scene.remove(this.mesh)
+      this.entity.world.graphics.scene.remove(this.mesh)
     }
     if (this.body) {
       this.world.physics.scene.removeActor(this.body)

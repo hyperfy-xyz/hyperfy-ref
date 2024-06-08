@@ -12,6 +12,7 @@ export class Entity {
     this.schema = this.world.entities.getSchema(data.schemaId)
     this.creator = data.creator
     this.authority = data.authority
+    this.uploading = data.uploading
     this.mode = data.mode
     this.modeClientId = data.modeClientId // when mode=moving|editing
     this.nodes = new Map()
@@ -42,15 +43,36 @@ export class Entity {
     })
     this.stateChanges = null
     this.events = {}
+    this.loadNum = 0
     this.load()
   }
 
+  isUploading() {
+    if (!this.uploading) return false
+    if (this.world.loader.has(this.schema.model)) {
+      this.uploading = null // we already have this lets go!
+      return false
+    }
+    return this.uploading !== this.world.network.client.id
+  }
+
   async load() {
-    this.blueprint = await this.world.loader.load(
-      this.schema.model,
-      this.schema.modelType
-    )
-    this.checkMode()
+    if (!this.isUploading()) {
+      try {
+        this.blueprint = null
+        const num = ++this.loadNum
+        const blueprint = await this.world.loader.load(
+          this.schema.model,
+          this.schema.modelType
+        )
+        if (this.loadNum !== num) return // reloaded
+        this.blueprint = blueprint
+      } catch (err) {
+        console.error('Could not load model:', err)
+        return this.kill()
+      }
+    }
+    this.checkMode(true)
   }
 
   createNode(data) {
@@ -70,19 +92,30 @@ export class Entity {
     // clear script events
     this.events = {}
     // reconstruct
-    if (this.mode === 'dead') {
-      // if dead, show dead!
+    if (this.isUploading()) {
+      // show loading
+      this.root = new Nodes.group({
+        name: 'root',
+      })
+      const box = new Nodes.box({
+        name: 'loading',
+        color: 'blue',
+        position: [0, 0.5, 0],
+      })
+      this.root.add(box)
+    } else if (!this.blueprint) {
+      // not uploading but no blueprint? must be dead!
       this.root = new Nodes.group({
         name: 'root',
       })
       const box = new Nodes.box({
         name: 'error',
-        color: 'blue',
+        color: 'red',
         position: [0, 0.5, 0],
       })
       this.root.add(box)
     } else {
-      // reconstruct from blueprint
+      // construct from blueprint
       this.root = this.blueprint.clone(true)
     }
     // re-point the lerpers
@@ -102,112 +135,6 @@ export class Entity {
     })
     // bind (and mount)
     this.root.bind(this)
-
-    // // rebuild it
-    // if (this.mode === 'dead') {
-    //   const node = new Node.box({
-    //     name: 'error',
-    //     color: 'blue',
-    //     position: [0, 0.5, 0],
-    //   })
-
-    //   const box = this.createNode({
-    //     type: 'box',
-    //     name: 'error',
-    //     color: 'blue',
-    //     position: [0, 0.5, 0],
-    //   })
-    //   this.root.add(box)
-    // }
-    // if (this.mode !== 'dead') {
-    //   const convert = (object3d, parentNode) => {
-    //     let node
-    //     if (
-    //       object3d.type === 'Scene' ||
-    //       object3d.type === 'Group' ||
-    //       object3d.type === 'Object3D'
-    //     ) {
-    //       node = this.createNode({
-    //         type: 'group',
-    //         name: object3d.name,
-    //         position: object3d.position.toArray(),
-    //         quaternion: object3d.quaternion.toArray(),
-    //         scale: object3d.scale.toArray(),
-    //       })
-    //     }
-    //     if (object3d.type === 'Mesh') {
-    //       // console.log('rebuild mesh', object3d, this)
-    //       object3d.geometry.computeBoundsTree()
-    //       let model = tempModels.get(object3d)
-    //       if (!model) {
-    //         model = this.world.models.create([
-    //           {
-    //             mesh: object3d,
-    //             maxDistance: 10,
-    //           },
-    //           // {
-    //           //   mesh: new THREE.Mesh(
-    //           //     new THREE.SphereGeometry(0.5, 32, 16),
-    //           //     new THREE.MeshStandardMaterial({ color: 'white' })
-    //           //   ),
-    //           //   maxDistance: 10,
-    //           // },
-    //           {
-    //             mesh: (() => {
-    //               const mesh = new THREE.Mesh(
-    //                 new THREE.BoxGeometry(),
-    //                 new THREE.MeshStandardMaterial({ color: 'orange' })
-    //               )
-    //               mesh.geometry.computeBoundsTree()
-    //               return mesh
-    //             })(),
-    //             maxDistance: 20,
-    //           },
-    //           {
-    //             mesh: (() => {
-    //               const mesh = new THREE.Mesh(
-    //                 new THREE.BoxGeometry(),
-    //                 new THREE.MeshStandardMaterial({ color: 'red' })
-    //               )
-    //               mesh.geometry.computeBoundsTree()
-    //               return mesh
-    //             })(),
-    //             maxDistance: Infinity, // TODO: test hide
-    //           },
-    //         ])
-    //         tempModels.set(object3d, model)
-    //       }
-    //       node = this.createNode({
-    //         type: 'mesh',
-    //         name: object3d.name,
-    //         // mesh: object3d,
-    //         model,
-    //         position: object3d.position.toArray(),
-    //         quaternion: object3d.quaternion.toArray(),
-    //         scale: object3d.scale.toArray(),
-    //       })
-    //     }
-    //     if (node) {
-    //       parentNode.add(node)
-    //     } else {
-    //       console.log('unsupported', object3d)
-    //     }
-    //     for (const child of object3d.children) {
-    //       convert(child, node)
-    //     }
-    //   }
-    //   for (const object3d of this.model.scene.children) {
-    //     convert(object3d, this.root)
-    //   }
-    //   // TEMP box
-    //   // const box = this.createNode({
-    //   //   type: 'box',
-    //   //   name: 'error',
-    //   //   color: 'blue',
-    //   //   position: [0, 0.5, 0],
-    //   // })
-    //   // this.root.add(box)
-    // }
   }
 
   checkMode(forceRespawn) {
@@ -280,12 +207,6 @@ export class Entity {
         this.world.panels.edit(this)
       }
       this.world.entities.incActive(this)
-    }
-    if (this.mode === 'dead') {
-      // move root children to world space
-      // while (this.root.children.length) {
-      //   this.root.detach(this.root.children[0])
-      // }
     }
     this.prevMode = this.mode
     this.prevModeClientId = this.modeClientId
@@ -362,8 +283,8 @@ export class Entity {
   }
 
   kill() {
-    this.mode = 'dead'
-    this.checkMode()
+    this.blueprint = null
+    this.checkMode(true)
   }
 
   getProxy() {
@@ -442,6 +363,15 @@ export class Entity {
       this.mode = data.mode
       this.modeClientId = data.modeClientId
       this.checkMode()
+    }
+    if (data.hasOwnProperty('uploading')) {
+      if (data.uploading !== null) {
+        console.error('uploading should only ever be nulled')
+      }
+      if (this.uploading !== data.uploading) {
+        this.uploading = data.uploading
+        this.load()
+      }
     }
   }
 

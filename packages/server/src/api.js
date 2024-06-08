@@ -1,13 +1,21 @@
 import express from 'express'
 import moment from 'moment'
 import { recoverMessageAddress } from 'viem'
+import fs from 'fs-extra'
+import multer from 'multer'
+import path from 'path'
 
 import { db, migrate } from './db'
 import { generateName } from './names'
 import { createToken, readToken } from './jwt'
 import { uuid } from './uuid'
+import { hashFile } from './hashFile'
 
 export const api = express.Router()
+
+const uploadsDir = path.join('./uploads')
+
+const multerUpload = multer()
 
 migrate()
 
@@ -107,4 +115,15 @@ api.post('/connect', async (req, res) => {
   // auths.push(auth)
   // setCookie(req, 'auths', auths)
   res.json(auth)
+})
+
+api.post('/upload', multerUpload.single('file'), async (req, res) => {
+  await new Promise(resolve => setTimeout(resolve, 2000))
+  const { file } = req
+  const hash = await hashFile(file)
+  await fs.ensureDir(uploadsDir)
+  const filePath = path.join(uploadsDir, hash)
+  await fs.writeFile(filePath, file.buffer, 'binary')
+  const url = 'http://localhost:3001/uploads/' + hash
+  res.status(201).json({ url })
 })

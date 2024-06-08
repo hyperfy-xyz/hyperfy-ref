@@ -14,59 +14,100 @@ THREE.Cache.enabled = true
 export class Loader extends System {
   constructor(world) {
     super(world)
-    this.redirects = {}
-    this.cache = new Map() // url -> promise
+    this.results = new Map() // url -> promise
     this.rgbeLoader = new RGBELoader()
     this.gltfLoader = new GLTFLoader()
     this.voxLoader = new VOXLoader()
   }
 
-  redirect(from, to, immutable) {
-    if (immutable && this.redirects[from]) {
-      return
+  has(url) {
+    return this.results.has(url)
+  }
+
+  set(url, type, file) {
+    if (!type) {
+      type = url.split('.').pop()
     }
-    this.redirects[from] = to
+    const localUrl = URL.createObjectURL(file)
+    if (type === 'js') {
+      const promise = this.loadJS(localUrl)
+      this.results.set(url, promise)
+    }
+    if (type === 'glb') {
+      const promise = this.loadGLB(localUrl)
+      this.results.set(url, promise)
+    }
+    if (type === 'vox') {
+      const promise = this.loadVOX(localUrl)
+      this.results.set(url, promise)
+    }
+    if (type === 'hdr') {
+      const promise = this.loadHDR(localUrl)
+      this.results.set(url, promise)
+    }
   }
 
   load(url, type) {
-    if (this.redirects[url]) {
-      url = this.redirects[url]
-    }
-    if (this.cache.get(url)) {
-      return this.cache.get(url)
+    if (this.results.get(url)) {
+      return this.results.get(url)
     }
     if (!type) {
       type = url.split('.').pop()
     }
+    if (type === 'js') {
+      const promise = this.loadJS(url)
+      this.results.set(url, promise)
+      return promise
+    }
     if (type === 'glb') {
-      return this.loadGLB(url)
+      const promise = this.loadGLB(url)
+      this.results.set(url, promise)
+      return promise
     }
     if (type === 'vox') {
-      return this.loadVOX(url)
+      const promise = this.loadVOX(url)
+      this.results.set(url, promise)
+      return promise
     }
     if (type === 'hdr') {
-      return this.loadHDR(url)
+      const promise = this.loadHDR(url)
+      this.results.set(url, promise)
+      return promise
     }
+  }
+
+  async loadJS(url) {
+    const resp = await fetch(url)
+    const code = await resp.text()
+    return this.world.scripts.resolve(code)
   }
 
   loadGLB(url) {
-    const promise = this.gltfLoader.loadAsync(url).then(glb => {
+    return this.gltfLoader.loadAsync(url).then(glb => {
       return glbToNodes(glb, world)
     })
-    this.cache.set(url, promise)
-    return promise
   }
 
   loadVOX(url) {
-    const promise = this.voxLoader.loadAsync(url).then(vox => {
+    return this.voxLoader.loadAsync(url).then(vox => {
       return voxToNodes(vox, world)
     })
-    this.cache.set(url, promise)
-    return promise
   }
 
   loadHDR(url) {
     return this.rgbeLoader.loadAsync(url)
+  }
+
+  async upload(file) {
+    const form = new FormData()
+    form.append('file', file)
+    const url = `${process.env.PUBLIC_API_URL}/upload`
+    const resp = await fetch(url, {
+      method: 'POST',
+      body: form,
+    })
+    const data = await resp.json()
+    return data.url
   }
 
   log(...args) {

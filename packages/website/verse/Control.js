@@ -26,6 +26,7 @@ import { cloneDeep } from 'lodash-es'
 import { DnD } from './extras/DnD'
 import { DEG2RAD } from './extras/general'
 import { num } from './extras/num'
+import { hashFile } from './extras/hashFile'
 
 const PI_2 = Math.PI / 2
 const LOOK_SPEED = 0.005
@@ -34,6 +35,9 @@ const WHEEL_SPEED = 0.002
 const MOVING_SEND_RATE = 1 / 5
 
 // const RAY_RATE = 1 / 10
+
+const e1 = new THREE.Euler(0, 0, 0, 'YXZ')
+const q1 = new THREE.Quaternion()
 
 export class Control extends System {
   constructor(world) {
@@ -83,6 +87,9 @@ export class Control extends System {
     //   this.lastRay = 0
     // }
 
+    if (this.moving && this.moving.entity.destroyed) {
+      this.moving = null
+    }
     if (this.moving) {
       const hits = this.world.graphics.raycastViewport(
         this.world.control.pointer.coords,
@@ -119,17 +126,9 @@ export class Control extends System {
 
     if (file) {
       // hash
-      const buf = await file.arrayBuffer()
-      const hashBuf = await crypto.subtle.digest('SHA-256', buf)
-      const hash = Array.from(new Uint8Array(hashBuf))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('')
-      console.log(hash)
-      // TODO: upload UI
-      const url = 'https://temp.com/' + hash
-      // const url = URL.createObjectURL(file) // await this.world.network.uploadFile(file)
-      const localUrl = URL.createObjectURL(file)
-      this.world.loader.redirect(url, localUrl, true)
+      const hash = await hashFile(file)
+      const url = 'http://localhost:3001/uploads/' + hash
+      this.world.loader.set(url, 'glb', file)
       const schema = {
         id: this.world.network.makeId(),
         type: 'prototype',
@@ -139,17 +138,28 @@ export class Control extends System {
         scriptRaw: null,
       }
       this.world.entities.upsertSchemaLocal(schema)
-      this.world.entities.addInstanceLocal({
+      const entity = this.world.entities.addInstanceLocal({
         id: this.world.network.makeId(),
         schemaId: schema.id,
         creator: this.world.network.client.user.id,
         authority: this.world.network.client.id,
+        uploading: this.world.network.client.id,
         mode: 'moving',
         modeClientId: this.world.network.client.id,
         position: [0, 0, 0], // hit.point.toArray(),
         quaternion: [0, 0, 0, 1],
         state: {},
       })
+      try {
+        await this.world.loader.upload(file)
+        this.world.network.pushEntityUpdate(entity.id, update => {
+          if (!update.props) update.props = {}
+          update.props.uploading = null
+        })
+      } catch (err) {
+        console.error('failed to upload', err)
+        this.world.entities.removeInstanceLocal(entity.id)
+      }
     }
   }
 
@@ -259,6 +269,9 @@ export class Control extends System {
   }
 
   onPointerDown = e => {
+    if (this.moving && this.moving.entity.destroyed) {
+      this.moving = null
+    }
     if (this.moving) {
       this.moving.entity.mode = 'active'
       this.moving.entity.modeClientId = null
@@ -750,6 +763,8 @@ object.on('update', delta => {
         disabled: false,
         execute: () => {
           for (let i = 0; i < 500; i++) {
+            e1.set(0, num(0, 360, 2) * DEG2RAD, 0)
+            q1.setFromEuler(e1)
             this.world.entities.addInstanceLocal({
               id: this.world.network.makeId(),
               schemaId: entity.schema.id,
@@ -758,8 +773,9 @@ object.on('update', delta => {
               mode: 'active',
               modeClientId: null,
               position: [num(-100, 100, 3), 0, num(-100, 100, 3)], // ground
+              quaternion: q1.toArray(),
               // position: [num(-100, 100, 3), num(0, 100, 3), num(-100, 100, 3)], // everywhere
-              quaternion: [0, 0, 0, 1],
+              // quaternion: [0, 0, 0, 1],
               state: entity.state,
             })
           }
