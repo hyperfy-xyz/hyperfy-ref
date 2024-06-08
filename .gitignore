@@ -3,7 +3,8 @@
 .secret
 .env*
 !.env.example
-node_modules
+node_modules/
+uploads/
+dist/
 arch
-dist
 db
