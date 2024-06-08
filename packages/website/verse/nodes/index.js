@@ -1,5 +1,6 @@
 export { Group as group } from './Group.js'
 export { Box as box } from './Box.js'
 export { Composite as composite } from './Composite.js'
+export { Collider as collider } from './Collider.js'
 // export { Capsule as capsule } from './Capsule.js'
 export { Controller as controller } from './Controller.js'

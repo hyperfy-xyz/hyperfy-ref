@@ -7,6 +7,10 @@ export function extendThreePhysX() {
   const _pxVec3 = new PHYSX.PxVec3()
   const _pxExtVec3 = new PHYSX.PxExtendedVec3()
 
+  const pos = new THREE.Vector3()
+  const qua = new THREE.Quaternion()
+  const sca = new THREE.Vector3()
+
   THREE.Vector3.prototype.fromPxVec3 = function (pxVec3) {
     this.x = pxVec3.x
     this.y = pxVec3.y
@@ -39,5 +43,16 @@ export function extendThreePhysX() {
     pxTransform.q.y = this.y
     pxTransform.q.z = this.z
     pxTransform.q.w = this.w
+  }
+
+  THREE.Matrix4.prototype.toPxTransform = function (pxTransform) {
+    this.decompose(pos, qua, sca)
+    pxTransform.p.x = pos.x
+    pxTransform.p.y = pos.y
+    pxTransform.p.z = pos.z
+    pxTransform.q.x = qua.x
+    pxTransform.q.y = qua.y
+    pxTransform.q.z = qua.z
+    pxTransform.q.w = qua.w
   }
 }
