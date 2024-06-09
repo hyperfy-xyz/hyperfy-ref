@@ -93,6 +93,7 @@ object.on('start', () => {
       control.camera.ready()
     }
   } else {
+    base.detach()
     const state = object.getState()
     if (is(state.px)) base.position.x = state.px
     if (is(state.py)) base.position.y = state.py
