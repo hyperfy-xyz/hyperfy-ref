@@ -48,10 +48,7 @@ export class Panels extends System {
     this.panel = {
       type: 'edit',
       entity,
-      close: commit => {
-        if (commit && !entity.destroyed) {
-          this.world.entities.upsertSchemaLocal(entity.schema)
-        }
+      close: () => {
         this.panel = null
         this.emit()
       },

@@ -12,7 +12,6 @@ let ids = 0
 export class World {
   constructor({ id, onDestroy }) {
     this.id = id
-    this.onDestroy = onDestroy
     this.meta = null
     this.permissions = null
     this.schemas = new Map()
@@ -24,6 +23,7 @@ export class World {
       await this.init()
       resolve()
     })
+    this.onDestroy = onDestroy
   }
 
   async init() {
@@ -70,9 +70,9 @@ export class World {
       schemas,
       entities,
     }
+    client.sock.send('init', init)
     client.sock.on('update-client', this.onUpdateClient) // todo: move to 'update' event
     client.sock.on('packet', this.onPacket)
-    client.sock.send('init', init)
     this.broadcast('add-client', client.serialize(), client)
     client.active = true
   }

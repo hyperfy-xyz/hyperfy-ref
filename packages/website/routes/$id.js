@@ -395,6 +395,7 @@ function EditPanel({ panel }) {
   const entity = panel.entity
   const [loading, setLoading] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
   const rawRef = useRef()
   return (
     <div>
@@ -417,31 +418,41 @@ function EditPanel({ panel }) {
       >
         Edit Code
       </div>
-
-      {editing && (
-        <CodeEditor
-          value={rawRef.current}
-          onChange={raw => {
-            rawRef.current = raw
-          }}
-        />
-      )}
-      {editing && (
-        <div
-          onClick={async () => {
-            const raw = rawRef.current
-
-            setLoading(true)
-            const id = await entity.world.scripts.upload(raw)
-            console.log('FOO', entity.schema.script, id)
-            entity.schema.script = id
-            panel.close(true)
-          }}
-        >
-          Save
-        </div>
-      )}
       {loading && <div>Loading</div>}
+      {editing && (
+        <>
+          <CodeEditor
+            value={rawRef.current}
+            onChange={raw => {
+              rawRef.current = raw
+            }}
+          />
+          <div
+            onClick={async () => {
+              setSaving(true)
+              const raw = rawRef.current
+              const id = await entity.world.scripts.upload(raw)
+              entity.schema.script = id
+              entity.world.entities.upsertSchemaLocal(entity.schema)
+              setSaving(false)
+            }}
+          >
+            {saving ? 'Saving' : 'Save'}
+          </div>
+          {/* <div
+            onClick={() => {
+              entity.mode = 'inactive'
+              entity.modeClientId = null
+              entity.world.network.pushEntityUpdate(entity.id, update => {
+                if (!update.props) update.props = {}
+                update.props.mode = 'inactive'
+              })
+            }}
+          >
+            Stop
+          </div> */}
+        </>
+      )}
     </div>
   )
 }
