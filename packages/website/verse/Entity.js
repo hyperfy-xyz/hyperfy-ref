@@ -85,6 +85,12 @@ export class Entity {
     this.checkMode(true)
   }
 
+  reload() {
+    this.blueprint = null
+    this.script = null
+    this.load()
+  }
+
   createNode(data) {
     if (this.nodes.has(data.name)) {
       console.error('node name already exists: ', data.name)
@@ -162,9 +168,6 @@ export class Entity {
     if (prevMode === 'moving') {
       this.world.entities.decActive(this)
     }
-    if (prevMode === 'editing') {
-      this.world.entities.decActive(this)
-    }
     // rebuild
     this.rebuild()
     this.nodes.forEach(node => {
@@ -211,12 +214,6 @@ export class Entity {
       }
       this.world.entities.incActive(this)
     }
-    if (this.mode === 'editing') {
-      if (modeClientId === this.world.network.client.id) {
-        this.world.panels.edit(this)
-      }
-      this.world.entities.incActive(this)
-    }
     this.prevMode = this.mode
     this.prevModeClientId = this.modeClientId
   }
@@ -236,11 +233,6 @@ export class Entity {
       }
     }
     if (this.mode === 'moving') {
-      this.positionLerp.update(delta)
-      this.quaternionLerp.update(delta)
-      this.root.dirty()
-    }
-    if (this.mode === 'editing') {
       this.positionLerp.update(delta)
       this.quaternionLerp.update(delta)
       this.root.dirty()

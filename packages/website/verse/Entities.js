@@ -22,9 +22,7 @@ export class Entities extends System {
     if (existing) {
       this.instances.forEach(entity => {
         if (entity.schema.id === schema.id) {
-          entity.mode = 'active'
-          entity.modeClientId = null
-          entity.checkMode(true) // force respawn
+          entity.reload()
         }
       })
     }

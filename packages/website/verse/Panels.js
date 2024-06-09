@@ -48,16 +48,9 @@ export class Panels extends System {
     this.panel = {
       type: 'edit',
       entity,
-      close: () => {
-        if (!entity.destroyed) {
-          entity.mode = 'active'
-          entity.modeClientId = null
-          this.world.network.pushEntityUpdate(entity.id, update => {
-            if (!update.props) update.props = {}
-            update.props.mode = 'active'
-            update.props.modeClientId = null
-          })
-          this.world.entities.upsertSchemaLocal(entity.schema) // this causes a respawn for all instances
+      close: commit => {
+        if (commit && !entity.destroyed) {
+          this.world.entities.upsertSchemaLocal(entity.schema)
         }
         this.panel = null
         this.emit()

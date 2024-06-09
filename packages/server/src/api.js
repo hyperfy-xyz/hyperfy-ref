@@ -137,7 +137,7 @@ api.post('/models', multerUpload.single('file'), async (req, res) => {
 })
 
 api.post('/scripts', async (req, res) => {
-  await new Promise(resolve => setTimeout(resolve, 2000))
+  await new Promise(resolve => setTimeout(resolve, 1000))
   const { raw, compiled } = req.body
   const id = hashString(raw)
   const now = moment().toISOString()

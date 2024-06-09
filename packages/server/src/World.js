@@ -72,7 +72,6 @@ export class World {
     }
     client.sock.on('update-client', this.onUpdateClient) // todo: move to 'update' event
     client.sock.on('packet', this.onPacket)
-    client.sock.on('entity-mode-request', this.onEntityModeRequest)
     client.sock.send('init', init)
     this.broadcast('add-client', client.serialize(), client)
     client.active = true
@@ -116,14 +115,15 @@ export class World {
         const entity = this.instances.get(entityId)
         if (!entity) return
         const props = update.props
-        if (props.hasOwnProperty('uploading')) {
-          entity.uploading = props.uploading
-        }
-        if (props.mode) {
+        // TODO: check permission for changing props
+        if (props.hasOwnProperty('mode')) {
           entity.mode = props.mode
         }
-        if (props.modeClientId) {
+        if (props.hasOwnProperty('modeClientId')) {
           entity.modeClientId = props.modeClientId
+        }
+        if (props.hasOwnProperty('uploading')) {
+          entity.uploading = props.uploading
         }
         if (props.position) {
           entity.position = props.position
@@ -134,26 +134,6 @@ export class World {
         this.broadcast('update-entity', { id: entityId, props }, client)
       }
     }
-  }
-
-  onEntityModeRequest = async (sock, { entityId, mode }) => {
-    const entity = this.instances.get(entityId)
-    if (entity.mode !== 'active') return
-    if (mode === 'moving' && !sock.client.canMoveEntity(entity)) {
-      return
-    }
-    if (mode === 'editing' && !sock.client.canEditEntity(entity)) {
-      return
-    }
-    entity.mode = mode
-    entity.modeClientId = sock.client.id
-    this.broadcast('update-entity', {
-      id: entityId,
-      props: {
-        mode: entity.mode,
-        modeClientId: entity.modeClientId,
-      },
-    })
   }
 
   onDisconnect = sock => {

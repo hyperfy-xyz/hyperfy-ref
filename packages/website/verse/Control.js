@@ -634,48 +634,6 @@ export class Control extends System {
         },
       })
     }
-    if (hitWorld || hitPrototype || hitItem) {
-      add({
-        label: 'Create',
-        icon: PlusCircleIcon,
-        visible: this.world.permissions.canCreatePrototype(),
-        disabled: false,
-        execute: () => {
-          const script = `
-let box
-
-object.on('setup', () => {
-  box = object.get('box')
-})
-
-object.on('update', delta => {
-  box.rotation.y += 10 * delta
-  box.dirty()
-})
-          `
-          const schema = {
-            id: this.world.network.makeId(),
-            type: 'prototype',
-            model: '/static/cube.glb',
-            modelType: 'glb',
-            script: null,
-            scriptRaw: null,
-          }
-          this.world.entities.upsertSchemaLocal(schema)
-          this.world.entities.addInstanceLocal({
-            id: this.world.network.makeId(),
-            schemaId: schema.id,
-            creator: this.world.network.client.user.id,
-            authority: this.world.network.client.id,
-            mode: 'editing',
-            modeClientId: this.world.network.client.id,
-            position: hit.point.toArray(),
-            quaternion: [0, 0, 0, 1],
-            state: {},
-          })
-        },
-      })
-    }
     if (hitPrototype) {
       add({
         label: 'Inspect',
@@ -692,9 +650,13 @@ object.on('update', delta => {
         visible: this.world.permissions.canMoveEntity(entity),
         disabled: entity.mode !== 'active' && entity.mode !== 'dead',
         execute: () => {
-          this.world.network.server.send('entity-mode-request', {
-            entityId: entity.id,
-            mode: 'moving',
+          entity.mode = 'moving'
+          entity.modeClientId = this.world.network.client.id
+          entity.checkMode()
+          this.world.network.pushEntityUpdate(entity.id, update => {
+            if (!update.props) update.props = {}
+            update.props.mode = entity.mode
+            update.props.modeClientId = entity.modeClientId
           })
         },
       })
@@ -704,10 +666,7 @@ object.on('update', delta => {
         visible: this.world.permissions.canEditEntity(entity),
         disabled: entity.mode !== 'active' && entity.mode !== 'dead',
         execute: () => {
-          this.world.network.server.send('entity-mode-request', {
-            entityId: entity.id,
-            mode: 'editing',
-          })
+          this.world.panels.edit(entity)
         },
       })
       if (this.world.entities.countInstancesBySchema(entity.schema.id) > 1) {

@@ -435,7 +435,7 @@ function EditPanel({ panel }) {
             const id = await entity.world.scripts.upload(raw)
             console.log('FOO', entity.schema.script, id)
             entity.schema.script = id
-            panel.close() // ???
+            panel.close(true)
           }}
         >
           Save
