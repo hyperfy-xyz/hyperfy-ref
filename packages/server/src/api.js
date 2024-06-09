@@ -124,7 +124,7 @@ api.post('/connect', async (req, res) => {
 })
 
 api.post('/models', multerUpload.single('file'), async (req, res) => {
-  await new Promise(resolve => setTimeout(resolve, 2000))
+  await new Promise(resolve => setTimeout(resolve, 1000))
   const { file } = req
   // TODO: record in db
   const hash = await hashFile(file)

@@ -138,7 +138,7 @@ export class Control extends System {
         scriptRaw: null,
       }
       this.world.entities.upsertSchemaLocal(schema)
-      const entity = this.world.entities.addInstanceLocal({
+      const entity = this.world.entities.addEntityLocal({
         id: this.world.network.makeId(),
         schemaId: schema.id,
         creator: this.world.network.client.user.id,
@@ -158,7 +158,7 @@ export class Control extends System {
         })
       } catch (err) {
         console.error('failed to upload', err)
-        this.world.entities.removeInstanceLocal(entity.id)
+        this.world.entities.removeEntityLocal(entity.id)
       }
     }
   }
@@ -669,7 +669,7 @@ export class Control extends System {
           this.world.panels.edit(entity)
         },
       })
-      if (this.world.entities.countInstancesBySchema(entity.schema.id) > 1) {
+      if (this.world.entities.countEntitysBySchema(entity.schema.id) > 1) {
         add({
           label: 'Unlink',
           icon: UnlinkIcon,
@@ -681,7 +681,7 @@ export class Control extends System {
             schema.id = this.world.network.makeId()
             this.world.entities.upsertSchemaLocal(schema)
             // replace current instance with new one
-            this.world.entities.addInstanceLocal({
+            this.world.entities.addEntityLocal({
               id: this.world.network.makeId(),
               schemaId: schema.id,
               creator: this.world.network.client.user.id, // ???
@@ -692,7 +692,7 @@ export class Control extends System {
               quaternion: entity.root.quaternion.toArray(),
               state: entity.state,
             })
-            this.world.entities.removeInstanceLocal(entity.id)
+            this.world.entities.removeEntityLocal(entity.id)
           },
         })
       }
@@ -702,7 +702,7 @@ export class Control extends System {
         visible: this.world.permissions.canEditEntity(entity),
         disabled: false,
         execute: () => {
-          this.world.entities.addInstanceLocal({
+          this.world.entities.addEntityLocal({
             id: this.world.network.makeId(),
             schemaId: entity.schema.id,
             creator: this.world.network.client.user.id, // ???
@@ -724,7 +724,7 @@ export class Control extends System {
           for (let i = 0; i < 500; i++) {
             e1.set(0, num(0, 360, 2) * DEG2RAD, 0)
             q1.setFromEuler(e1)
-            this.world.entities.addInstanceLocal({
+            this.world.entities.addEntityLocal({
               id: this.world.network.makeId(),
               schemaId: entity.schema.id,
               creator: this.world.network.client.user.id, // ???
@@ -746,7 +746,7 @@ export class Control extends System {
         visible: this.world.permissions.canDestroyEntity(entity),
         disabled: false,
         execute: () => {
-          this.world.entities.removeInstanceLocal(entity.id)
+          this.world.entities.removeEntityLocal(entity.id)
         },
       })
       // add({
@@ -755,7 +755,7 @@ export class Control extends System {
       //   visible: true,
       //   disabled: false,
       //   execute: () => {
-      //     // this.world.entities.removeInstanceLocal(entity.id)
+      //     // this.world.entities.removeEntityLocal(entity.id)
       //   },
       // })
     }
@@ -813,7 +813,7 @@ export class Control extends System {
 
 // LOTSA STATIC CUBES
 // for (let i = 0; i < 1000; i++) {
-//   this.world.entities.addInstanceLocal({
+//   this.world.entities.addEntityLocal({
 //     id: this.world.network.makeId(),
 //     type: 'prototype',
 //     creator: this.world.network.client.user.id,
@@ -836,7 +836,7 @@ export class Control extends System {
 // LOTSA CUBES
 // console.time('lotsa')
 // for (let i = 0; i < 1000; i++) {
-//   this.world.entities.addInstanceLocal({
+//   this.world.entities.addEntityLocal({
 //     id: this.world.network.makeId(),
 //     type: 'prototype',
 //     creator: this.world.network.client.user.id,
@@ -877,7 +877,7 @@ export class Control extends System {
 // }
 // console.timeEnd('lotsa')
 // SPINNING CUBES
-// this.world.entities.addInstanceLocal({
+// this.world.entities.addEntityLocal({
 //   id: this.world.network.makeId(),
 //   type: 'prototype',
 //   creator: this.world.network.client.user.id,
@@ -916,7 +916,7 @@ export class Control extends System {
 //   ],
 // })
 // PHYSICS CUBES
-// this.world.entities.addInstanceLocal({
+// this.world.entities.addEntityLocal({
 //   id: this.world.network.makeId(),
 //   type: 'prototype',
 //   creator: this.world.network.client.user.id,

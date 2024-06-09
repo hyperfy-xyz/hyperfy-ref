@@ -5,7 +5,7 @@ export class Entities extends System {
   constructor(world) {
     super(world)
     this.schemas = new Map()
-    this.instances = new Map()
+    this.entities = new Map()
     this.dirtyNodes = []
     this.activeEntities = new Set()
   }
@@ -20,7 +20,7 @@ export class Entities extends System {
       this.schemas.set(schema.id, schema)
     }
     if (existing) {
-      this.instances.forEach(entity => {
+      this.entities.forEach(entity => {
         if (entity.schema.id === schema.id) {
           entity.reload()
         }
@@ -39,41 +39,41 @@ export class Entities extends System {
     return this.schemas.get(id)
   }
 
-  addInstance(data) {
+  addEntity(data) {
     const entity = new Entity(this.world, data)
-    this.instances.set(entity.id, entity)
+    this.entities.set(entity.id, entity)
     return entity
   }
 
-  addInstanceLocal(data) {
-    const entity = this.addInstance(data)
+  addEntityLocal(data) {
+    const entity = this.addEntity(data)
     this.world.network.pushEntityUpdate(data.id, update => {
       update.add = data
     })
     return entity
   }
 
-  getInstance(id) {
-    return this.instances.get(id)
+  getEntity(id) {
+    return this.entities.get(id)
   }
 
-  removeInstance(id) {
-    const entity = this.instances.get(id)
+  removeEntity(id) {
+    const entity = this.entities.get(id)
     this.world.panels.onEntityRemoved(entity)
     entity.destroy() // todo: cleanup
-    this.instances.delete(id)
+    this.entities.delete(id)
   }
 
-  removeInstanceLocal(id) {
-    this.removeInstance(id)
+  removeEntityLocal(id) {
+    this.removeEntity(id)
     this.world.network.pushEntityUpdate(id, update => {
       update.remove = true
     })
   }
 
-  countInstancesBySchema(id) {
+  countEntitysBySchema(id) {
     let n = 0
-    this.instances.forEach(entity => {
+    this.entities.forEach(entity => {
       if (entity.schema.id === id) n++
     })
     return n

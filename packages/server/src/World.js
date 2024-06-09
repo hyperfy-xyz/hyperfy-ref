@@ -17,7 +17,7 @@ export class World {
     this.permissions = null
     this.schemas = new Map()
     this.schemas.set('$avatar', avatarSchema)
-    this.instances = new Map()
+    this.entities = new Map()
     this.clients = new Map()
     this.checkInterval = setInterval(() => this.checkConnections(), 10000)
     this.ready = new Promise(async resolve => {
@@ -32,7 +32,7 @@ export class World {
       this.permissions = await getOrCreatePermissions(this.id)
       const entities = await getEntitiesByWorld(this.id)
       for (const entity of entities) {
-        this.instances.set(entity.id, entity)
+        this.entities.set(entity.id, entity)
       }
     } catch (err) {
       console.error(err)
@@ -61,14 +61,14 @@ export class World {
       clients.push(client.serialize())
     })
     const schemas = Array.from(this.schemas.values())
-    const instances = Array.from(this.instances.values())
+    const entities = Array.from(this.entities.values())
     const init = {
       clientId: client.id,
       meta: this.meta,
       permissions: this.permissions,
       clients,
       schemas,
-      instances,
+      entities,
     }
     client.sock.on('update-client', this.onUpdateClient) // todo: move to 'update' event
     client.sock.on('packet', this.onPacket)
@@ -93,16 +93,16 @@ export class World {
     for (const entityId in data.entities) {
       const update = data.entities[entityId]
       if (update.remove) {
-        this.instances.delete(entityId)
+        this.entities.delete(entityId)
         this.broadcast('remove-entity', entityId, client)
         return
       }
       if (update.add) {
-        this.instances.set(entityId, update.add)
+        this.entities.set(entityId, update.add)
         this.broadcast('add-entity', update.add, client)
       }
       if (update.state) {
-        const entity = this.instances.get(entityId)
+        const entity = this.entities.get(entityId)
         if (!entity) return
         const state = update.state
         entity.state = {
@@ -112,7 +112,7 @@ export class World {
         this.broadcast('update-entity', { id: entityId, state }, client)
       }
       if (update.props) {
-        const entity = this.instances.get(entityId)
+        const entity = this.entities.get(entityId)
         if (!entity) return
         const props = update.props
         // TODO: check permission for changing props
@@ -144,18 +144,18 @@ export class World {
     this.clients.delete(client.id)
     // remove clients avatar
     const toRemove = []
-    this.instances.forEach(entity => {
+    this.entities.forEach(entity => {
       const schema = this.schemas.get(entity.schemaId)
       if (schema.type === 'avatar' && entity.authority === client.id) {
         toRemove.push(entity)
       }
     })
     for (const entity of toRemove) {
-      this.instances.delete(entity.id)
+      this.entities.delete(entity.id)
       this.broadcast('remove-entity', entity.id)
     }
     // if they were editing/moving an entity, reactivate it
-    this.instances.forEach(entity => {
+    this.entities.forEach(entity => {
       if (entity.modeClientId === client.id) {
         entity.mode = 'active'
         entity.modeClientId = null

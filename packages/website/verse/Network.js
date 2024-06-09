@@ -78,8 +78,8 @@ export class Network extends System {
     for (const schema of data.schemas) {
       this.world.entities.upsertSchema(schema)
     }
-    for (const entity of data.instances) {
-      this.world.entities.addInstance(entity)
+    for (const entity of data.entities) {
+      this.world.entities.addEntity(entity)
     }
 
     // TODO: preload stuff and get it going
@@ -90,7 +90,7 @@ export class Network extends System {
 
     this.updateClient()
 
-    // const avatar = this.world.entities.addInstanceLocal({
+    // const avatar = this.world.entities.addEntityLocal({
     //   id: this.makeId(),
     //   type: 'avatar',
     //   creator: this.client.user.id,
@@ -124,7 +124,7 @@ export class Network extends System {
       this.onCameraReady = null
     }
 
-    this.avatar = this.world.entities.addInstanceLocal({
+    this.avatar = this.world.entities.addEntityLocal({
       id: this.makeId(),
       schemaId: '$avatar',
       creator: this.client.user.id,
@@ -194,12 +194,12 @@ export class Network extends System {
 
   onAddEntity = data => {
     this.log('add-entity', data)
-    this.world.entities.addInstance(data)
+    this.world.entities.addEntity(data)
   }
 
   onUpdateEntity = data => {
     // this.log('update-entity', data)
-    const entity = this.world.entities.getInstance(data.id)
+    const entity = this.world.entities.getEntity(data.id)
     if (data.state) {
       entity.onRemoteStateChanges(data.state)
     }
@@ -210,7 +210,7 @@ export class Network extends System {
 
   onRemoveEntity = id => {
     this.log('remove-entity', id)
-    this.world.entities.removeInstance(id)
+    this.world.entities.removeEntity(id)
   }
 
   onDisconnect = () => {
