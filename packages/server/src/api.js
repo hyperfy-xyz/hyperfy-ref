@@ -10,12 +10,18 @@ import { generateName } from './names'
 import { createToken, readToken } from './jwt'
 import { uuid } from './uuid'
 import { hashFile } from './hashFile'
+import { avatarSchema, avatarScriptCompiled } from './avatarSchema'
+import { hashString } from './hashString'
 
 export const api = express.Router()
 
 const uploadsDir = path.join('./uploads')
 
 const multerUpload = multer()
+
+// copy avatar.glb to uploads dir
+await fs.ensureDir(uploadsDir)
+await fs.copy(path.join('src/avatar.glb'), path.join(uploadsDir, 'avatar.glb'))
 
 migrate()
 
@@ -117,13 +123,53 @@ api.post('/connect', async (req, res) => {
   res.json(auth)
 })
 
-api.post('/upload', multerUpload.single('file'), async (req, res) => {
+api.post('/models', multerUpload.single('file'), async (req, res) => {
   await new Promise(resolve => setTimeout(resolve, 2000))
   const { file } = req
+  // TODO: record in db
   const hash = await hashFile(file)
-  await fs.ensureDir(uploadsDir)
   const filePath = path.join(uploadsDir, hash)
   await fs.writeFile(filePath, file.buffer, 'binary')
-  const url = 'http://localhost:3001/uploads/' + hash
-  res.status(201).json({ url })
+  console.log(
+    'TODO: POST /models should return just the hash and store just the hash on schema'
+  )
+  res.status(201).json({ hash })
+})
+
+api.post('/scripts', async (req, res) => {
+  await new Promise(resolve => setTimeout(resolve, 2000))
+  const { raw, compiled } = req.body
+  const id = hashString(raw)
+  const now = moment().toISOString()
+  await db('scripts')
+    .insert({
+      id,
+      raw,
+      compiled,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflict('id')
+    .merge({
+      raw,
+      compiled,
+      updatedAt: now,
+    })
+  res.status(201).json({ id })
+})
+
+api.get('/scripts/:id', async (req, res) => {
+  const id = req.params.id
+  if (id === '$avatar') {
+    res.status(200).send(avatarScriptCompiled)
+    return
+  }
+  const script = await db('scripts').where({ id }).first()
+  res.status(200).send(script.compiled)
+})
+
+api.get('/scripts/:id/raw', async (req, res) => {
+  const id = req.params.id
+  const script = await db('scripts').where({ id }).first()
+  res.status(200).send(script.raw)
 })

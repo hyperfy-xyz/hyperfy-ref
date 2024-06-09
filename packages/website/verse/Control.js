@@ -127,12 +127,12 @@ export class Control extends System {
     if (file) {
       // hash
       const hash = await hashFile(file)
-      const url = 'http://localhost:3001/uploads/' + hash
+      const url = `${process.env.PUBLIC_UPLOADS_URL}/${hash}`
       this.world.loader.set(url, 'glb', file)
       const schema = {
         id: this.world.network.makeId(),
         type: 'prototype',
-        model: url,
+        model: hash,
         modelType: ext,
         script: null,
         scriptRaw: null,
@@ -151,7 +151,7 @@ export class Control extends System {
         state: {},
       })
       try {
-        await this.world.loader.upload(file)
+        await this.world.loader.uploadModel(file)
         this.world.network.pushEntityUpdate(entity.id, update => {
           if (!update.props) update.props = {}
           update.props.uploading = null

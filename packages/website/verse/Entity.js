@@ -43,6 +43,8 @@ export class Entity {
     })
     this.stateChanges = null
     this.events = {}
+    this.blueprint = null
+    this.script = null
     this.loadNum = 0
     this.load()
   }
@@ -60,15 +62,23 @@ export class Entity {
     if (!this.isUploading()) {
       try {
         this.blueprint = null
+        this.script = null
+        const promises = []
+        {
+          const url = `${process.env.PUBLIC_UPLOADS_URL}/${this.schema.model}`
+          promises.push(this.world.loader.load(url, this.schema.modelType))
+        }
+        if (this.schema.script) {
+          const url = `${process.env.PUBLIC_API_URL}/scripts/${this.schema.script}`
+          promises.push(this.world.loader.load(url, 'js'))
+        }
         const num = ++this.loadNum
-        const blueprint = await this.world.loader.load(
-          this.schema.model,
-          this.schema.modelType
-        )
+        const [blueprint, script] = await Promise.all(promises)
         if (this.loadNum !== num) return // reloaded
         this.blueprint = blueprint
+        this.script = script
       } catch (err) {
-        console.error('Could not load model:', err)
+        console.error('Could not load model/script:', err)
         return this.kill()
       }
     }
@@ -145,7 +155,7 @@ export class Entity {
     if (prevMode === mode && !forceRespawn) return
     // cleanup previous
     if (prevMode === 'active') {
-      if (this.schema.script) {
+      if (this.script) {
         this.world.entities.decActive(this)
       }
     }
@@ -165,10 +175,9 @@ export class Entity {
     // configure new
     if (this.mode === 'active') {
       // instantiate script
-      if (this.schema.script) {
-        const script = this.world.scripts.resolve(this.schema.script)
+      if (this.script) {
         try {
-          script(this.getProxy())
+          this.script(this.getProxy())
         } catch (err) {
           console.error('entity instantiate failed', this)
           console.error(err)
@@ -192,7 +201,7 @@ export class Entity {
         this.kill()
       }
       // register for script update/fixedUpdate etc
-      if (this.schema.script) {
+      if (this.script) {
         this.world.entities.incActive(this)
       }
     }
@@ -284,6 +293,7 @@ export class Entity {
 
   kill() {
     this.blueprint = null
+    this.script = null
     this.checkMode(true)
   }
 

@@ -59,4 +59,14 @@ export async function migrate() {
       table.timestamp('updatedAt').notNullable()
     })
   }
+  const hasScriptsTable = await db.schema.hasTable('scripts')
+  if (!hasScriptsTable) {
+    await db.schema.createTable('scripts', table => {
+      table.string('id').primary()
+      table.text('raw').notNullable()
+      table.text('compiled').notNullable()
+      table.timestamp('createdAt').notNullable()
+      table.timestamp('updatedAt').notNullable()
+    })
+  }
 }

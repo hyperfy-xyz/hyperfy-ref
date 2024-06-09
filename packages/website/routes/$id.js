@@ -393,20 +393,55 @@ function Panels({ world }) {
 
 function EditPanel({ panel }) {
   const entity = panel.entity
-  const [scriptEdit, setScriptEdit] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const rawRef = useRef()
   return (
     <div>
       <div>Edit</div>
-      <div onClick={() => setScriptEdit(true)}>Edit Code</div>
-      {scriptEdit && (
+      <div
+        onClick={async () => {
+          if (entity.schema.script) {
+            setLoading(true)
+            const raw = await entity.world.scripts.fetchRaw(
+              entity.schema.script
+            )
+            rawRef.current = raw
+            setLoading(false)
+            setEditing(true)
+          } else {
+            rawRef.current = '// ...'
+            setEditing(true)
+          }
+        }}
+      >
+        Edit Code
+      </div>
+
+      {editing && (
         <CodeEditor
-          value={entity.schema.scriptRaw || '// ...'}
+          value={rawRef.current}
           onChange={raw => {
-            entity.schema.scriptRaw = raw
-            entity.schema.script = wrapRawCode(raw)
+            rawRef.current = raw
           }}
         />
       )}
+      {editing && (
+        <div
+          onClick={async () => {
+            const raw = rawRef.current
+
+            setLoading(true)
+            const id = await entity.world.scripts.upload(raw)
+            console.log('FOO', entity.schema.script, id)
+            entity.schema.script = id
+            panel.close() // ???
+          }}
+        >
+          Save
+        </div>
+      )}
+      {loading && <div>Loading</div>}
     </div>
   )
 }

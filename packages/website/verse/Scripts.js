@@ -4,6 +4,7 @@ import { DEG2RAD, RAD2DEG } from './extras/general'
 import { QuaternionLerp } from './extras/QuaternionLerp'
 import { Vector3Lerp } from './extras/Vector3Lerp'
 import { num } from './extras/num'
+import { wrapRawCode } from './extras/wrapRawCode'
 
 import { System } from './System'
 
@@ -32,6 +33,7 @@ export class Scripts extends System {
       RAD2DEG: RAD2DEG,
     })
     this.scripts = new Map()
+    this.raw = new Map() // id -> String
   }
 
   resolve(code) {
@@ -41,5 +43,31 @@ export class Scripts extends System {
       this.scripts.set(code, script)
     }
     return script
+  }
+
+  async fetchRaw(id) {
+    if (this.raw.has(id)) {
+      return this.raw.get(id)
+    }
+    const url = `${process.env.PUBLIC_API_URL}/scripts/${id}/raw`
+    const resp = await fetch(url)
+    const raw = await resp.text()
+    this.raw.set(id, raw)
+    // TODO: evict from cache later, eg as size grows
+    return raw
+  }
+
+  async upload(raw) {
+    const compiled = wrapRawCode(raw) // todo: compile
+    const url = `${process.env.PUBLIC_API_URL}/scripts`
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ raw, compiled }),
+    })
+    const data = await resp.json()
+    return data.id
   }
 }

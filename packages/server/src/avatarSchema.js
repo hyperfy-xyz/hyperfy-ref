@@ -1,4 +1,20 @@
-const AVATAR_SCRIPT = `
+export const avatarSchema = {
+  id: '$avatar',
+  type: 'avatar',
+  model: 'avatar.glb',
+  modelType: 'glb',
+  script: '$avatar',
+}
+
+function wrapRawCode(code) {
+  return `(function() {
+return object => {
+    ${code}
+}
+})()`
+}
+
+export const avatarScriptRaw = `
 const o1 = new Object3D()
 const v1 = new Vector3()
 const v2 = new Vector3()
@@ -241,19 +257,4 @@ function is(value) {
 }
 `
 
-export const avatarSchema = {
-  id: '$avatar',
-  type: 'avatar',
-  model: '/static/avatar.glb',
-  modelType: 'glb',
-  script: wrapRawCode(AVATAR_SCRIPT),
-  scriptRaw: AVATAR_SCRIPT,
-}
-
-function wrapRawCode(code) {
-  return `(function() {
-return object => {
-    ${code}
-}
-})()`
-}
+export const avatarScriptCompiled = wrapRawCode(avatarScriptRaw)
