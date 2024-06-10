@@ -27,6 +27,7 @@ export class Entity {
     this.state = data.state
     this.stateProxy = new Proxy(this.state, {
       set: (target, key, value) => {
+        if (target[key] === value) return true
         this.applyLocalChanges({
           sync: true,
           state: {
