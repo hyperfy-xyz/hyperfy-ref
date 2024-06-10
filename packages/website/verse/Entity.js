@@ -2,6 +2,7 @@ import * as Nodes from './nodes'
 
 import { QuaternionLerp } from './extras/QuaternionLerp'
 import { Vector3Lerp } from './extras/Vector3Lerp'
+import { isEmpty } from 'lodash-es'
 
 const MOVING_SEND_RATE = 1 / 5
 
@@ -59,7 +60,7 @@ export class Entity {
         this.script = null
         const promises = []
         {
-          const url = `${process.env.PUBLIC_UPLOADS_URL}/${this.schema.model}`
+          const url = `${process.env.PUBLIC_ASSETS_URL}/${this.schema.model}`
           promises.push(this.world.loader.load(url, this.schema.modelType))
         }
         if (this.schema.script) {
@@ -337,76 +338,68 @@ export class Entity {
     return this.proxy
   }
 
-  applyLocalChanges({ sync, state, props }) {
-    let packet
-    let update
-    if (sync) {
-      packet = this.world.network.packet
-      if (!packet.entities) {
-        packet.entities = {}
-      }
-      if (!packet.entities[this.id]) {
-        packet.entities[this.id] = {}
-      }
-      update = packet.entities[this.id]
+  getUpdate = () => {
+    const packet = this.world.network.packet
+    if (!packet.entities) {
+      packet.entities = {}
     }
+    if (!packet.entities[this.id]) {
+      packet.entities[this.id] = {}
+    }
+    const update = packet.entities[this.id]
+    return update
+  }
+
+  applyLocalChanges({ sync, state, props }) {
     if (state) {
-      if (sync) {
-        if (!update.state) {
-          update.state = {}
-        }
-      }
+      const changed = {}
       for (const key in state) {
         const value = state[key]
         if (this.state[key] !== value) {
           this.state[key] = value
-          update.state = {
-            ...update.state,
-            [key]: value,
-          }
+          changed[key] = value
+        }
+      }
+      if (sync && !isEmpty(changed)) {
+        const update = this.getUpdate()
+        update.state = {
+          ...(update.state || {}),
+          ...changed,
         }
       }
     }
     if (props) {
-      if (sync) {
-        if (!update.props) {
-          update.props = {}
-        }
-      }
       let moved
       let moded
+      const changed = {}
       if (props.position) {
         this.positionLerp.push(props.position, true)
+        changed.position = this.root.position.toArray()
         moved = true
-        if (sync) {
-          update.props.position = this.root.position.toArray()
-        }
       }
       if (props.quaternion) {
         this.quaternionLerp.push(props.quaternion, true)
+        changed.quaternion = this.root.quaternion.toArray()
         moved = true
-        if (sync) {
-          update.props.quaternion = this.root.quaternion.toArray()
-        }
       }
       if (props.hasOwnProperty('mode')) {
-        this.mode = props.mode
-        moded = true
-        if (sync) {
-          update.props.mode = props.mode
+        if (this.mode !== props.mode) {
+          this.mode = props.mode
+          changed.mode = props.mode
+          moded = true
         }
       }
       if (props.hasOwnProperty('modeClientId')) {
-        this.modeClientId = props.modeClientId
-        moded = true
-        if (sync) {
-          update.props.modeClientId = props.modeClientId
+        if (this.modeClientId !== props.modeClientId) {
+          this.modeClientId = props.modeClientId
+          changed.modeClientId = props.modeClientId
+          moded = true
         }
       }
       if (props.hasOwnProperty('uploading')) {
-        this.uploading = props.uploading
-        if (sync) {
-          update.props.uploading = props.uploading
+        if (this.uploading !== props.uploading) {
+          this.uploading = props.uploading
+          changed.uploading = props.uploading
         }
       }
       if (moved) {
@@ -414,6 +407,13 @@ export class Entity {
       }
       if (moded) {
         this.checkMode()
+      }
+      if (sync && !isEmpty(changed)) {
+        const update = this.getUpdate()
+        update.props = {
+          ...(update.props || {}),
+          ...changed,
+        }
       }
     }
   }

@@ -98,10 +98,10 @@ export class Loader extends System {
     return this.rgbeLoader.loadAsync(url)
   }
 
-  async uploadModel(file) {
+  async uploadAsset(file) {
     const form = new FormData()
     form.append('file', file)
-    const url = `${process.env.PUBLIC_API_URL}/models`
+    const url = `${process.env.PUBLIC_API_URL}/assets`
     const resp = await fetch(url, {
       method: 'POST',
       body: form,

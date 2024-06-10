@@ -126,7 +126,7 @@ export class Control extends System {
     if (file) {
       // hash
       const hash = await hashFile(file)
-      const url = `${process.env.PUBLIC_UPLOADS_URL}/${hash}`
+      const url = `${process.env.PUBLIC_ASSETS_URL}/${hash}`
       this.world.loader.set(url, 'glb', file)
       const schema = {
         id: this.world.network.makeId(),
@@ -150,7 +150,7 @@ export class Control extends System {
         state: {},
       })
       try {
-        await this.world.loader.uploadModel(file)
+        await this.world.loader.uploadAsset(file)
         entity.applyLocalChanges({
           sync: true,
           props: {

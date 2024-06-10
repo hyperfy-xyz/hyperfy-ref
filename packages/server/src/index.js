@@ -23,7 +23,7 @@ app.use(compression())
 app.use(cookieParser())
 app.use(express.json())
 
-app.use('/uploads', express.static('uploads'))
+app.use('/assets', express.static('assets'))
 
 app.use('/api', api)
 
