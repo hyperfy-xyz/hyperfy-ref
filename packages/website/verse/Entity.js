@@ -26,18 +26,12 @@ export class Entity {
     this.state = data.state
     this.stateProxy = new Proxy(this.state, {
       set: (target, key, value) => {
-        if (target[key] !== value) {
-          target[key] = value
-          world.network.pushEntityUpdate(this.id, update => {
-            if (!update.state) {
-              update.state = {}
-            }
-            update.state = {
-              ...update.state,
-              [key]: value,
-            }
-          })
-        }
+        this.applyLocalChanges({
+          sync: true,
+          state: {
+            [key]: value,
+          },
+        })
         return true
       },
     })
@@ -343,36 +337,118 @@ export class Entity {
     return this.proxy
   }
 
-  onRemoteStateChanges(changes) {
-    this.state = {
-      ...this.state,
-      ...changes,
+  applyLocalChanges({ sync, state, props }) {
+    let packet
+    let update
+    if (sync) {
+      packet = this.world.network.packet
+      if (!packet.entities) {
+        packet.entities = {}
+      }
+      if (!packet.entities[this.id]) {
+        packet.entities[this.id] = {}
+      }
+      update = packet.entities[this.id]
     }
-    this.stateChanges = {
-      ...this.stateChanges,
-      ...changes,
+    if (state) {
+      if (sync) {
+        if (!update.state) {
+          update.state = {}
+        }
+      }
+      for (const key in state) {
+        const value = state[key]
+        if (this.state[key] !== value) {
+          this.state[key] = value
+          update.state = {
+            ...update.state,
+            [key]: value,
+          }
+        }
+      }
+    }
+    if (props) {
+      if (sync) {
+        if (!update.props) {
+          update.props = {}
+        }
+      }
+      let moved
+      let moded
+      if (props.position) {
+        this.positionLerp.push(props.position, true)
+        moved = true
+        if (sync) {
+          update.props.position = this.root.position.toArray()
+        }
+      }
+      if (props.quaternion) {
+        this.quaternionLerp.push(props.quaternion, true)
+        moved = true
+        if (sync) {
+          update.props.quaternion = this.root.quaternion.toArray()
+        }
+      }
+      if (props.hasOwnProperty('mode')) {
+        this.mode = props.mode
+        moded = true
+        if (sync) {
+          update.props.mode = props.mode
+        }
+      }
+      if (props.hasOwnProperty('modeClientId')) {
+        this.modeClientId = props.modeClientId
+        moded = true
+        if (sync) {
+          update.props.modeClientId = props.modeClientId
+        }
+      }
+      if (props.hasOwnProperty('uploading')) {
+        this.uploading = props.uploading
+        if (sync) {
+          update.props.uploading = props.uploading
+        }
+      }
+      if (moved) {
+        this.root.dirty()
+      }
+      if (moded) {
+        this.checkMode()
+      }
     }
   }
 
-  onRemotePropChanges(data) {
-    if (data.position) {
-      this.positionLerp.push(data.position)
-    }
-    if (data.quaternion) {
-      this.quaternionLerp.push(data.quaternion)
-    }
-    if (data.mode) {
-      this.mode = data.mode
-      this.modeClientId = data.modeClientId
-      this.checkMode()
-    }
-    if (data.hasOwnProperty('uploading')) {
-      if (data.uploading !== null) {
-        console.error('uploading should only ever be nulled')
+  applyNetworkChanges({ state, props }) {
+    if (state) {
+      this.state = {
+        ...this.state,
+        ...state,
       }
-      if (this.uploading !== data.uploading) {
-        this.uploading = data.uploading
-        this.load()
+      this.stateChanges = {
+        ...this.stateChanges,
+        ...state,
+      }
+    }
+    if (props) {
+      if (props.position) {
+        this.positionLerp.push(props.position)
+      }
+      if (props.quaternion) {
+        this.quaternionLerp.push(props.quaternion)
+      }
+      if (props.mode) {
+        this.mode = props.mode
+        this.modeClientId = props.modeClientId
+        this.checkMode()
+      }
+      if (props.hasOwnProperty('uploading')) {
+        if (props.uploading !== null) {
+          console.error('uploading should only ever be nulled')
+        }
+        if (this.uploading !== props.uploading) {
+          this.uploading = props.uploading
+          this.load()
+        }
       }
     }
   }

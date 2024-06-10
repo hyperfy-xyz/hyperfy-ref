@@ -39,7 +39,7 @@ export class World extends EventEmitter {
     this.stats = this.register(Stats)
 
     this.started = new Promise(resolve => {
-      this.startedResolve = resolve
+      this.startComplete = resolve
     })
     this.init()
 
@@ -70,7 +70,7 @@ export class World extends EventEmitter {
       system.start()
     }
     this.graphics.renderer.setAnimationLoop(this.tick)
-    this.startedResolve()
+    this.startComplete()
   }
 
   async mount(viewport) {

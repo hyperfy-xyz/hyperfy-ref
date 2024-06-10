@@ -54,7 +54,7 @@ export class Verse {
   }
 
   log(...args) {
-    console.log('[verse]', ...args)
+    // console.log('[verse]', ...args)
   }
 
   destroy() {

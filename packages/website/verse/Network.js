@@ -146,16 +146,6 @@ export class Network extends System {
     this.packet.schemas[schema.id] = schema
   }
 
-  pushEntityUpdate(id, fn) {
-    if (!this.packet.entities) {
-      this.packet.entities = {}
-    }
-    if (!this.packet.entities[id]) {
-      this.packet.entities[id] = {}
-    }
-    fn(this.packet.entities[id])
-  }
-
   updateClient = () => {
     if (this.status !== 'active') return
     const user = this.world.auth.user
@@ -200,12 +190,7 @@ export class Network extends System {
   onUpdateEntity = data => {
     // this.log('update-entity', data)
     const entity = this.world.entities.getEntity(data.id)
-    if (data.state) {
-      entity.onRemoteStateChanges(data.state)
-    }
-    if (data.props) {
-      entity.onRemotePropChanges(data.props)
-    }
+    entity?.applyNetworkChanges(data)
   }
 
   onRemoveEntity = id => {

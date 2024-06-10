@@ -97,17 +97,16 @@ export class Control extends System {
       )
       const hit = this.findHit(hits)
       if (hit) {
-        this.moving.entity.positionLerp.push(hit.point, true)
-        this.moving.entity.root.dirty()
         this.moving.lastSend += delta
-        if (this.moving.lastSend >= MOVING_SEND_RATE) {
-          this.world.network.pushEntityUpdate(this.moving.entity.id, update => {
-            if (!update.props) update.props = {}
-            update.props.position = this.moving.entity.root.position.toArray()
-            update.props.quaternion = this.moving.entity.root.quaternion.toArray() // prettier-ignore
-          })
-          this.moving.lastSend = 0
-        }
+        const sync = this.moving.lastSend >= MOVING_SEND_RATE
+        if (sync) this.moving.lastSend = 0
+        this.moving.entity.applyLocalChanges({
+          sync,
+          props: {
+            position: hit.point,
+            // quaternion ???
+          },
+        })
       }
     }
   }
@@ -152,9 +151,11 @@ export class Control extends System {
       })
       try {
         await this.world.loader.uploadModel(file)
-        this.world.network.pushEntityUpdate(entity.id, update => {
-          if (!update.props) update.props = {}
-          update.props.uploading = null
+        entity.applyLocalChanges({
+          sync: true,
+          props: {
+            uploading: null,
+          },
         })
       } catch (err) {
         console.error('failed to upload', err)
@@ -273,15 +274,14 @@ export class Control extends System {
       this.moving = null
     }
     if (this.moving) {
-      this.moving.entity.mode = 'active'
-      this.moving.entity.modeClientId = null
-      this.moving.entity.checkMode()
-      this.world.network.pushEntityUpdate(this.moving.entity.id, update => {
-        if (!update.props) update.props = {}
-        update.props.mode = this.moving.entity.mode
-        update.props.modeClientId = this.moving.entity.modeClientId
-        update.props.position = this.moving.entity.root.position.toArray()
-        update.props.quaternion = this.moving.entity.root.quaternion.toArray()
+      this.moving.entity.applyLocalChanges({
+        sync: true,
+        props: {
+          mode: 'active',
+          modeClientId: null,
+          position: this.moving.entity.root.position,
+          quaternion: this.moving.entity.root.quaternion,
+        },
       })
       this.moving = null
       return
@@ -650,13 +650,12 @@ export class Control extends System {
         visible: this.world.permissions.canMoveEntity(entity),
         disabled: entity.mode !== 'active' && entity.mode !== 'dead',
         execute: () => {
-          entity.mode = 'moving'
-          entity.modeClientId = this.world.network.client.id
-          entity.checkMode()
-          this.world.network.pushEntityUpdate(entity.id, update => {
-            if (!update.props) update.props = {}
-            update.props.mode = entity.mode
-            update.props.modeClientId = entity.modeClientId
+          entity.applyLocalChanges({
+            sync: true,
+            props: {
+              mode: 'moving',
+              modeClientId: this.world.network.client.id,
+            },
           })
         },
       })

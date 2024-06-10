@@ -47,9 +47,10 @@ export class Entities extends System {
 
   addEntityLocal(data) {
     const entity = this.addEntity(data)
-    this.world.network.pushEntityUpdate(data.id, update => {
-      update.add = data
-    })
+    const packet = this.world.network.packet
+    if (!packet.entities) packet.entities = {}
+    if (!packet.entities[entity.id]) packet.entities[entity.id] = {}
+    packet.entities[entity.id].add = data
     return entity
   }
 
@@ -66,9 +67,10 @@ export class Entities extends System {
 
   removeEntityLocal(id) {
     this.removeEntity(id)
-    this.world.network.pushEntityUpdate(id, update => {
-      update.remove = true
-    })
+    const packet = this.world.network.packet
+    if (!packet.entities) packet.entities = {}
+    if (!packet.entities[id]) packet.entities[id] = {}
+    packet.entities[id].remove = true
   }
 
   countEntitysBySchema(id) {
