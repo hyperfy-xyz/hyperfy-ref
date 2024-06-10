@@ -66,6 +66,7 @@ export class Control extends System {
     window.addEventListener('pointermove', this.onPointerMove)
     this.viewport.addEventListener('wheel', this.onWheel, { passive: false }) // prettier-ignore
     this.viewport.addEventListener('contextmenu', this.onContextMenu)
+    this.setMoving(null)
   }
 
   update(delta) {
@@ -88,7 +89,7 @@ export class Control extends System {
     // }
 
     if (this.moving && this.moving.entity.destroyed) {
-      this.moving = null
+      this.setMoving(null)
     }
     if (this.moving) {
       const hits = this.world.graphics.raycastViewport(
@@ -271,7 +272,7 @@ export class Control extends System {
 
   onPointerDown = e => {
     if (this.moving && this.moving.entity.destroyed) {
-      this.moving = null
+      this.setMoving(null)
     }
     if (this.moving) {
       this.moving.entity.applyLocalChanges({
@@ -283,7 +284,7 @@ export class Control extends System {
           quaternion: this.moving.entity.root.quaternion,
         },
       })
-      this.moving = null
+      this.setMoving(null)
       return
     }
     this.closeContext()
@@ -775,8 +776,10 @@ export class Control extends System {
         entity,
         lastSend: 0,
       }
+      this.viewport.style.cursor = 'grabbing'
     } else {
       this.moving = null
+      this.viewport.style.cursor = 'grab'
     }
   }
 
