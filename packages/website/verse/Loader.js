@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 
 import { VOXLoader } from './extras/VoxLoader'
 import { glbToNodes } from './extras/glbToNodes'
@@ -16,8 +18,19 @@ export class Loader extends System {
     super(world)
     this.results = new Map() // url -> promise
     this.rgbeLoader = new RGBELoader()
-    this.gltfLoader = new GLTFLoader()
     this.voxLoader = new VOXLoader()
+    this.gltfLoader = new GLTFLoader()
+    this.ktx2Loader = new KTX2Loader()
+    this.dracoLoader = new DRACOLoader()
+  }
+
+  start() {
+    this.ktx2Loader.setTranscoderPath('/static/basis/')
+    this.ktx2Loader.detectSupport(this.world.graphics.renderer)
+    this.dracoLoader.setDecoderPath('/static/draco/')
+    this.dracoLoader.preload()
+    this.gltfLoader.setKTX2Loader(this.ktx2Loader)
+    this.gltfLoader.setDRACOLoader(this.dracoLoader)
   }
 
   has(url) {
