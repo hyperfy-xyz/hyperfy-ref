@@ -49,7 +49,6 @@ export class Control extends System {
     this.pointer = {
       coords: new THREE.Vector2(),
       start: null,
-      rmb: false,
       move: new THREE.Vector2(),
     }
     this.moving = null
@@ -271,10 +270,12 @@ export class Control extends System {
   }
 
   onPointerDown = e => {
+    const lmb = e.button === 0
+    const rmb = e.button === 2
     if (this.moving && this.moving.entity.destroyed) {
       this.setMoving(null)
     }
-    if (this.moving) {
+    if (this.moving && lmb) {
       this.moving.entity.applyLocalChanges({
         sync: true,
         props: {
@@ -290,7 +291,6 @@ export class Control extends System {
     this.closeContext()
     this.pointer.down = true
     this.pointer.downAt = performance.now()
-    this.pointer.rmb = e.button === 2
     this.pointer.move.set(0, 0)
     // this.viewport.setPointerCapture(e.pointerId)
     this.viewport.addEventListener('pointerup', this.onPointerUp)
@@ -335,7 +335,8 @@ export class Control extends System {
   }
 
   onPointerUp = e => {
-    if (this.pointer.rmb) {
+    const rmb = e.button === 2
+    if (rmb) {
       const elapsed = performance.now() - this.pointer.downAt
       if (elapsed < 500 && this.pointer.move.length() < 10) {
         this.openContext()
