@@ -95,7 +95,7 @@ export class World {
       if (update.remove) {
         this.entities.delete(entityId)
         this.broadcast('remove-entity', entityId, client)
-        return
+        continue
       }
       if (update.add) {
         this.entities.set(entityId, update.add)
@@ -103,7 +103,7 @@ export class World {
       }
       if (update.state) {
         const entity = this.entities.get(entityId)
-        if (!entity) return
+        if (!entity) continue
         const state = update.state
         entity.state = {
           ...entity.state,
@@ -113,7 +113,7 @@ export class World {
       }
       if (update.props) {
         const entity = this.entities.get(entityId)
-        if (!entity) return
+        if (!entity) continue
         const props = update.props
         // TODO: check permission for changing props
         if (props.hasOwnProperty('mode')) {
