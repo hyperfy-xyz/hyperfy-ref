@@ -42,18 +42,13 @@ export class Controller extends Node {
     desc.radius = this.radius
     desc.climbingMode = PHYSX.PxCapsuleClimbingModeEnum.eCONSTRAINED
     desc.slopeLimit = Math.cos(60 * DEG2RAD) // 60 degrees
-    desc.material = this.entity.world.physics.physics.createMaterial(
-      0.2,
-      0.2,
-      0.2
-    )
+    desc.material = this.entity.world.physics.defaultMaterial
     desc.contactOffset = 0.1 // PhysX default = 0.1
     desc.stepOffset = 0.5 // PhysX default = 0.5m
     this.controller = this.entity.world.physics.controllerManager.createController(desc) // prettier-ignore
+    PHYSX.destroy(desc)
     const worldPosition = this.getWorldPosition()
     this.controller.setFootPosition(worldPosition.toPxExtVec3())
-    PHYSX.destroy(desc.material)
-    PHYSX.destroy(desc)
   }
 
   update() {
@@ -73,8 +68,10 @@ export class Controller extends Node {
     if (this.mesh) {
       this.entity.world.graphics.scene.remove(this.mesh)
     }
-    this.controller.release()
-    this.controller = null
+    if (this.controller) {
+      this.controller.release()
+      this.controller = null
+    }
   }
 
   move(vec3) {

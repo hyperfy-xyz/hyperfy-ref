@@ -63,7 +63,7 @@ object.on('setup', () => {
     })
   }
   object.add(base)
-  vrm = object.get('vrm') || object.get('HumanLow')
+  vrm = object.get('vrm')
   base.add(vrm)
 })
 

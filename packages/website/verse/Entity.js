@@ -61,8 +61,9 @@ export class Entity {
         this.script = null
         const promises = []
         {
-          const url = `${process.env.PUBLIC_ASSETS_URL}/${this.schema.model}`
-          promises.push(this.world.loader.load(url, this.schema.modelType))
+          promises.push(
+            this.world.loader.load(this.schema.model, this.schema.modelType)
+          )
         }
         if (this.schema.script) {
           const url = `${process.env.PUBLIC_API_URL}/scripts/${this.schema.script}`

@@ -25,6 +25,7 @@ export class Physics extends System {
       this.foundation,
       this.tolerances
     )
+    this.defaultMaterial = this.physics.createMaterial(0.2, 0.2, 0.2)
     const tmpVec = new PHYSX.PxVec3(0, -9.81, 0)
     const sceneDesc = new PHYSX.PxSceneDesc(this.tolerances)
     sceneDesc.set_gravity(tmpVec)

@@ -10,7 +10,8 @@ import { generateName } from './names'
 import { createToken, readToken } from './jwt'
 import { uuid } from './uuid'
 import { hashFile } from './hashFile'
-import { avatarScriptCompiled } from './avatarScript'
+import { avatarScriptCompiled, avatarScriptRaw } from './avatarScript'
+import { botScriptCompiled, botScriptRaw } from './botScript'
 import { hashString } from './hashString'
 
 export const api = express.Router()
@@ -29,7 +30,26 @@ for (const file of files) {
   await fs.copyFile(srcFile, destFile)
 }
 
-migrate()
+await migrate()
+
+// temp: we're just slamming these into the db here for now
+const now = moment().toISOString()
+const avatarScript = {
+  id: '$avatar',
+  raw: avatarScriptRaw,
+  compiled: avatarScriptCompiled,
+  createdAt: now,
+  updatedAt: now,
+}
+await db('scripts').insert(avatarScript).onConflict('id').merge(avatarScript)
+const botScript = {
+  id: '$bot',
+  raw: botScriptRaw,
+  compiled: botScriptCompiled,
+  createdAt: now,
+  updatedAt: now,
+}
+await db('scripts').insert(botScript).onConflict('id').merge(botScript)
 
 const checkAuth = async req => {
   const token = req.headers['x-auth-token']
@@ -166,10 +186,6 @@ api.post('/scripts', async (req, res) => {
 
 api.get('/scripts/:id', async (req, res) => {
   const id = req.params.id
-  if (id === '$avatar') {
-    res.status(200).send(avatarScriptCompiled)
-    return
-  }
   const script = await db('scripts').where({ id }).first()
   res.status(200).send(script.compiled)
 })

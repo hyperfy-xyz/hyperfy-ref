@@ -130,7 +130,7 @@ export class Control extends System {
       const schema = {
         id: this.world.network.makeId(),
         type: 'prototype',
-        model: hash,
+        model: url,
         modelType: ext,
         script: null,
       }
@@ -173,7 +173,7 @@ export class Control extends System {
         return
       }
       const entity = this.world.network.avatar
-      entity.schema.model = hash
+      entity.schema.model = url
       entity.schema.modelType = 'vrm'
       this.world.entities.upsertSchemaLocal(entity.schema)
     }
