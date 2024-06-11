@@ -123,18 +123,16 @@ export class Control extends System {
   onDnD = async ({ event, file, ext, url }) => {
     console.log(event, file, ext, url)
 
-    if (file) {
-      // hash
+    if (file && ['glb', 'vox'].includes(ext)) {
       const hash = await hashFile(file)
       const url = `${process.env.PUBLIC_ASSETS_URL}/${hash}`
-      this.world.loader.set(url, 'glb', file)
+      this.world.loader.set(url, ext, file)
       const schema = {
         id: this.world.network.makeId(),
         type: 'prototype',
         model: hash,
         modelType: ext,
         script: null,
-        scriptRaw: null,
       }
       this.world.entities.upsertSchemaLocal(schema)
       const entity = this.world.entities.addEntityLocal({
@@ -161,6 +159,23 @@ export class Control extends System {
         console.error('failed to upload', err)
         this.world.entities.removeEntityLocal(entity.id)
       }
+    }
+    if (file && ext === 'vrm') {
+      // hash
+      const hash = await hashFile(file)
+      const url = `${process.env.PUBLIC_ASSETS_URL}/${hash}`
+      this.world.loader.set(url, 'vrm', file)
+      console.error('TODO: vrm dialog to verify, preview and upload')
+      try {
+        await this.world.loader.uploadAsset(file)
+      } catch (err) {
+        console.error('Could not upload VRM: ', err)
+        return
+      }
+      const entity = this.world.network.avatar
+      entity.schema.model = hash
+      entity.schema.modelType = 'vrm'
+      this.world.entities.upsertSchemaLocal(entity.schema)
     }
   }
 

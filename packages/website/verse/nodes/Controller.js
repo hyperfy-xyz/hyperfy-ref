@@ -90,6 +90,11 @@ export class Controller extends Node {
     this.didMove = true
   }
 
+  teleport(vec3) {
+    this.position.copy(vec3)
+    this.controller.setFootPosition(vec3.toPxExtVec3())
+  }
+
   copy(source, recursive) {
     super.copy(source, recursive)
     this.radius = source.radius
@@ -103,6 +108,9 @@ export class Controller extends Node {
       const self = this
       const proxy = {
         ...super.getProxy(),
+        teleport(vec3) {
+          return self.teleport(vec3)
+        },
         move(vec3) {
           return self.move(vec3)
         },

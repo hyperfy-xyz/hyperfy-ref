@@ -1,5 +1,4 @@
 import { SockServer } from './SockServer'
-import { avatarSchema } from './avatarSchema'
 import {
   getEntitiesByWorld,
   getOrCreatePermissions,
@@ -15,7 +14,6 @@ export class World {
     this.meta = null
     this.permissions = null
     this.schemas = new Map()
-    this.schemas.set('$avatar', avatarSchema)
     this.entities = new Map()
     this.clients = new Map()
     this.checkInterval = setInterval(() => this.checkConnections(), 10000)

@@ -24,7 +24,7 @@ export class Entity {
     })
     this.positionLerp = new Vector3Lerp(this.root.position, MOVING_SEND_RATE)
     this.quaternionLerp = new QuaternionLerp(this.root.quaternion, MOVING_SEND_RATE) // prettier-ignore
-    this.state = data.state
+    this.state = data.state || {}
     this.stateProxy = new Proxy(this.state, {
       set: (target, key, value) => {
         if (target[key] === value) return true
@@ -37,7 +37,7 @@ export class Entity {
         return true
       },
     })
-    this.stateChanges = null
+    this.stateChanges = {}
     this.events = {}
     this.blueprint = null
     this.script = null
@@ -99,8 +99,11 @@ export class Entity {
   }
 
   rebuild() {
-    // destroy current root
+    // destroy current root + anby detached nodes
     this.root.unbind()
+    this.nodes.forEach(node => {
+      node.unbind()
+    })
     // clear script events
     this.events = {}
     // reconstruct
@@ -257,7 +260,7 @@ export class Entity {
         this.kill()
       }
     }
-    this.stateChanges = null
+    this.stateChanges = {}
   }
 
   on(name, callback) {
@@ -364,7 +367,7 @@ export class Entity {
       if (sync && !isEmpty(changed)) {
         const update = this.getUpdate()
         update.state = {
-          ...(update.state || {}),
+          ...update.state,
           ...changed,
         }
       }
@@ -412,7 +415,7 @@ export class Entity {
       if (sync && !isEmpty(changed)) {
         const update = this.getUpdate()
         update.props = {
-          ...(update.props || {}),
+          ...update.props,
           ...changed,
         }
       }
@@ -421,13 +424,9 @@ export class Entity {
 
   applyNetworkChanges({ state, props }) {
     if (state) {
-      this.state = {
-        ...this.state,
-        ...state,
-      }
-      this.stateChanges = {
-        ...this.stateChanges,
-        ...state,
+      for (const key in state) {
+        this.state[key] = state[key]
+        this.stateChanges[key] = state[key]
       }
     }
     if (props) {

@@ -45,6 +45,7 @@ export class Node {
 
   unbind() {
     this.traverse(node => {
+      if (!node.mounted) return
       node.unmount()
       node.mounted = false
       node.entity = null

@@ -64,6 +64,10 @@ export function glbToNodes(glb, world) {
           ]
         }
       }
+      if (object3d.type === 'SkinnedMesh') {
+        // TODO
+        // world.graphics.scene.add(object3d)
+      }
     }
     for (const name in lodsByName) {
       const lods = lodsByName[name]

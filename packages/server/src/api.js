@@ -10,18 +10,24 @@ import { generateName } from './names'
 import { createToken, readToken } from './jwt'
 import { uuid } from './uuid'
 import { hashFile } from './hashFile'
-import { avatarSchema, avatarScriptCompiled } from './avatarSchema'
+import { avatarScriptCompiled } from './avatarScript'
 import { hashString } from './hashString'
 
 export const api = express.Router()
 
 const assetsDir = path.join('./assets')
+const assetsInitDir = path.join('./assets_init')
 
 const multerUpload = multer()
 
-// copy avatar.glb to uploads dir
+// copy assets_initial/* to assets/*
 await fs.ensureDir(assetsDir)
-await fs.copy(path.join('src/avatar.glb'), path.join(assetsDir, 'avatar.glb'))
+const files = await fs.readdir(assetsInitDir)
+for (const file of files) {
+  const srcFile = path.join(assetsInitDir, file)
+  const destFile = path.join(assetsDir, file)
+  await fs.copyFile(srcFile, destFile)
+}
 
 migrate()
 

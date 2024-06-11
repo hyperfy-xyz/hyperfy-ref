@@ -1,4 +1,4 @@
-const allowedExt = ['glb', 'vox']
+const allowedExt = ['glb', 'vox', 'vrm']
 
 export class DnD {
   constructor(viewport, emit) {

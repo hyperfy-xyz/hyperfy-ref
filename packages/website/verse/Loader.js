@@ -3,12 +3,15 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { VRMLoaderPlugin as VRMLoader } from '@pixiv/three-vrm'
 
 import { VOXLoader } from './extras/VoxLoader'
 import { glbToNodes } from './extras/glbToNodes'
+import { voxToNodes } from './extras/voxToNodes'
+import { vrmToNodes } from './extras/vrmToNodes'
 
 import { System } from './System'
-import { voxToNodes } from './extras/voxToNodes'
+import { createEmoFactory } from './extras/createEmoFactory'
 
 // cache across loaders
 THREE.Cache.enabled = true
@@ -22,6 +25,7 @@ export class Loader extends System {
     this.gltfLoader = new GLTFLoader()
     this.ktx2Loader = new KTX2Loader()
     this.dracoLoader = new DRACOLoader()
+    this.gltfLoader.register(parser => new VRMLoader(parser))
   }
 
   start() {
@@ -48,6 +52,14 @@ export class Loader extends System {
     }
     if (type === 'glb') {
       const promise = this.loadGLB(localUrl)
+      this.results.set(url, promise)
+    }
+    if (type === 'vrm') {
+      const promise = this.loadVRM(localUrl)
+      this.results.set(url, promise)
+    }
+    if (type === 'emo') {
+      const promise = this.loadEMO(localUrl)
       this.results.set(url, promise)
     }
     if (type === 'vox') {
@@ -77,6 +89,16 @@ export class Loader extends System {
       this.results.set(url, promise)
       return promise
     }
+    if (type === 'vrm') {
+      const promise = this.loadVRM(url)
+      this.results.set(url, promise)
+      return promise
+    }
+    if (type === 'emo') {
+      const promise = this.loadEMO(url)
+      this.results.set(url, promise)
+      return promise
+    }
     if (type === 'vox') {
       const promise = this.loadVOX(url)
       this.results.set(url, promise)
@@ -98,6 +120,18 @@ export class Loader extends System {
   loadGLB(url) {
     return this.gltfLoader.loadAsync(url).then(glb => {
       return glbToNodes(glb, world)
+    })
+  }
+
+  loadVRM(url) {
+    return this.gltfLoader.loadAsync(url).then(vrm => {
+      return vrmToNodes(vrm, world)
+    })
+  }
+
+  loadEMO(url) {
+    return this.gltfLoader.loadAsync(url).then(glb => {
+      return createEmoFactory(glb)
     })
   }
 

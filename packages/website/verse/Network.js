@@ -124,19 +124,30 @@ export class Network extends System {
       this.onCameraReady = null
     }
 
-    this.avatar = this.world.entities.addEntityLocal({
+    const schema = {
+      id: this.world.network.makeId(),
+      type: 'avatar',
+      model: 'bunny.vrm',
+      modelType: 'vrm',
+      script: '$avatar',
+    }
+    this.world.entities.upsertSchemaLocal(schema)
+    const avatar = {
       id: this.makeId(),
-      schemaId: '$avatar',
+      schemaId: schema.id,
       creator: this.client.user.id,
       authority: client.id,
       mode: 'active',
       modeClientId: null,
-      position: [num(-1, 1, 2), 1, 0],
+      position: [num(-1, 1, 2), 0, 10],
       quaternion: new THREE.Quaternion()
-        .setFromEuler(new THREE.Euler(0, 0 * DEG2RAD, 0, 'YXZ'))
+        .setFromEuler(new THREE.Euler(0, num(0, 270, 2) * DEG2RAD, 0, 'YXZ'))
         .toArray(),
+      // position: [0, 0, 10],
+      // quaternion: [0, 0, 0, 1],
       state: {},
-    })
+    }
+    this.avatar = this.world.entities.addEntityLocal(avatar)
   }
 
   pushSchema(schema) {

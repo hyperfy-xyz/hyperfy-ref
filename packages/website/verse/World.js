@@ -4,6 +4,7 @@ import { Models } from './Models'
 import { Scripts } from './Scripts'
 import { Panels } from './Panels'
 import { Permissions } from './Permissions'
+import { Updater } from './Updater'
 import { Control } from './Control'
 import { Loader } from './Loader'
 import { Network } from './Network'
@@ -30,6 +31,7 @@ export class World extends EventEmitter {
     this.scripts = this.register(Scripts)
     this.panels = this.register(Panels)
     this.permissions = this.register(Permissions)
+    this.updater = this.register(Updater)
     this.control = this.register(Control)
     this.loader = this.register(Loader)
     this.network = this.register(Network)

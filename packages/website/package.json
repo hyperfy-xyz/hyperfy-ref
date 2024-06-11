@@ -11,6 +11,7 @@
   "dependencies": {
     "@firebolt-dev/icons": "0.4.0",
     "@firebolt-dev/snap": "0.4.0",
+    "@pixiv/three-vrm": "^2.1.2",
     "@wagmi/connectors": "^4.1.26",
     "@wagmi/core": "^2.6.17",
     "eventemitter3": "^5.0.1",
@@ -23,7 +24,7 @@
     "react": "canary",
     "react-dom": "canary",
     "ses": "^1.4.1",
-    "three": "0.164.0",
+    "three": "^0.165.0",
     "three-mesh-bvh": "^0.7.4",
     "viem": "^2.9.23"
   },

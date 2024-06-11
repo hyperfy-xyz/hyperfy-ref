@@ -1,11 +1,3 @@
-export const avatarSchema = {
-  id: '$avatar',
-  type: 'avatar',
-  model: 'avatar.glb',
-  modelType: 'glb',
-  script: '$avatar',
-}
-
 function wrapRawCode(code) {
   return `(function() {
 return object => {
@@ -29,12 +21,16 @@ const PUSH_RATE = 1 / 5 // 5Hz (times per second)
 const ZOOM_DISTANCE = 10 // 10m
 const ZOOM_SPEED = 6
 
+const idleEmote = 'avatar@idle.glb'
+const walkEmote = 'avatar@walk.glb'
+
 const jumpHeight = 1.5
 const turnSpeed = 3
 const walkSpeed = 5
 const runSpeed = 20
 const displacement = new Vector3(0, 0, 0)
 const gravity = 20 // 9.81
+
 
 let isJumping = false
 let isGrounded = false
@@ -43,9 +39,10 @@ let velocity = new Vector3()
 let hasControl = false
 let lastPush = 0
 
-let base
-let ctrl
+let base // either a controller/group depending on authority
 let vrm
+
+let emote
 
 let remotePosition
 let remoteQuaternion
@@ -53,60 +50,59 @@ let remoteQuaternion
 object.on('setup', () => {
   const authority = object.isAuthority()
   if (authority) {
-    ctrl = object.create({
+    base = object.create({
       type: 'controller',
       name: 'ctrl',
       radius: 0.4,
       height: 1,
     })
-    vrm = object.get('HumanLow') // TODO
-    object.add(ctrl)
-    ctrl.add(vrm)
   } else {
     base = object.create({
       type: 'group',
       name: 'base',
     })
-    vrm = object.get('HumanLow') // TODO
-    object.add(base)
-    base.add(vrm)
   }
+  object.add(base)
+  vrm = object.get('vrm') || object.get('HumanLow')
+  base.add(vrm)
 })
 
 object.on('start', () => {
   const authority = object.isAuthority()
+  const state = object.getState()
+  base.detach()
+  const initPos = v1
+  const initQua = q1
+  if (is(state.px)) {
+    initPos.set(state.px, state.py, state.pz)
+    initQua.set(state.qx, state.qy, state.qz, state.qw)
+  } else {
+    initPos.copy(base.position)
+    initQua.copy(base.quaternion)
+  }
   if (authority) {
-    ctrl.detach()
+    base.teleport(initPos)
+    base.quaternion.set(0, 0, 0, 1)
+    vrm.quaternion.copy(initQua)
+    base.dirty()
+    vrm.dirty()
     object.requestControl()
     const control = object.getControl()
     if (control) {
-      // we can spawn facing any direction, so we need to
-      // - rotate the ctrl back to zero (its always on zero)
-      // - rotate the vrm by this amount instead
-      // - apply the rotation to the camera
-      vrm.rotation.y = ctrl.rotation.y
-      ctrl.rotation.y = 0
+      // setup initial camera
+      vrm.rotation.reorder('YXZ')
       control.camera.rotation.y = vrm.rotation.y
       control.camera.distance = control.look.zoom * ZOOM_DISTANCE
-      vrm.dirty()
-      ctrl.dirty()
       control.camera.ready()
     }
   } else {
-    base.detach()
-    const state = object.getState()
-    if (is(state.px)) base.position.x = state.px
-    if (is(state.py)) base.position.y = state.py
-    if (is(state.pz)) base.position.z = state.pz
-    if (is(state.qx)) base.quaternion.x = state.qx
-    if (is(state.qy)) base.quaternion.y = state.qy
-    if (is(state.qz)) base.quaternion.z = state.qz
-    if (is(state.qw)) base.quaternion.w = state.qw
+    base.position.copy(initPos)
+    base.quaternion.copy(initQua)
+    base.dirty()
+    vrm.setEmote(state.emote)
     remotePosition = new Vector3Lerp(base.position, PUSH_RATE)
     remoteQuaternion = new QuaternionLerp(base.quaternion, PUSH_RATE)
-    base.dirty()
-  }
-  
+  }  
 })
 
 object.on('update', delta => {
@@ -157,9 +153,9 @@ object.on('update', delta => {
       velocity.y = Math.sqrt(2 * gravity * jumpHeight)
     }
     displacement.y = velocity.y * delta
-    ctrl.move(displacement)
-    isGrounded = ctrl.isGrounded()
-    isCeiling = ctrl.isCeiling()
+    base.move(displacement)
+    isGrounded = base.isGrounded()
+    isCeiling = base.isCeiling()
     if (isCeiling && velocity.y > 0) {
       velocity.y = -gravity * delta
     }
@@ -182,7 +178,7 @@ object.on('update', delta => {
       }
     }
     if (control) {
-      control.camera.position.copy(ctrl.position)
+      control.camera.position.copy(base.position)
       control.camera.position.y += 1.8
 
       const from = control.camera.distance
@@ -201,23 +197,26 @@ object.on('update', delta => {
     // Hide VRM in first person
     // console.log(vrm.getParent())
     if (control && !control.look.zoom && vrm.getParent()) {
-      ctrl.remove(vrm)
+      base.remove(vrm)
     }
     if (control && control.look.zoom && !vrm.getParent()) {
-      ctrl.add(vrm)
+      base.add(vrm)
     }
-    ctrl.dirty()
+    emote = moving ? walkEmote : idleEmote
+    vrm.setEmote(emote)
+    base.dirty()
     vrm.dirty()
     lastPush += delta
     if (lastPush > PUSH_RATE) {
       const state = object.getState()
-      state.px = ctrl.position.x
-      state.py = ctrl.position.y
-      state.pz = ctrl.position.z
+      state.px = base.position.x
+      state.py = base.position.y
+      state.pz = base.position.z
       state.qx = vrm.quaternion.x
       state.qy = vrm.quaternion.y
       state.qz = vrm.quaternion.z
       state.qw = vrm.quaternion.w
+      state.emote = emote
       lastPush = 0
     }
   } else {
@@ -237,13 +236,17 @@ object.on('update', delta => {
         if (is(changes.qz)) q1.z = changes.qz
         if (is(changes.qw)) q1.w = changes.qw
         remoteQuaternion.push(q1)
-      }            
+      }
+      if (changes.emote) {
+        vrm.setEmote(changes.emote)
+      }
     }
     remotePosition.update(delta)
     remoteQuaternion.update(delta)
     base.dirty()
   }
 })
+
 
 function lerpAngle(startAngle, endAngle, t) {  
   let difference = (endAngle - startAngle) % (2 * Math.PI);
