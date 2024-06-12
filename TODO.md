@@ -1,12 +1,35 @@
 # Todo
 
-- new arch
-  - single vertically scaling server with api + worlds
-  - website that speaks to api
-  - hosting
-    - fly.io tiny website ~$5/mo
-    - fly.io perf-1 2GB-8GB ~$30-60/mo
-    - R2 or Bunny storage
+- new model/script stuff
+  - editing code should have a save/play/stop button
+  - when you first edit it can stay running
+  - but if you hit stop if stops :)
+
+x new arch
+x single vertically scaling server with api + worlds
+x website that speaks to api
+
+- hosting
+  - fly.io tiny website ~$5/mo
+  - fly.io perf-1 2GB-8GB ~$30-60/mo
+  - R2 or Bunny storage
+- ModelManager
+
+  - models: [...Model]
+  - Model
+    - distances: [0, 50, 200] distances for each lod
+    - meshes: [Mesh, Mesh, Mesh] meshes for each lod
+    - batches: [Batch, Batch, Batch] batchs for each lod
+    - item: [...Item]
+  - Batch
+    - distance the distance this lod kicks in
+    - mesh: Mesh the mesh for this lod (when 1 active item)
+    - iMesh: InstancedMesh? the instancedMesh for this lod (when >2 active items)
+  - Item
+    - batch the batch this item belongs to
+    - idx the idx of the item in its batch
+    - matrix world matrix of item
+
 - when moving, don't instance so layers work and you can stack same-models
 - fix dnd uploads for multiplayer etc
 - edit window
@@ -56,3 +79,35 @@
     - eg if scale 0.5,0.6,0.7
     - max is 0.7 (could also use avg)
     - 0.7 \* lod distance = real distance to swap lod
+- control
+  - cancel input on tab blur
+
+## Cube Spin
+
+```
+let cube
+
+object.on('setup', () => {
+  cube = object.get('cube')
+})
+
+object.on('update', delta => {
+  cube.rotation.y += 1 * delta
+  cube.dirty()
+})
+```
+
+## Mill (Blades Spinning)
+
+```
+let blades
+
+object.on('setup', () => {
+  blades = object.get('MillBlades')
+})
+
+object.on('update', delta => {
+  blades.rotation.y += 0.2 * delta
+  blades.dirty()
+})
+```
