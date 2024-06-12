@@ -28,11 +28,13 @@ import { DEG2RAD } from './extras/general'
 import { num } from './extras/num'
 import { hashFile } from './extras/hashFile'
 
+const UP = new THREE.Vector3(0, 1, 0)
 const PI_2 = Math.PI / 2
 const LOOK_SPEED = 0.005
 const WHEEL_SPEED = 0.002
 
-const MOVING_SEND_RATE = 1 / 5
+const MOVE_SEND_RATE = 1 / 5
+const MOVE_ROTATE_SPEED = 0.1 * DEG2RAD
 
 // const RAY_RATE = 1 / 10
 
@@ -98,7 +100,7 @@ export class Control extends System {
       const hit = this.findHit(hits)
       if (hit) {
         this.moving.lastSend += delta
-        const sync = this.moving.lastSend >= MOVING_SEND_RATE
+        const sync = this.moving.lastSend >= MOVE_SEND_RATE
         if (sync) this.moving.lastSend = 0
         this.moving.entity.applyLocalChanges({
           sync,
@@ -372,6 +374,18 @@ export class Control extends System {
   onWheel = e => {
     e.preventDefault()
     this.closeContext()
+    if (this.moving) {
+      q1.setFromAxisAngle(UP, MOVE_ROTATE_SPEED * e.deltaY).multiply(
+        this.moving.entity.root.quaternion
+      )
+      this.moving.entity.applyLocalChanges({
+        sync: true,
+        props: {
+          quaternion: q1,
+        },
+      })
+      return
+    }
     if (this.current) {
       this.current.look.zoom += e.deltaY * WHEEL_SPEED
       if (this.current.look.zoom < 0) {

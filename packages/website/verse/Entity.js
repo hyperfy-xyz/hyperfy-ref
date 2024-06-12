@@ -48,8 +48,7 @@ export class Entity {
   isUploading() {
     if (!this.uploading) return false
     if (this.world.loader.has(this.schema.model)) {
-      this.uploading = null // we already have this lets go!
-      return false
+      return false // we already have this locally lets go!
     }
     return this.uploading !== this.world.network.client.id
   }
