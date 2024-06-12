@@ -12,7 +12,7 @@ export class VRM extends Node {
 
   mount() {
     if (this.factory) {
-      this.vrm = this.factory(this.matrixWorld)
+      this.vrm = this.factory(this, this.matrixWorld)
     }
   }
 

@@ -3,6 +3,8 @@ import * as THREE from 'three'
 
 import * as Nodes from '../nodes'
 
+import { DEG2RAD } from './general'
+
 const v1 = new THREE.Vector3()
 const v2 = new THREE.Vector3()
 
@@ -44,11 +46,17 @@ function buildVRMFactory(glb, world) {
   // remove expressions from scene
   const expressions = glb.scene.children.filter(n => n.type === 'VRMExpression') // prettier-ignore
   for (const node of expressions) node.removeFromParent()
+  // remove VRMHumanoidRig
+  const vrmHumanoidRigs = glb.scene.children.filter(n => n.name === 'VRMHumanoidRig') // prettier-ignore
+  for (const node of vrmHumanoidRigs) node.removeFromParent()
+  // remove secondary
+  const secondaries = glb.scene.children.filter(n => n.name === 'secondary') // prettier-ignore
+  for (const node of secondaries) node.removeFromParent()
   // enable shadows
-  glb.scene.traverse(node => {
-    if (node.isMesh) {
-      node.castShadow = true
-      node.receiveShadow = true
+  glb.scene.traverse(obj => {
+    if (obj.isMesh) {
+      obj.castShadow = true
+      obj.receiveShadow = true
     }
   })
   // calculate root to hips
@@ -84,7 +92,7 @@ function buildVRMFactory(glb, world) {
     // ...
   }
 
-  return matrix => {
+  return (node, matrix) => {
     const vrm = cloneGLB(glb)
     const tvrm = vrm.userData.vrm
     const skinnedMeshes = getSkinnedMeshes(vrm.scene)
@@ -94,6 +102,20 @@ function buildVRMFactory(glb, world) {
     rootBone.updateMatrixWorld(true)
     vrm.scene.matrix.copy(matrix)
     world.graphics.scene.add(vrm.scene)
+
+    // link back node for raycasts
+    vrm.scene.traverse(n => {
+      n.node = node
+    })
+
+    // pose arms down
+    const bones = glb.userData.vrm.humanoid._normalizedHumanBones.humanBones
+    const leftArm = bones.leftUpperArm.node
+    leftArm.rotation.z = 75 * DEG2RAD
+    const rightArm = bones.rightUpperArm.node
+    rightArm.rotation.z = -75 * DEG2RAD
+    tvrm.humanoid.update(0)
+    skeleton.update()
 
     // i have no idea how but the mixer only needs one of the skinned meshes
     // and if i set it to vrm.scene it no longer works with detached bind mode

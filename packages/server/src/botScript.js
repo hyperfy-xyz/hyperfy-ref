@@ -8,30 +8,105 @@ return object => {
 
 export const botScriptRaw = `
   const v1 = new Vector3()
-  const e1 = new Euler()
   const q1 = new Quaternion()
 
-  const emotes = [
-    'avatar@idle.glb',
-    'avatar@walk.glb',
-    'cheer.glb',
-    'clap.glb',
-    'dance.glb',
-    'dance2.glb',
-    'kneel.glb',
-    'lotus.glb',
-    'pray.glb',
-    'sit.glb',
-    'stretch.glb',
-    'wave.glb',
+  const actions = [
+    {
+      emote: 'avatar@idle.glb',
+    },
+    {
+      emote: 'avatar@walk.glb',
+      dir: true,
+      move: true,
+    },
+    {
+      emote: 'avatar@walk.glb',
+      dir: true,
+      move: true,
+    },
+    {
+      emote: 'avatar@walk.glb',
+      dir: true,
+      move: true,
+    },
+    {
+      emote: 'avatar@walk.glb',
+      dir: true,
+      move: true,
+    },
+    {
+      emote: 'avatar@walk.glb',
+      dir: true,
+      move: true,
+    },
+    {
+      emote: 'avatar@walk.glb',
+      dir: true,
+      move: true,
+    },
+    {
+      emote: 'avatar@walk.glb',
+      dir: true,
+      move: true,
+    },
+    {
+      emote: 'avatar@walk.glb',
+      dir: true,
+      move: true,
+    },
+    {
+      emote: 'stretch.glb',
+      time: 3,
+    },
+    {
+      emote: 'wave.glb',
+      time: 2,
+    },
+    {
+      emote: 'sit.glb',
+    },
+    {
+      emote: 'kneel.glb',
+    },
+    {
+      emote: 'dance.glb',
+    },
+    {
+      emote: 'dance2.glb',
+    },
+    {
+      emote: 'clap.glb',
+    },
+    {
+      emote: 'cheer.glb',
+    },
+    {
+      emote: 'lotus.glb',
+    },
   ]
-
+  
   let ctrl
   let vrm
-  let emote
+  let action 
   let direction = new Vector3()
-  let directionTime = 0
-  let directionMax = 0
+
+  const GRAVITY = 9.81
+
+  function setNextAction(forceQuat) {
+    const act = actions[num(0, actions.length - 1)]
+    action = { ...act }
+    if (!action.time) {
+      action.time = num(1, 3, 2)
+    }
+    if (forceQuat) {
+      direction.set(0, 0, -1).applyQuaternion(forceQuat)
+      vrm.quaternion.copy(forceQuat)
+    } else if (action.dir) {
+      const rotation = num(0, 360) * DEG2RAD
+      vrm.rotation.set(0, rotation, 0, 'YXZ')
+      direction.set(0, 0, -1).applyQuaternion(vrm.quaternion)
+    }
+  }
 
   object.on('setup', () => {
     ctrl = object.create({
@@ -42,27 +117,31 @@ export const botScriptRaw = `
     })
     object.add(ctrl)
     vrm = object.get('vrm')
+    vrm.rotation.reorder('YXZ')
     ctrl.add(vrm)
   })
 
   object.on('start', () => {
     ctrl.detach()
+    vrm.quaternion.copy(ctrl.quaternion)
     ctrl.quaternion.set(0, 0, 0, 1)
-    emote = 'avatar@walk.glb' // emotes[num(0, emotes.length-1)]
+    setNextAction(vrm.quaternion) // start in vrm direction
+    ctrl.dirty()
+    vrm.dirty()
   })
 
   object.on('update', delta => {
-    vrm.setEmote(emote)
-    directionTime += delta
-    if (directionTime >= directionMax) {
-      directionTime = 0
-      directionMax = num(1, 4, 2)
-      const rotation = num(0, 360) * DEG2RAD
-      vrm.rotation.set(0, rotation, 0, 'YXZ')
-      direction.set(0, 0, -1).applyQuaternion(vrm.quaternion)
+    vrm.setEmote(action.emote)
+    const displacement = v1.set(0, 0, 0)
+    if (action.move) {
+      displacement.copy(direction).multiplyScalar(delta * 2)
     }
-    const move = v1.copy(direction).multiplyScalar(delta * 2)
-    ctrl.move(move)
+    displacement.y -= GRAVITY * delta
+    ctrl.move(displacement)
+    action.time -= delta
+    if (action.time <= 0) {
+      setNextAction()
+    }
     ctrl.dirty()
     vrm.dirty()
   })
