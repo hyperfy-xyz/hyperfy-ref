@@ -23,12 +23,9 @@ const multerUpload = multer()
 
 // copy assets_initial/* to assets/*
 await fs.ensureDir(assetsDir)
-const files = await fs.readdir(assetsInitDir)
-for (const file of files) {
-  const srcFile = path.join(assetsInitDir, file)
-  const destFile = path.join(assetsDir, file)
-  await fs.copyFile(srcFile, destFile)
-}
+await fs.copy(assetsInitDir, assetsDir, {
+  recursive: true,
+})
 
 await migrate()
 

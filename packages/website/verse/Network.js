@@ -133,13 +133,12 @@ export class Network extends System {
     window.addBot = (amount = 1) => {
       for (let i = 0; i < amount; i++) {
         n++
-        console.log(model)
         const schema = {
           id: this.world.network.makeId(),
           type: 'prototype',
           // model: ca[num(0, ca.length)], // CRYPTOAVATARS
           model: `https://nftz.forgottenrunes.com/dev/3d/wizards/${n}/wizard_${n}.vrm`, // FRWC
-          model,
+          // model: `http://localhost:3001/assets/bbh/${n}.vrm`,
           modelType: 'vrm',
           script: '$bot',
         }
