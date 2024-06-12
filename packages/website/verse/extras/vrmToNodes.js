@@ -120,7 +120,7 @@ function buildVRMFactory(glb, world) {
       const should = elapsed >= rate
       if (should) {
         mixer.update(elapsed)
-        skeleton.bones.forEach(bone => bone.updateMatrixWorld(true))
+        skeleton.bones.forEach(bone => bone.updateMatrixWorld())
         skeleton.update = THREE.Skeleton.prototype.update
         tvrm.humanoid.update(elapsed)
         elapsed = 0
