@@ -129,12 +129,17 @@ export class Network extends System {
     this.avatar = this.world.entities.addEntityLocal(avatar)
 
     // temp: bots
+    let n = 0
     window.addBot = (amount = 1) => {
       for (let i = 0; i < amount; i++) {
+        n++
+        console.log(model)
         const schema = {
           id: this.world.network.makeId(),
           type: 'prototype',
-          model: ca[num(0, ca.length)],
+          // model: ca[num(0, ca.length)], // CRYPTOAVATARS
+          model: `https://nftz.forgottenrunes.com/dev/3d/wizards/${n}/wizard_${n}.vrm`, // FRWC
+          model,
           modelType: 'vrm',
           script: '$bot',
         }
@@ -256,36 +261,6 @@ class Client {
     }
   }
 }
-
-// const AVATAR_SCRIPT = `
-// (function() {
-//   return entity => {
-//     return class Script {
-//       init() {
-//         const state = entity.getState()
-//         const authority = entity.isAuthority()
-//         console.log('state.position', state.position)
-//         console.log('authority', authority)
-//         this.box = entity.create({
-//           type: 'box',
-//           name: 'box',
-//           position: state.position,
-//         })
-//         entity.add(this.box)
-//       }
-//       start() {
-//         console.log('state pos', this.box.position)
-//       }
-//       update(delta) {
-
-//       }
-//       onState(newState) {
-
-//       }
-//     }
-//   }
-// })()
-// `
 
 var ca = [
   'https://storage.cryptoavatars.io/VRMsByContractAddress/0xc1def47cf1e15ee8c2a92f4e0e968372880d18d1/101_Egg_BOY.vrm',
