@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { css } from 'firebolt'
 
-export function CodeEditor({ value, onChange }) {
+export function CodeEditor({ value, onChange, onSave }) {
   const containerRef = useRef()
   const [editor, setEditor] = useState(null)
   useEffect(() => {
@@ -21,6 +21,12 @@ export function CodeEditor({ value, onChange }) {
       })
       editor.onDidChangeModelContent(event => {
         onChange(editor.getValue())
+      })
+      editor.addAction({
+        id: 'save',
+        label: 'Save',
+        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
+        run: onSave,
       })
       setEditor(editor)
     })

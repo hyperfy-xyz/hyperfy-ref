@@ -397,6 +397,14 @@ function EditPanel({ panel }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const rawRef = useRef()
+  const save = async () => {
+    setSaving(true)
+    const raw = rawRef.current
+    const id = await entity.world.scripts.upload(raw)
+    entity.schema.script = id
+    entity.world.entities.upsertSchemaLocal(entity.schema)
+    setSaving(false)
+  }
   return (
     <div>
       <div>Edit</div>
@@ -426,19 +434,9 @@ function EditPanel({ panel }) {
             onChange={raw => {
               rawRef.current = raw
             }}
+            onSave={save}
           />
-          <div
-            onClick={async () => {
-              setSaving(true)
-              const raw = rawRef.current
-              const id = await entity.world.scripts.upload(raw)
-              entity.schema.script = id
-              entity.world.entities.upsertSchemaLocal(entity.schema)
-              setSaving(false)
-            }}
-          >
-            {saving ? 'Saving' : 'Save'}
-          </div>
+          <div onClick={save}>{saving ? 'Saving' : 'Save'}</div>
           {/* <div
             onClick={() => {
               entity.mode = 'inactive'
