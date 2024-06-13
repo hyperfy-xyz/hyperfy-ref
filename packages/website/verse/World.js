@@ -1,6 +1,7 @@
 import EventEmitter from 'eventemitter3'
 
 import { Models } from './Models'
+import { LODs } from './LODs'
 import { Scripts } from './Scripts'
 import { Panels } from './Panels'
 import { Permissions } from './Permissions'
@@ -28,6 +29,7 @@ export class World extends EventEmitter {
     this.frame = 0
 
     this.models = this.register(Models)
+    this.lods = this.register(LODs)
     this.scripts = this.register(Scripts)
     this.panels = this.register(Panels)
     this.permissions = this.register(Permissions)

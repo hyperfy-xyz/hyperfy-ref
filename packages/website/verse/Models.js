@@ -1,122 +1,65 @@
 import * as THREE from 'three'
+
 import { System } from './System'
-
-const v1 = new THREE.Vector3()
-
-const BATCH_SIZE = 1000
 
 export class Models extends System {
   constructor(world) {
     super(world)
-    this.scene = null
-    this.camera = null
-    this.models = new Set()
-    this.items = [] // { model, lod, idx, matrix }
-    this.cursor = 0
+    this.models = new Map() // mesh -> Model
   }
 
-  start() {
-    this.scene = this.world.graphics.scene
-    this.camera = this.world.graphics.cameraRig
-  }
-
-  create(lods) {
-    // lods = [...{ mesh, maxDistance }]
-    const model = new Model(this, lods)
-    this.models.add(model)
+  register(mesh) {
+    if (this.models.has(mesh)) {
+      return this.models.get(mesh)
+    }
+    const model = new Model(this.world, mesh)
+    this.models.set(mesh, model)
     return model
   }
 
-  update() {
-    // check if lods need to switch (batched over multiple frames)
-    const size = Math.min(this.items.length, BATCH_SIZE)
-    for (let i = 0; i < size; i++) {
-      const idx = (this.cursor + i) % this.items.length
-      const item = this.items[idx]
-      if (!item) continue
-      item.lod.check(item)
-    }
-    if (size) {
-      this.cursor = (this.cursor + size) % this.items.length
-    }
-
-    // model dirty checks
-    for (const model of this.models) {
-      for (const lod of model.lods) {
-        lod.clean()
-      }
-    }
+  update(delta) {
+    // model clean if dirty
+    this.models.forEach(model => model.clean())
   }
 }
 
 class Model {
-  constructor(manager, lods) {
-    this.manager = manager
-    this.lods = lods.map(lod => new LOD(this, lod.mesh, lod.maxDistance)) // todo: ensure lods are ordered maxDistance ascending
-    // this.items = []
-  }
-
-  findLod(distance) {
-    return this.lods.find(lod => distance <= lod.maxDistance)
-  }
-
-  add(node, matrix) {
-    const cameraPos = this.manager.camera.position
-    const itemPos = v1.set(matrix.elements[12], matrix.elements[13], matrix.elements[14]) // prettier-ignore
-    const distance = cameraPos.distanceTo(itemPos)
-    const lod = this.findLod(distance)
-    const item = {
-      node,
-      model: this,
-      lod: null,
-      idx: null,
-      matrix: matrix.clone(),
-    }
-    lod.add(item)
-    this.manager.items.push(item)
-    return item
-  }
-
-  move(item, matrix) {
-    item.lod.move(item, matrix)
-  }
-
-  remove(item) {
-    item.lod.remove(item)
-    const idx = this.manager.items.indexOf(item)
-    this.manager.items.splice(idx, 1)
-  }
-}
-
-class LOD {
-  constructor(model, mesh, maxDistance) {
-    this.model = model
+  constructor(world, mesh) {
+    this.world = world
     this.mesh = mesh.clone()
     this.mesh.geometry.computeBoundsTree() // three-mesh-bvh
     this.mesh.castShadow = true
     this.mesh.receiveShadow = true
     this.mesh.matrixAutoUpdate = false
     this.mesh.matrixWorldAutoUpdate = false
-    this.maxDistance = maxDistance
     this.iMesh = new THREE.InstancedMesh(mesh.geometry, mesh.material, 10)
     this.iMesh.name = this.mesh.name
     this.iMesh.castShadow = true
     this.iMesh.receiveShadow = true
     this.iMesh.matrixAutoUpdate = false
     this.iMesh.matrixWorldAutoUpdate = false
-    this.iMesh._lod = this
-    this.items = []
+    this.iMesh.model = this
+    this.items = [] // { node, matrix }
+    this.dirty = true
   }
 
-  add(item) {
-    if (item.lod) {
-      item.lod.remove(item)
+  createMesh(node, matrix) {
+    const item = {
+      idx: this.items.length,
+      node,
+      matrix,
     }
-    item.lod = this
-    item.idx = this.items.length
     this.items.push(item)
     this.iMesh.setMatrixAt(item.idx, item.matrix) // silently fails if too small, gets increased in clean()
     this.dirty = true
+    return {
+      move: matrix => {
+        this.move(item, matrix)
+      },
+      destroy: () => {
+        this.destroy(item)
+      },
+    }
   }
 
   move(item, matrix) {
@@ -125,7 +68,7 @@ class LOD {
     this.dirty = true
   }
 
-  remove(item) {
+  destroy(item) {
     const last = this.items[this.items.length - 1]
     const isOnly = this.items.length === 1
     const isLast = item === last
@@ -146,16 +89,6 @@ class LOD {
     }
   }
 
-  check(item) {
-    const cameraPos = this.model.manager.camera.position
-    const itemPos = v1.set(item.matrix.elements[12], item.matrix.elements[13], item.matrix.elements[14]) // prettier-ignore
-    const distance = cameraPos.distanceTo(itemPos)
-    const lod = item.model.findLod(distance)
-    if (lod !== this) {
-      lod.add(item) // switch lod!
-    }
-  }
-
   clean() {
     if (!this.dirty) return
     const size = this.iMesh.instanceMatrix.array.length / 16
@@ -170,12 +103,12 @@ class LOD {
     }
     this.iMesh.count = count
     if (this.iMesh.parent && !count) {
-      this.model.manager.scene.remove(this.iMesh)
+      this.world.graphics.scene.remove(this.iMesh)
       this.dirty = false
       return
     }
     if (!this.iMesh.parent && count) {
-      this.model.manager.scene.add(this.iMesh)
+      this.world.graphics.scene.add(this.iMesh)
     }
     this.iMesh.instanceMatrix.needsUpdate = true
     this.iMesh.computeBoundingSphere()
@@ -184,5 +117,138 @@ class LOD {
 
   getNode(idx) {
     return this.items[idx]?.node
+  }
+
+  createCollider(node, matrix) {
+    if (!this.colliders) {
+      this.colliders = makeColliderFactory(this.world, this.mesh)
+    }
+    return this.colliders.create(node, matrix)
+  }
+
+  getTriangles() {
+    const geometry = this.mesh.geometry
+    if (geometry.index !== null) {
+      return geometry.index.count / 3
+    } else {
+      return geometry.attributes.position.count / 3
+    }
+  }
+}
+
+function makeColliderFactory(world, mesh) {
+  const positionAttribute = mesh.geometry.getAttribute('position')
+  const indexAttribute = mesh.geometry.getIndex()
+  const points = new PHYSX.Vector_PxVec3()
+  const triangles = new PHYSX.Vector_PxU32()
+
+  // add vertices to the points vector
+  for (let i = 0; i < positionAttribute.count; i++) {
+    const x = positionAttribute.getX(i)
+    const y = positionAttribute.getY(i)
+    const z = positionAttribute.getZ(i)
+    const p = new PHYSX.PxVec3(x, y, z)
+    points.push_back(p)
+  }
+
+  // add indices to the triangles vector, if available
+  if (indexAttribute) {
+    for (let i = 0; i < indexAttribute.count; i++) {
+      triangles.push_back(indexAttribute.array[i])
+    }
+  } else {
+    // if no indices are provided, assume non-indexed geometry
+    for (let i = 0; i < positionAttribute.count; i++) {
+      triangles.push_back(i)
+    }
+  }
+
+  // create triangle mesh descriptor
+  const desc = new PHYSX.PxTriangleMeshDesc()
+  desc.points.count = points.size()
+  desc.points.stride = 12 // size of PhysX.PxVec3 in bytes
+  desc.points.data = points.data()
+  desc.triangles.count = triangles.size() / 3
+  desc.triangles.stride = 12 // size of uint32 in bytes, assuming indices are 32-bit
+  desc.triangles.data = triangles.data()
+  // console.log('val?', desc.isValid())
+
+  const physics = world.physics.physics
+  const cookingParams = physics.cookingParams
+  const pmesh = PHYSX.PxTopLevelFunctions.prototype.CreateTriangleMesh(
+    cookingParams,
+    desc
+  )
+  // console.log('pmesh', pmesh)
+
+  const meshPos = new THREE.Vector3()
+  const meshQuat = new THREE.Quaternion()
+  const meshSca = new THREE.Vector3()
+  mesh.matrixWorld.decompose(meshPos, meshQuat, meshSca)
+
+  const scale = new PHYSX.PxMeshScale(
+    new PHYSX.PxVec3(meshSca.x, meshSca.y, meshSca.z),
+    new PHYSX.PxQuat(0, 0, 0, 1)
+  )
+  const geometry = new PHYSX.PxTriangleMeshGeometry(pmesh, scale)
+
+  const flags = new PHYSX.PxShapeFlags(
+    PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE |
+      PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE |
+      PHYSX.PxShapeFlagEnum.eVISUALIZATION
+  )
+  const material = physics.createMaterial(0.5, 0.5, 0.5)
+
+  const tmpFilterData = new PHYSX.PxFilterData(1, 1, 0, 0)
+
+  PHYSX.destroy(scale)
+  PHYSX.destroy(desc)
+  PHYSX.destroy(points)
+  PHYSX.destroy(triangles)
+
+  return {
+    create(node, matrix) {
+      const shape = physics.createShape(geometry, material, true, flags)
+      shape.setSimulationFilterData(tmpFilterData)
+
+      // convert matrix to physx transform
+      const pos = new THREE.Vector3()
+      const qua = new THREE.Quaternion()
+      const sca = new THREE.Vector3()
+      matrix.decompose(pos, qua, sca)
+      const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
+      pos.toPxTransform(transform)
+      qua.toPxTransform(transform)
+
+      // create actor and add to scene
+      const actor = physics.createRigidDynamic(transform)
+      actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
+      actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
+      actor.attachShape(shape)
+      world.physics.scene.addActor(actor)
+
+      let active = true
+
+      return {
+        setActive(value) {
+          if (active === value) return
+          active = value
+          if (active) {
+            world.physics.scene.addActor(actor)
+          } else {
+            world.physics.scene.removeActor(actor)
+          }
+        },
+        move(matrix) {
+          matrix.toPxTransform(transform)
+          actor.setGlobalPose(transform)
+        },
+        destroy() {
+          world.physics.scene.removeActor(actor)
+          shape.release()
+          actor.release()
+        },
+      }
+    },
   }
 }

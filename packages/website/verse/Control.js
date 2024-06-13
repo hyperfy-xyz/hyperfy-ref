@@ -537,15 +537,16 @@ export class Control extends System {
     return hits.find(hit => {
       let entity
       if (hit.object) {
-        if (hit.object._lod) {
-          entity = hit.object._lod.getNode(hit.instanceId)?.entity
-        } else {
+        if (hit.object.node) {
           entity = hit.object.node?.entity
+        } else if (hit.object.model) {
+          entity = hit.object.model.getNode(hit.instanceId)?.entity
         }
       }
-      if (entity) {
-        return entity.mode !== 'moving'
+      if (entity && entity.mode === 'moving') {
+        return false
       }
+      hit.entity = entity
       return true
     })
   }
@@ -555,15 +556,7 @@ export class Control extends System {
     const hits = this.world.graphics.raycastViewport(coords)
     const hit = this.findHit(hits)
     if (!hit) return // void
-    let entity
-    if (hit.object) {
-      if (hit.object._lod) {
-        entity = hit.object._lod.getNode(hit.instanceId)?.entity
-      } else {
-        entity = hit.object.node?.entity
-      }
-    }
-    // const entity = hit?.object?.node?.entity
+    const entity = hit.entity
     const actions = []
     const add = opts => {
       actions.push({

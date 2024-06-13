@@ -173,7 +173,7 @@ export class Node {
     if (recursive) {
       for (let i = 0; i < source.children.length; i++) {
         const child = source.children[i]
-        this.add(child.clone())
+        this.add(child.clone(recursive))
       }
     }
     return this
