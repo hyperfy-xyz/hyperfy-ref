@@ -40,6 +40,7 @@ const MOVE_ROTATE_SPEED = 0.1 * DEG2RAD
 
 const e1 = new THREE.Euler(0, 0, 0, 'YXZ')
 const q1 = new THREE.Quaternion()
+const arr1 = []
 
 export class Control extends System {
   constructor(world) {
@@ -97,7 +98,7 @@ export class Control extends System {
         this.world.control.pointer.coords,
         this.world.graphics.maskMoving
       )
-      const hit = this.findHit(hits)
+      const [hit, entity] = this.resolveHit(hits)
       if (hit) {
         this.moving.lastSend += delta
         const sync = this.moving.lastSend >= MOVE_SEND_RATE
@@ -532,31 +533,29 @@ export class Control extends System {
     }
   }
 
-  findHit(hits) {
-    // ignores moving targets
-    return hits.find(hit => {
-      let entity
+  resolveHit(hits) {
+    for (const hit of hits) {
       if (hit.object) {
-        if (hit.object.node) {
-          entity = hit.object.node?.entity
-        } else if (hit.object.model) {
-          entity = hit.object.model.getNode(hit.instanceId)?.entity
+        const entity = hit.object.getEntity?.(hit.instanceId)
+        console.log('entity', entity)
+        if (entity?.mode === 'moving') {
+          // moving entities are ignored
+          continue
         }
+        arr1[0] = hit
+        arr1[1] = entity
+        return arr1
       }
-      if (entity && entity.mode === 'moving') {
-        return false
-      }
-      hit.entity = entity
-      return true
-    })
+      arr1[0] = hit
+      arr1[1] = null
+      return arr1
+    }
   }
 
   openContext() {
     const coords = this.pointer.coords
     const hits = this.world.graphics.raycastViewport(coords)
-    const hit = this.findHit(hits)
-    if (!hit) return // void
-    const entity = hit.entity
+    const [hit, entity] = this.resolveHit(hits)
     const actions = []
     const add = opts => {
       actions.push({
@@ -572,7 +571,13 @@ export class Control extends System {
     const hitSelf = entity === this.world.network.avatar
     const hitAvatar = !hitSelf && entity?.schema.type === 'avatar'
     const hitPrototype = entity?.schema.type === 'prototype'
-    const hitItem = entity?.schema.type === 'item'
+    // const hitItem = entity?.schema.type === 'item'
+    if (hitVoid) {
+      return
+    }
+    if (hitWorld) {
+      return
+    }
     if (hitSelf) {
       add({
         label: 'Profile',
@@ -744,7 +749,7 @@ export class Control extends System {
         visible: true,
         disabled: false,
         execute: () => {
-          for (let i = 0; i < 500; i++) {
+          for (let i = 0; i < 50; i++) {
             e1.set(0, num(0, 360, 2) * DEG2RAD, 0)
             q1.setFromEuler(e1)
             this.world.entities.addEntityLocal({

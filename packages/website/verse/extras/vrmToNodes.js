@@ -103,9 +103,11 @@ function buildVRMFactory(glb, world) {
     vrm.scene.matrix.copy(matrix)
     world.graphics.scene.add(vrm.scene)
 
+    const getEntity = () => node.entity
+
     // link back node for raycasts
     vrm.scene.traverse(n => {
-      n.node = node
+      n.getEntity = getEntity
     })
 
     // pose arms down
@@ -120,6 +122,9 @@ function buildVRMFactory(glb, world) {
     // i have no idea how but the mixer only needs one of the skinned meshes
     // and if i set it to vrm.scene it no longer works with detached bind mode
     const mixer = new THREE.AnimationMixer(skinnedMeshes[0])
+
+    // IDEA: we should use a global frame "budget" to distribute across avatars
+    // https://chatgpt.com/c/4bbd469d-982e-4987-ad30-97e9c5ee6729
 
     let elapsed = 0
     let rate = 0

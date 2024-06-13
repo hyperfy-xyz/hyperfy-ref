@@ -38,7 +38,7 @@ class Model {
     this.iMesh.receiveShadow = true
     this.iMesh.matrixAutoUpdate = false
     this.iMesh.matrixWorldAutoUpdate = false
-    this.iMesh.model = this
+    this.iMesh.getEntity = this.getEntity.bind(this)
     this.items = [] // { node, matrix }
     this.dirty = true
   }
@@ -115,8 +115,8 @@ class Model {
     this.dirty = false
   }
 
-  getNode(idx) {
-    return this.items[idx]?.node
+  getEntity(instanceId) {
+    return this.items[instanceId]?.node.entity
   }
 
   createCollider(node, matrix) {
