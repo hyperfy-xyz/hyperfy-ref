@@ -94,25 +94,29 @@ export class Entity {
     }
     const Node = Nodes[data.type]
     const node = new Node(data)
+    node.bind(this)
     this.nodes.set(node.name, node)
     return node
   }
 
   rebuild() {
-    // destroy current root + anby detached nodes
-    this.root.unbind()
+    // unmount nodes (including detached)
+    this.root.deactivate()
     this.nodes.forEach(node => {
-      node.unbind()
+      node.deactivate()
     })
+    this.nodes.clear()
     // clear script events
     this.events = {}
     // reconstruct
     if (this.isUploading()) {
       // show loading
-      this.root = new Nodes.group({
+      this.root = this.createNode({
+        type: 'group',
         name: 'root',
       })
-      const box = new Nodes.box({
+      const box = this.createNode({
+        type: 'box',
         name: 'loading',
         color: 'blue',
         position: [0, 0.5, 0],
@@ -120,10 +124,12 @@ export class Entity {
       this.root.add(box)
     } else if (!this.blueprint) {
       // not uploading but no blueprint? must be dead!
-      this.root = new Nodes.group({
+      this.root = this.createNode({
+        type: 'group',
         name: 'root',
       })
-      const box = new Nodes.box({
+      const box = this.createNode({
+        type: 'box',
         name: 'error',
         color: 'red',
         position: [0, 0.5, 0],
@@ -132,6 +138,7 @@ export class Entity {
     } else {
       // construct from blueprint
       this.root = this.blueprint.clone(true)
+      this.root.bind(this)
     }
     // re-point the lerpers
     this.root.position.copy(this.positionLerp.value)
@@ -141,15 +148,14 @@ export class Entity {
     this.positionLerp.snap()
     this.quaternionLerp.snap()
     // re-collect nodes by name
-    this.nodes.clear()
     this.root.traverse(node => {
       if (this.nodes.has(node.name)) {
         console.warn('dupe node name', node.name)
       }
       this.nodes.set(node.name, node)
     })
-    // bind (and mount)
-    this.root.bind(this)
+    // bind all nodes to this entity
+    // this.root.bind(this)
   }
 
   checkMode(forceRespawn) {
@@ -169,9 +175,6 @@ export class Entity {
     }
     // rebuild
     this.rebuild()
-    this.nodes.forEach(node => {
-      node.setMode(this.mode)
-    })
     // console.log('entity', this)
     // console.log('stats', this.getStats())
     // configure new
@@ -186,7 +189,7 @@ export class Entity {
           this.kill()
         }
       }
-      // emit script 'setup' event (pre-world-space)
+      // emit script 'setup' event (pre-mount)
       try {
         this.emit('setup')
       } catch (err) {
@@ -194,7 +197,9 @@ export class Entity {
         console.error(err)
         this.kill()
       }
-      // emit script 'start' event (world-space)
+      // activate (mount) nodes
+      this.root.activate()
+      // emit script 'start' event (post-mount)
       try {
         this.emit('start')
       } catch (err) {
@@ -212,7 +217,10 @@ export class Entity {
         this.world.control.setMoving(this)
       }
       this.world.entities.incActive(this)
+      // activate (mount) nodes
+      this.root.activate()
     }
+    this.nodes.forEach(node => node.setMode(this.mode))
     this.prevMode = this.mode
     this.prevModeClientId = this.modeClientId
   }

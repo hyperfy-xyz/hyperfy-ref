@@ -88,7 +88,7 @@ x website that speaks to api
 let cube
 
 object.on('setup', () => {
-  cube = object.get('cube')
+  cube = object.get('Cube_collider')
 })
 
 object.on('update', delta => {

@@ -537,7 +537,6 @@ export class Control extends System {
     for (const hit of hits) {
       if (hit.object) {
         const entity = hit.object.getEntity?.(hit.instanceId)
-        console.log('entity', entity)
         if (entity?.mode === 'moving') {
           // moving entities are ignored
           continue

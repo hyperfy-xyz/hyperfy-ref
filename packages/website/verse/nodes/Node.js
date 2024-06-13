@@ -35,20 +35,25 @@ export class Node {
   }
 
   bind(entity) {
-    this.project()
     this.traverse(node => {
       node.entity = entity
+    })
+  }
+
+  activate() {
+    this.project()
+    this.traverse(node => {
+      if (node.mounted) return
       node.mounted = true
       node.mount()
     })
   }
 
-  unbind() {
+  deactivate() {
     this.traverse(node => {
       if (!node.mounted) return
       node.unmount()
       node.mounted = false
-      node.entity = null
     })
   }
 
@@ -59,12 +64,7 @@ export class Node {
     node.parent = this
     this.children.push(node)
     if (this.mounted) {
-      node.project()
-      node.traverse(node => {
-        node.entity = this.entity
-        node.mounted = true
-        node.mount()
-      })
+      node.activate()
     }
     return this
   }
@@ -72,10 +72,7 @@ export class Node {
   remove(node) {
     const idx = this.children.indexOf(node)
     if (idx === -1) return
-    node.traverse(node => {
-      node.mounted = false
-      node.unmount()
-    })
+    node.deactivate()
     node.parent = null
     this.children.splice(idx, 1)
     return this
@@ -201,6 +198,7 @@ export class Node {
           self.dirty()
         },
         add(pNode) {
+          console.log('add', pNode, self)
           const node = self.entity.nodes.get(pNode.name)
           self.add(node)
           return this
