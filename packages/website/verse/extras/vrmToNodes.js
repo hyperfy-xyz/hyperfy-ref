@@ -84,6 +84,17 @@ function buildVRMFactory(glb, world) {
   // rootBone.parent.remove(rootBone)
   // rootBone.updateMatrixWorld(true)
 
+  const skeleton = skinnedMeshes[0].skeleton // should be same across all skinnedMeshes
+
+  // pose arms down
+  const normBones = glb.userData.vrm.humanoid._normalizedHumanBones.humanBones
+  const leftArm = normBones.leftUpperArm.node
+  leftArm.rotation.z = 75 * DEG2RAD
+  const rightArm = normBones.rightUpperArm.node
+  rightArm.rotation.z = -75 * DEG2RAD
+  glb.userData.vrm.humanoid.update(0)
+  skeleton.update()
+
   const getBoneName = vrmBoneName => {
     return glb.userData.vrm.humanoid.getRawBoneNode(vrmBoneName)?.name
   }
@@ -103,21 +114,16 @@ function buildVRMFactory(glb, world) {
     vrm.scene.matrix.copy(matrix)
     world.graphics.scene.add(vrm.scene)
 
+    // bounds tree
+    for (const mesh of skinnedMeshes) {
+      mesh.geometry.computeBoundsTree()
+    }
+
+    // link back entity for raycasts
     const getEntity = () => node.entity
-
-    // link back node for raycasts
-    vrm.scene.traverse(n => {
-      n.getEntity = getEntity
+    vrm.scene.traverse(o => {
+      o.getEntity = getEntity
     })
-
-    // pose arms down
-    const bones = glb.userData.vrm.humanoid._normalizedHumanBones.humanBones
-    const leftArm = bones.leftUpperArm.node
-    leftArm.rotation.z = 75 * DEG2RAD
-    const rightArm = bones.rightUpperArm.node
-    rightArm.rotation.z = -75 * DEG2RAD
-    tvrm.humanoid.update(0)
-    skeleton.update()
 
     // i have no idea how but the mixer only needs one of the skinned meshes
     // and if i set it to vrm.scene it no longer works with detached bind mode
