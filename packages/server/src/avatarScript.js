@@ -1,12 +1,14 @@
 function wrapRawCode(code) {
   return `(function() {
-return object => {
+  return object => {
     ${code}
-}
+  }
 })()`
 }
 
-export const avatarScriptRaw = `
+const js = String.raw
+
+export const avatarScriptRaw = js`
 const o1 = new Object3D()
 const v1 = new Vector3()
 const v2 = new Vector3()
