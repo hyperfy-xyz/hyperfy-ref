@@ -39,6 +39,20 @@ export class Mesh extends Node {
     this.collider = null
   }
 
+  setVisible(visible) {
+    if (this.visible === visible) return
+    this.visible = visible
+    if (!this.mounted) return
+    if (visible) {
+      if (this.model) {
+        this.mesh = this.model.createMesh(this, this.matrixWorld)
+      }
+    } else {
+      this.mesh?.destroy()
+      this.mesh = null
+    }
+  }
+
   setMode(mode) {
     if (mode === 'moving') {
       this.collider?.setActive(false)

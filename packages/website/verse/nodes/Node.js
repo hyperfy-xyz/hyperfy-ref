@@ -198,7 +198,6 @@ export class Node {
           self.dirty()
         },
         add(pNode) {
-          console.log('add', pNode, self)
           const node = self.entity.nodes.get(pNode.name)
           self.add(node)
           return this

@@ -15,6 +15,7 @@ export class LOD extends Node {
   insert(node, maxDistance) {
     this.lods.push({ node, maxDistance })
     this.lods.sort((a, b) => a.maxDistance - b.maxDistance) // ascending
+    node.setVisible(false)
     this.add(node)
   }
 
@@ -32,12 +33,12 @@ export class LOD extends Node {
     if (this.lod === lod) return
     if (this.lod) {
       // console.log('remove lod', this.lod)
-      this.lod.node.setActive(false)
+      this.lod.node.setVisible(false)
     }
     this.lod = lod
     if (this.lod) {
       // console.log('add lod', this.lod)
-      this.lod.node.setActive(true)
+      this.lod.node.setVisible(true)
     }
   }
 
