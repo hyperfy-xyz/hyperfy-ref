@@ -5,15 +5,16 @@ import { System } from './System'
 export class Models extends System {
   constructor(world) {
     super(world)
-    this.models = new Map() // mesh -> Model
+    this.models = new Map() // id -> Model
   }
 
   register(mesh) {
-    if (this.models.has(mesh)) {
-      return this.models.get(mesh)
+    const id = mesh.geometry.uuid + '/' + mesh.material.uuid
+    if (this.models.has(id)) {
+      return this.models.get(id)
     }
     const model = new Model(this.world, mesh)
-    this.models.set(mesh, model)
+    this.models.set(id, model)
     return model
   }
 
