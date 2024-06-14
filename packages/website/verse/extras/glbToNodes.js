@@ -58,6 +58,7 @@ export function glbToNodes(glb, world) {
       // Mesh
       if (object3d.type === 'Mesh') {
         const [baseName, isHidden, isCollider, isLod, maxDistance] = parseName(object3d.name) // prettier-ignore
+        // apply any wind effect
         if (object3d.material.name.includes('_wind')) {
           addWind(object3d, world)
         }

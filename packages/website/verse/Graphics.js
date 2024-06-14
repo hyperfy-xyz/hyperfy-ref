@@ -63,10 +63,11 @@ export class Graphics extends System {
     })
     this.renderer.setSize(this.width, this.height)
     this.renderer.setClearColor(0xffffff, 0)
-    this.renderer.setPixelRatio(1) // window.devicePixelRatio
+    this.renderer.setPixelRatio(1)
+    // this.renderer.setPixelRatio(window.devicePixelRatio)
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
-    // this.renderer.toneMapping = THREE.ACESFilmicToneMapping
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
     // this.renderer.toneMappingExposure = 1
     // this.renderer.outputColorSpace = THREE.SRGBColorSpace
 
@@ -76,16 +77,16 @@ export class Graphics extends System {
       // customSplitsCallback: function (cascadeCount, nearDistance, farDistance) {
       //   return [0.05, 0.2, 0.5]
       // },
-      maxFar: 100,
-      fade: true,
       cascades: 3,
       shadowMapSize: 2048,
+      maxFar: 100,
       // lightDirection: new THREE.Vector3(0, -1, 2).normalize(),
       camera: this.camera,
       parent: this.scene,
-      lightNear: 0.1,
+      lightNear: 0.01,
       lightFar: 500,
-      // shadowBias: -0.00003,
+      fade: true,
+      // shadowBias: 0.0002,
       // shadowMapSize: 1024,
       // lightDirection: new THREE.Vector3(-1, -1, -1).normalize(),
       // lightIntensity: 2,
@@ -107,11 +108,17 @@ export class Graphics extends System {
 
     this.composer = new EffectComposer(this.renderer)
     this.aoPass = new N8AOPass(this.scene, this.camera, this.width, this.height)
-    this.aoPass.configuration.aoRadius = 1
-    this.aoPass.configuration.distanceFalloff = 1
+    // old
+    // this.aoPass.configuration.aoRadius = 1
+    // this.aoPass.configuration.distanceFalloff = 1
+    // this.aoPass.configuration.intensity = 3
+    // new screenspace!
+    this.aoPass.configuration.screenSpaceRadius = true
+    this.aoPass.configuration.aoRadius = 64
+    this.aoPass.configuration.distanceFalloff = 0.2
     this.aoPass.configuration.intensity = 3
     this.composer.addPass(this.aoPass)
-    this.aaPass = new SMAAPass()
+    this.aaPass = new SMAAPass(1822, 1328)
     this.composer.addPass(this.aaPass)
 
     this.cameraRig = new THREE.Object3D()
@@ -139,17 +146,36 @@ export class Graphics extends System {
     }
 
     // ground
-    {
-      const geometry = new THREE.BoxGeometry(1000, 1, 1000)
-      geometry.computeBoundsTree()
-      const material = new THREE.MeshStandardMaterial({ color: 'green' })
-      const mesh = new THREE.Mesh(geometry, material)
-      mesh.name = 'ground'
-      mesh.receiveShadow = true
+    this.world.loader.loadGLBRaw('/static/ground.glb').then(glb => {
+      const mesh = glb.scene.children[0]
+      mesh.geometry.computeBoundsTree() // three-mesh-bvh
+      mesh.material.shadowSide = THREE.BackSide // fix csm shadow banding
       mesh.castShadow = true
-      mesh.position.y = -0.5
+      mesh.receiveShadow = true
+      mesh.matrixAutoUpdate = false
+      mesh.matrixWorldAutoUpdate = false
       this.scene.add(mesh)
-    }
+    })
+
+    // sky
+    this.world.loader.loadTEX('/static/day2-2k.jpg').then(texture => {
+      texture.minFilter = texture.magFilter = THREE.LinearFilter
+      texture.mapping = THREE.EquirectangularReflectionMapping
+      // texture.encoding = Encoding[this.encoding]
+      texture.colorSpace = THREE.SRGBColorSpace
+
+      const geometry = new THREE.SphereGeometry(1000, 60, 40)
+      const material = new THREE.MeshBasicMaterial({ side: THREE.BackSide })
+      const mesh = new THREE.Mesh(geometry, material)
+      mesh.geometry.computeBoundsTree()
+      mesh.material.map = texture
+      mesh.material.needsUpdate = true
+      mesh.material.fog = false
+      mesh.material.toneMapped = false
+      mesh.matrixAutoUpdate = false
+      mesh.matrixWorldAutoUpdate = false
+      this.scene.add(mesh)
+    })
   }
 
   mount(viewport) {

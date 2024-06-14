@@ -77,6 +77,12 @@ function buildVRMFactory(glb, world) {
       node.bindMatrixInverse.copy(node.bindMatrix).invert()
       skinnedMeshes.push(node)
     }
+    if (node.isMesh) {
+      // bounds tree
+      node.geometry.computeBoundsTree()
+      // fix csm shadow banding
+      node.material.shadowSide = THREE.BackSide
+    }
   })
   // remove root bone from scene
   // const rootBone = glb.scene.getObjectByName('RootBone')
@@ -114,11 +120,6 @@ function buildVRMFactory(glb, world) {
     vrm.scene.matrix.copy(matrix)
     world.graphics.scene.add(vrm.scene)
 
-    // bounds tree
-    for (const mesh of skinnedMeshes) {
-      mesh.geometry.computeBoundsTree()
-    }
-
     // link back entity for raycasts
     const getEntity = () => node.entity
     vrm.scene.traverse(o => {
@@ -155,7 +156,7 @@ function buildVRMFactory(glb, world) {
         mixer.update(elapsed)
         skeleton.bones.forEach(bone => bone.updateMatrixWorld())
         skeleton.update = THREE.Skeleton.prototype.update
-        tvrm.humanoid.update(elapsed)
+        // tvrm.humanoid.update(elapsed)
         elapsed = 0
       } else {
         skeleton.update = noop

@@ -33,14 +33,12 @@ export function voxToNodes(vox, world) {
       }
       if (object3d.type === 'Mesh') {
         object3d.geometry.computeBoundsTree() // three-mesh-bvh
-        // TODO: rename world.models to world.composites
-        const src = world.models.create([
-          { mesh: object3d, maxDistance: Infinity },
-        ])
         const node = createNode({
-          type: 'composite',
+          type: 'mesh',
           name: object3d.name,
-          src,
+          model: world.models.register(object3d),
+          visible: true,
+          collision: false,
           position: object3d.position.toArray(),
           quaternion: object3d.quaternion.toArray(),
           scale: object3d.scale.toArray(),

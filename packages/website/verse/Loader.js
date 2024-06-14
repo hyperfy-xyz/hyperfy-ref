@@ -20,12 +20,13 @@ export class Loader extends System {
   constructor(world) {
     super(world)
     this.results = new Map() // url -> promise
-    this.rgbeLoader = new RGBELoader()
     this.voxLoader = new VOXLoader()
     this.gltfLoader = new GLTFLoader()
     this.ktx2Loader = new KTX2Loader()
     this.dracoLoader = new DRACOLoader()
     this.gltfLoader.register(parser => new VRMLoader(parser))
+    this.rgbeLoader = new RGBELoader()
+    this.texLoader = new THREE.TextureLoader()
   }
 
   start() {
@@ -123,6 +124,11 @@ export class Loader extends System {
     })
   }
 
+  loadGLBRaw(url) {
+    // hmmm
+    return this.gltfLoader.loadAsync(url)
+  }
+
   loadVRM(url) {
     return this.gltfLoader.loadAsync(url).then(vrm => {
       return vrmToNodes(vrm, world)
@@ -143,6 +149,10 @@ export class Loader extends System {
 
   loadHDR(url) {
     return this.rgbeLoader.loadAsync(url)
+  }
+
+  loadTEX(url) {
+    return this.texLoader.loadAsync(url)
   }
 
   async uploadAsset(file) {

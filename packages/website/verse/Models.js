@@ -29,6 +29,7 @@ class Model {
     this.world = world
     this.mesh = mesh.clone()
     this.mesh.geometry.computeBoundsTree() // three-mesh-bvh
+    this.mesh.material.shadowSide = THREE.BackSide // fix csm shadow banding
     this.mesh.castShadow = true
     this.mesh.receiveShadow = true
     this.mesh.matrixAutoUpdate = false
