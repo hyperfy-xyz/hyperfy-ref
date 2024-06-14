@@ -13,6 +13,7 @@ import { Physics } from './Physics'
 import { Entities } from './Entities'
 import { Graphics } from './Graphics'
 import { Stats } from './Stats'
+import { Wind } from './Wind'
 
 const FIXED_TIMESTEP = 1 / 60 // 60Hz
 const FIXED_TIME_MAX = FIXED_TIMESTEP * 20
@@ -28,6 +29,7 @@ export class World extends EventEmitter {
     this.fixedTime = 0
     this.frame = 0
 
+    this.wind = this.register(Wind)
     this.models = this.register(Models)
     this.lods = this.register(LODs)
     this.scripts = this.register(Scripts)
