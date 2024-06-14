@@ -90,6 +90,14 @@ export class Control extends System {
     //   this.lastRay = 0
     // }
 
+    // console.time('ray')
+    // const hits = this.world.graphics.raycastViewport(
+    //   this.world.control.pointer.coords,
+    //   this.world.graphics.maskMoving
+    // )
+    // const [hit, entity] = this.resolveHit(hits)
+    // console.timeEnd('ray')
+
     if (this.moving && this.moving.entity.destroyed) {
       this.setMoving(null)
     }
@@ -534,6 +542,7 @@ export class Control extends System {
   }
 
   resolveHit(hits) {
+    arr1.length = 0
     for (const hit of hits) {
       if (hit.object) {
         const entity = hit.object.getEntity?.(hit.instanceId)
@@ -546,9 +555,9 @@ export class Control extends System {
         return arr1
       }
       arr1[0] = hit
-      arr1[1] = null
       return arr1
     }
+    return arr1
   }
 
   openContext() {
@@ -748,7 +757,7 @@ export class Control extends System {
         visible: true,
         disabled: false,
         execute: () => {
-          for (let i = 0; i < 50; i++) {
+          for (let i = 0; i < 1000; i++) {
             e1.set(0, num(0, 360, 2) * DEG2RAD, 0)
             q1.setFromEuler(e1)
             this.world.entities.addEntityLocal({
@@ -758,7 +767,7 @@ export class Control extends System {
               authority: this.world.network.client.id,
               mode: 'active',
               modeClientId: null,
-              position: [num(-100, 100, 3), 0, num(-100, 100, 3)], // ground
+              position: [num(-200, 200, 3), 0, num(-200, 200, 3)], // ground
               quaternion: q1.toArray(),
               // position: [num(-100, 100, 3), num(0, 100, 3), num(-100, 100, 3)], // everywhere
               // quaternion: [0, 0, 0, 1],
