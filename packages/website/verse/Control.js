@@ -242,6 +242,11 @@ export class Control extends System {
           this.current.run = true
         }
         break
+      case 'KeyE':
+        if (!meta) {
+          this.keys.e = true
+        }
+        break
     }
   }
 
@@ -290,6 +295,11 @@ export class Control extends System {
         this.keys.shift = false
         if (this.current) {
           this.current.run = false
+        }
+        break
+      case 'KeyE':
+        if (!meta) {
+          this.keys.e = false
         }
         break
     }

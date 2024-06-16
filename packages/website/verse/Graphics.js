@@ -71,6 +71,8 @@ export class Graphics extends System {
     // this.renderer.toneMappingExposure = 1
     // this.renderer.outputColorSpace = THREE.SRGBColorSpace
 
+    this.maxAnisotropy = this.renderer.capabilities.getMaxAnisotropy()
+
     this.csm = new CSM({
       mode: 'practical', // uniform, logarithmic, practical, custom
       // mode: 'custom',
@@ -251,6 +253,20 @@ export class Graphics extends System {
     this.raycastHits.length = 0
     this.raycaster.intersectObjects(this.scene.children, true, this.raycastHits)
     return this.raycastHits
+  }
+
+  scaleUI(object3d, heightPx, pxToMeters) {
+    const camera = this.camera
+    const vFov = (camera.fov * Math.PI) / 180 // Convert vertical FOV from degrees to radians
+    const screenHeight = this.height // Get the actual screen height in pixels
+    const distance = object3d.position.distanceTo(
+      v1.setFromMatrixPosition(camera.matrixWorld)
+    ) // Calculate distance from camera to object
+    const heightAtDistance = 2 * Math.tan(vFov / 2) * distance // Calculate the visible height at the distance of the object
+    const worldUnitsPerPixel = heightAtDistance / screenHeight // Calculate world units per screen pixel vertically
+    const desiredWorldHeight = heightPx * worldUnitsPerPixel // Desired world height for 'height' pixels
+    const scale = desiredWorldHeight / (heightPx * pxToMeters) // Calculate the scaling factor based on the original height in meters
+    object3d.scale.setScalar(scale)
   }
 
   destroy() {

@@ -1,5 +1,7 @@
 import EventEmitter from 'eventemitter3'
 
+import { Wind } from './Wind'
+import { Actions } from './Actions'
 import { Models } from './Models'
 import { LODs } from './LODs'
 import { Scripts } from './Scripts'
@@ -13,7 +15,6 @@ import { Physics } from './Physics'
 import { Entities } from './Entities'
 import { Graphics } from './Graphics'
 import { Stats } from './Stats'
-import { Wind } from './Wind'
 
 const FIXED_TIMESTEP = 1 / 60 // 60Hz
 const FIXED_TIME_MAX = FIXED_TIMESTEP * 20
@@ -30,6 +31,7 @@ export class World extends EventEmitter {
     this.frame = 0
 
     this.wind = this.register(Wind)
+    this.actions = this.register(Actions)
     this.models = this.register(Models)
     this.lods = this.register(LODs)
     this.scripts = this.register(Scripts)
