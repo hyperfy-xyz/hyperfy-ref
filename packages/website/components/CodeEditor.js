@@ -18,6 +18,8 @@ export function CodeEditor({ value, onChange, onSave }) {
           enabled: false,
         },
         automaticLayout: true,
+        tabSize: 2,
+        insertSpaces: true,
       })
       editor.onDidChangeModelContent(event => {
         onChange(editor.getValue())
