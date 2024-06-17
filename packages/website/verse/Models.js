@@ -29,6 +29,7 @@ class Model {
     this.world = world
     this.mesh = mesh.clone()
     this.mesh.geometry.computeBoundsTree() // three-mesh-bvh
+    this.mesh.geometry.computeBoundingBox() // spatial octree
     this.mesh.material.shadowSide = THREE.BackSide // fix csm shadow banding
     this.mesh.castShadow = true
     this.mesh.receiveShadow = true
@@ -40,6 +41,7 @@ class Model {
     this.iMesh.receiveShadow = true
     this.iMesh.matrixAutoUpdate = false
     this.iMesh.matrixWorldAutoUpdate = false
+    this.iMesh.frustumCulled = false
     this.iMesh.getEntity = this.getEntity.bind(this)
     this.items = [] // { node, matrix }
     this.dirty = true
@@ -50,16 +52,26 @@ class Model {
       idx: this.items.length,
       node,
       matrix,
+      // octree
     }
     this.items.push(item)
     this.iMesh.setMatrixAt(item.idx, item.matrix) // silently fails if too small, gets increased in clean()
     this.dirty = true
+    const sItem = {
+      matrix,
+      geometry: this.mesh.geometry,
+      material: this.mesh.material,
+      getEntity: () => this.items[item.idx]?.node.entity,
+    }
+    this.world.spatial.octree.insert(sItem)
     return {
       move: matrix => {
         this.move(item, matrix)
+        this.world.spatial.octree.move(sItem)
       },
       destroy: () => {
         this.destroy(item)
+        this.world.spatial.octree.remove(sItem)
       },
     }
   }
@@ -113,7 +125,7 @@ class Model {
       this.world.graphics.scene.add(this.iMesh)
     }
     this.iMesh.instanceMatrix.needsUpdate = true
-    this.iMesh.computeBoundingSphere()
+    // this.iMesh.computeBoundingSphere()
     this.dirty = false
   }
 

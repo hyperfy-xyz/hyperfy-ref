@@ -554,12 +554,9 @@ export class Control extends System {
   resolveHit(hits) {
     arr1.length = 0
     for (const hit of hits) {
-      if (hit.object) {
-        const entity = hit.object.getEntity?.(hit.instanceId)
-        if (entity?.mode === 'moving') {
-          // moving entities are ignored
-          continue
-        }
+      if (hit.getEntity) {
+        const entity = hit.getEntity()
+        if (entity?.mode === 'moving') continue
         arr1[0] = hit
         arr1[1] = entity
         return arr1
@@ -767,7 +764,8 @@ export class Control extends System {
         visible: true,
         disabled: false,
         execute: () => {
-          for (let i = 0; i < 1000; i++) {
+          if (!window.bomb) window.bomb = 1000
+          for (let i = 0; i < window.bomb; i++) {
             e1.set(0, num(0, 360, 2) * DEG2RAD, 0)
             q1.setFromEuler(e1)
             this.world.entities.addEntityLocal({

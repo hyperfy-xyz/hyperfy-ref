@@ -17,7 +17,7 @@ import { System } from './System'
 // three-mesh-bvh
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree
 THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree
-// THREE.Mesh.prototype.raycast = acceleratedRaycast
+THREE.Mesh.prototype.raycast = acceleratedRaycast
 
 // THREE.Object3D.DEFAULT_MATRIX_AUTO_UPDATE = false
 // THREE.Object3D.DEFAULT_MATRIX_WORLD_AUTO_UPDATE = false
@@ -138,25 +138,36 @@ export class Graphics extends System {
     this.maskMoving.disable(Layers.MOVING)
 
     window.THREE = THREE
+  }
 
+  start() {
     // hdr
     {
-      const texture = await this.world.loader.load('/static/day2.hdr')
-      // texture.colorSpace = THREE.SRGBColorSpace
-      texture.mapping = THREE.EquirectangularReflectionMapping
-      this.scene.environment = texture
+      this.world.loader.load('/static/day2.hdr').then(texture => {
+        // texture.colorSpace = THREE.SRGBColorSpace
+        texture.mapping = THREE.EquirectangularReflectionMapping
+        this.scene.environment = texture
+      })
     }
 
     // ground
     this.world.loader.loadGLBRaw('/static/ground.glb').then(glb => {
       const mesh = glb.scene.children[0]
       mesh.geometry.computeBoundsTree() // three-mesh-bvh
+      mesh.geometry.computeBoundingBox()
       mesh.material.shadowSide = THREE.BackSide // fix csm shadow banding
       mesh.castShadow = true
       mesh.receiveShadow = true
       mesh.matrixAutoUpdate = false
       mesh.matrixWorldAutoUpdate = false
       this.scene.add(mesh)
+      const sItem = {
+        matrix: mesh.matrixWorld,
+        geometry: mesh.geometry,
+        material: mesh.material,
+        getEntity: null,
+      }
+      this.world.spatial.octree.insert(sItem)
     })
 
     // sky
@@ -250,8 +261,28 @@ export class Graphics extends System {
     this.raycaster.layers = layers
     this.raycaster.near = min
     this.raycaster.far = max
+    // console.time('regular')
+    // this.raycastHits.length = 0
+    // this.raycaster.intersectObjects(this.scene.children, true, this.raycastHits)
+    // console.timeEnd('regular')
     this.raycastHits.length = 0
-    this.raycaster.intersectObjects(this.scene.children, true, this.raycastHits)
+    console.time('spatial')
+    this.world.spatial.octree.raycast(this.raycaster, this.raycastHits)
+    console.timeEnd('spatial')
+    // for (const hit of hits) {
+    //   const box = new THREE.Box3Helper(hit.item.box, 'red') // Yellow color for the helper
+    //   this.scene.add(box)
+    // }
+    // if (!this.foo) {
+    //   this.foo = true
+    //   const world = new THREE.Box3(
+    //     new THREE.Vector3(-100, 0.01, -100),
+    //     new THREE.Vector3(100, 200, 100)
+    //   )
+    //   const box = new THREE.Box3Helper(world, 'red')
+    //   this.scene.add(box)
+    // }
+
     return this.raycastHits
   }
 

@@ -103,6 +103,39 @@ export class Network extends System {
       this.onCameraReady = null
     }
 
+    // // ground
+    // {
+    //   const schema = {
+    //     id: this.world.network.makeId(),
+    //     type: 'prototype',
+    //     model: '/static/ground.glb',
+    //     modelType: 'glb',
+    //     script: null,
+    //   }
+    //   this.world.entities.upsertSchema(schema)
+    //   const entity = this.world.entities.addEntity({
+    //     id: this.world.network.makeId(),
+    //     schemaId: schema.id,
+    //     creator: this.world.network.client.user.id, // ???
+    //     authority: this.world.network.client.id,
+    //     mode: 'active',
+    //     modeClientId: null,
+    //     // position: entity.root.position.toArray(),
+    //     // quaternion: entity.root.quaternion.toArray(),
+    //     // state: entity.state,
+    //   })
+    //   // this.world.loader.loadGLBRaw('/static/ground.glb').then(glb => {
+    //   //   const mesh = glb.scene.children[0]
+    //   //   mesh.geometry.computeBoundsTree() // three-mesh-bvh
+    //   //   mesh.material.shadowSide = THREE.BackSide // fix csm shadow banding
+    //   //   mesh.castShadow = true
+    //   //   mesh.receiveShadow = true
+    //   //   mesh.matrixAutoUpdate = false
+    //   //   mesh.matrixWorldAutoUpdate = false
+    //   //   this.scene.add(mesh)
+    //   // })
+    // }
+
     const schema = {
       id: this.world.network.makeId(),
       type: 'avatar',
