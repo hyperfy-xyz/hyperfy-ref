@@ -39,6 +39,15 @@ export class LooseOctree {
     return intersects
   }
 
+  // spherecast(sphere, intersects = []) {
+  //   // console.time('spherecast')
+  //   this.root.spherecast(sphere, intersects)
+  //   intersects.sort(sortAscending)
+  //   // console.timeEnd('spherecast')
+  //   // console.log('octree.spherecast', intersects)
+  //   return intersects
+  // }
+
   setHelper(enabled) {
     if (enabled && !this.helper) {
       this.helper = createHelper(this)
@@ -141,6 +150,44 @@ class LooseOctreeNode {
     }
     return intersects
   }
+
+  // spherecast(sphere, intersects) {
+  //   if (!sphere.intersectsBox(this.outer)) {
+  //     return intersects
+  //   }
+  //   for (const item of this.items) {
+  //     if (sphere.intersectsSphere(item.sphere)) {
+  //       // just sphere-to-sphere is good enough for now
+  //       const centerToCenterDistance = sphere.center.distanceTo(
+  //         item.sphere.center
+  //       )
+  //       const overlapDistance =
+  //         item.sphere.radius + sphere.radius - centerToCenterDistance
+  //       const distance = Math.max(0, overlapDistance)
+  //       const intersect = {
+  //         distance: distance,
+  //         point: null,
+  //         object: null,
+  //         getEntity: item.getEntity,
+  //       }
+  //       intersects.push(intersect)
+  //       // _mesh.geometry = item.geometry
+  //       // _mesh.material = item.material
+  //       // _mesh.matrixWorld = item.matrix
+  //       // _mesh.raycast(raycaster, _intersects)
+  //       // for (let i = 0, l = _intersects.length; i < l; i++) {
+  //       //   const intersect = _intersects[i]
+  //       //   intersect.getEntity = item.getEntity
+  //       //   intersects.push(intersect)
+  //       // }
+  //       // _intersects.length = 0
+  //     }
+  //   }
+  //   for (const child of this.children) {
+  //     child.spherecast(sphere, intersects)
+  //   }
+  //   return intersects
+  // }
 }
 
 function sortAscending(a, b) {
