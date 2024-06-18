@@ -133,12 +133,12 @@ function createAction(world) {
         if (node.progress > node.duration) node.progress = node.duration
         draw(node.text, node.progress / node.duration)
         if (node.progress === node.duration) {
+          node.progress = 0
           try {
             node.onComplete()
           } catch (err) {
             console.error('action.onComplete:', err)
           }
-          node.progress = 0
         }
       } else if (node.progress > 0) {
         if (!cancelled) {
