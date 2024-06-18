@@ -80,9 +80,13 @@ export class Mesh extends Node {
   }
 
   getProxy() {
+    const self = this
     if (!this.proxy) {
       const proxy = {
         ...super.getProxy(),
+        setVisible(visible) {
+          self.setVisible(visible)
+        },
       }
       this.proxy = proxy
     }
