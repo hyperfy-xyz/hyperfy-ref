@@ -297,57 +297,44 @@ export class Entity {
   }
 
   getProxy() {
-    if (!this.proxy) {
-      const entity = this
-      const world = this.world
-      const proxy = {
-        on(name, callback) {
-          entity.on(name, callback)
-        },
-        off(name, callback) {
-          entity.off(name, callback)
-        },
-        get(name) {
-          const node = entity.nodes.get(name)
-          if (!node) return null
-          return node.getProxy()
-        },
-        create(data) {
-          const node = entity.createNode(data)
-          return node.getProxy()
-        },
-        add(pNode) {
-          const node = entity.nodes.get(pNode.name)
-          entity.root.add(node)
-          return proxy
-        },
-        remove(pNode) {
-          const node = entity.nodes.get(pNode.name)
-          entity.root.remove(node)
-          return proxy
-        },
-        isAuthority() {
-          return entity.authority === world.network.client.id
-        },
-        requestControl() {
-          world.control.request(entity)
-        },
-        getControl() {
-          return world.control.get(entity)
-        },
-        releaseControl() {
-          return world.control.release(entity)
-        },
-        getState() {
-          return entity.stateProxy
-        },
-        getStateChanges() {
-          return entity.stateChanges
-        },
-      }
-      this.proxy = proxy
+    const entity = this
+    const world = this.world
+    return {
+      on(name, callback) {
+        entity.on(name, callback)
+      },
+      off(name, callback) {
+        entity.off(name, callback)
+      },
+      get(name) {
+        const node = entity.nodes.get(name)
+        if (!node) return null
+        return node.getProxy()
+      },
+      create(data) {
+        const node = entity.createNode(data)
+        return node.getProxy()
+      },
+      isAuthority() {
+        return entity.authority === world.network.client.id
+      },
+      requestControl() {
+        world.control.request(entity)
+      },
+      getControl() {
+        return world.control.get(entity)
+      },
+      releaseControl() {
+        return world.control.release(entity)
+      },
+      getState() {
+        return entity.stateProxy
+      },
+      getStateChanges() {
+        return entity.stateChanges
+      },
+      ...this.root.getProxy(),
     }
-    return this.proxy
   }
 
   getUpdate = () => {
