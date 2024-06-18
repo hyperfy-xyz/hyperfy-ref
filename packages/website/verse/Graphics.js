@@ -266,9 +266,9 @@ export class Graphics extends System {
     // this.raycaster.intersectObjects(this.scene.children, true, this.raycastHits)
     // console.timeEnd('regular')
     this.raycastHits.length = 0
-    console.time('spatial')
+    // console.time('spatial')
     this.world.spatial.octree.raycast(this.raycaster, this.raycastHits)
-    console.timeEnd('spatial')
+    // console.timeEnd('spatial')
     // for (const hit of hits) {
     //   const box = new THREE.Box3Helper(hit.item.box, 'red') // Yellow color for the helper
     //   this.scene.add(box)

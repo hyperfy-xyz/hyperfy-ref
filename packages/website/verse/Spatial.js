@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
 import { System } from './System'
-import { Octree } from './extras/Octree'
+import { LooseOctree } from './extras/LooseOctree'
 
 export class Spatial extends System {
   constructor(world) {
@@ -9,15 +9,11 @@ export class Spatial extends System {
   }
 
   start() {
-    const box = new THREE.Box3(
-      new THREE.Vector3(-2000, -2000, -2000),
-      new THREE.Vector3(2000, 2000, 2000)
-    )
-    this.octree = new Octree({
+    this.octree = new LooseOctree({
       scene: this.world.graphics.scene,
       debug: true,
-      box,
-      maxItems: 100,
+      center: new THREE.Vector3(0, 0, 0),
+      size: 2000,
     })
   }
 

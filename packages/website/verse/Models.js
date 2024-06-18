@@ -30,6 +30,7 @@ class Model {
     this.mesh = mesh.clone()
     this.mesh.geometry.computeBoundsTree() // three-mesh-bvh
     this.mesh.geometry.computeBoundingBox() // spatial octree
+    this.mesh.geometry.computeBoundingSphere() // spatial octree
     this.mesh.material.shadowSide = THREE.BackSide // fix csm shadow banding
     this.mesh.castShadow = true
     this.mesh.receiveShadow = true

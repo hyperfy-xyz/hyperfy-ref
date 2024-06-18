@@ -49,7 +49,7 @@ class OctreeNode {
       return true
     }
 
-    if (this.nodes.length === 0) {
+    if (!this.nodes.length) {
       this.subdivide()
     }
 
@@ -59,9 +59,11 @@ class OctreeNode {
         added = true
       }
     }
-    if (added) return true
 
-    this.items.push(item)
+    if (!added) {
+      this.items.push(item)
+    }
+
     return true
   }
 
