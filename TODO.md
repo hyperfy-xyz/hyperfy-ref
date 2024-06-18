@@ -111,3 +111,30 @@ object.on('update', delta => {
   blades.dirty()
 })
 ```
+
+## Tree Choppable
+
+```
+let trunk
+let leaves
+let stump
+let action
+
+object.on('setup', () => {
+  trunk = object.get('Trunk')
+  leaves = object.get('Leaves')
+  stump = object.get('Stump_collider_hidden')
+  action = object.create({
+    type: 'action',
+    text: 'Chop',
+    onComplete() {
+      object.remove(trunk)
+      object.remove(leaves)
+      stump.setVisible(true)
+      object.remove(action)
+    }
+  })
+  object.add(action)
+  action.position.y = 1
+})
+```

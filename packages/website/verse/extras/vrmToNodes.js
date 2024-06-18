@@ -14,6 +14,8 @@ const DIST_MAX_RATE = 1 / 25 // 25 times per second
 const DIST_MIN = 10 // <= 10m = min rate
 const DIST_MAX = 30 // >= 30m = max rate
 
+const material = new THREE.MeshBasicMaterial()
+
 export function vrmToNodes(glb, world) {
   const nodes = new Map()
   function createNode(data) {
@@ -117,8 +119,17 @@ function buildVRMFactory(glb, world) {
     const rootBone = skeleton.bones[0] // should always be 0
     rootBone.parent.remove(rootBone)
     rootBone.updateMatrixWorld(true)
-    vrm.scene.matrix.copy(matrix)
+    vrm.scene.matrix = matrix // synced!
     world.graphics.scene.add(vrm.scene)
+
+    // spatial capsule
+    const sItem = {
+      matrix,
+      geometry: createCapsule(0.4, 1),
+      material,
+      getEntity: () => node.entity,
+    }
+    world.spatial.octree.insert(sItem)
 
     // link back entity for raycasts
     const getEntity = () => node.entity
@@ -208,12 +219,14 @@ function buildVRMFactory(glb, world) {
 
     return {
       setEmote,
-      move(matrix) {
-        vrm.scene.matrix.copy(matrix)
+      move(_matrix) {
+        matrix.copy(_matrix)
+        world.spatial.octree.move(sItem)
       },
       destroy() {
         world.graphics.scene.remove(vrm.scene)
         world.updater.remove(update)
+        world.spatial.octree.remove(sItem)
       },
     }
   }
@@ -233,4 +246,11 @@ function getSkinnedMeshes(scene) {
     }
   })
   return meshes
+}
+
+function createCapsule(radius, height) {
+  const fullHeight = radius + height + radius
+  const geometry = new THREE.CapsuleGeometry(0.4, 1)
+  geometry.translate(0, fullHeight / 2, 0)
+  return geometry
 }

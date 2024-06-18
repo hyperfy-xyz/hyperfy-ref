@@ -17,6 +17,7 @@ export class LooseOctree {
 
   insert(item) {
     if (!item.sphere) item.sphere = new THREE.Sphere()
+    if (!item.geometry.boundingSphere) item.geometry.computeBoundingSphere()
     item.sphere.copy(item.geometry.boundingSphere).applyMatrix4(item.matrix)
     this.root.insert(item)
   }
