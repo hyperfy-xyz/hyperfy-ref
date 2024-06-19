@@ -18,7 +18,7 @@ export class Entity {
     this.modeClientId = data.modeClientId // when mode=moving|editing
     this.nodes = new Map()
     this.root = new Nodes.group({
-      name: 'root',
+      name: '$root',
       position: data.position,
       quaternion: data.quaternion,
     })
@@ -113,7 +113,7 @@ export class Entity {
       // show loading
       this.root = this.createNode({
         type: 'group',
-        name: 'root',
+        name: '$root',
       })
       const box = this.createNode({
         type: 'box',
@@ -126,7 +126,7 @@ export class Entity {
       // not uploading but no blueprint? must be dead!
       this.root = this.createNode({
         type: 'group',
-        name: 'root',
+        name: '$root',
       })
       const box = this.createNode({
         type: 'box',

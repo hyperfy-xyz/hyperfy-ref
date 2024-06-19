@@ -13,40 +13,42 @@ export function glbToNodes(glb, world) {
       return
     }
     const Node = Nodes[data.type]
+    if (!Node) console.error('unknown node:', data.type)
     const node = new Node(data)
     nodes.set(node.name, node)
     return node
   }
-  const root = createNode({
-    type: 'group',
-    name: 'root',
-  })
-  function parseName(name) {
-    const parts = name.split('_')
-    let baseName = parts[0]
-    let isHidden = false
-    let isCollider = false
-    let isLod = false
-    let maxDistance = null
-    for (const part of parts) {
-      if (part.startsWith('lod')) {
-        isLod = true
-        maxDistance = parseInt(part.substring(3), 10)
-      } else if (part === 'collider') {
-        isCollider = true
-      } else if (part === 'hidden') {
-        isHidden = true
-      }
-    }
-    return [baseName, isHidden, isCollider, isLod, maxDistance]
+  // function parseName(name) {
+  //   const parts = name.split('_')
+  //   let baseName = parts[0]
+  //   let isHidden = false
+  //   let isCollider = false
+  //   let isLod = false
+  //   let maxDistance = null
+  //   for (const part of parts) {
+  //     if (part.startsWith('lod')) {
+  //       isLod = true
+  //       maxDistance = parseInt(part.substring(3), 10)
+  //     } else if (part === 'collider') {
+  //       isCollider = true
+  //     } else if (part === 'hidden') {
+  //       isHidden = true
+  //     }
+  //   }
+  //   return [baseName, isHidden, isCollider, isLod, maxDistance]
+  // }
+  function hasLods(children) {
+    return !!children.find(
+      child => child.isMesh && child.userData.lodMaxDistance
+    )
   }
   function parse(object3ds, parentNode) {
-    const lods = {} // name -> [...{ node, maxDistance }]
     for (const object3d of object3ds) {
       // Object3D, Group, Scene
       if (groupTypes.includes(object3d.type)) {
+        const lod = hasLods(object3d.children)
         const node = createNode({
-          type: 'group',
+          type: lod ? 'lod' : 'group',
           name: object3d.name,
           position: object3d.position.toArray(),
           quaternion: object3d.quaternion.toArray(),
@@ -57,38 +59,44 @@ export function glbToNodes(glb, world) {
       }
       // Mesh
       if (object3d.type === 'Mesh') {
-        const [baseName, isHidden, isCollider, isLod, maxDistance] = parseName(object3d.name) // prettier-ignore
+        // const [baseName, isHidden, isCollider, isLod, maxDistance] = parseName(object3d.name) // prettier-ignore
         // apply any wind effect
-        if (object3d.material.name.includes('_wind')) {
+        if (object3d.material.userData.wind) {
           addWind(object3d, world)
         }
         const node = createNode({
           type: 'mesh',
           name: object3d.name,
           model: world.models.register(object3d),
-          visible: !isHidden,
-          collision: isCollider,
+          visible: !object3d.userData.hidden,
+          collision: object3d.userData.collider,
           position: object3d.position.toArray(),
           quaternion: object3d.quaternion.toArray(),
           scale: object3d.scale.toArray(),
         })
-        if (isLod) {
-          let lod = lods[baseName]
-          if (!lod) {
-            lod = createNode({
-              type: 'lod',
-              name: baseName,
-              position: [0, 0, 0], // object3d.position.toArray(),
-              quaternion: [0, 0, 0, 1], // object3d.quaternion.toArray(),
-              scale: [1, 1, 1], // object3d.scale.toArray(),
-            })
-            lods[baseName] = lod
-            parentNode.add(lod)
-          }
-          lod.insert(node, maxDistance)
+        const lodMaxDistance = object3d.userData.lodMaxDistance
+        if (lodMaxDistance) {
+          parentNode.insert(node, lodMaxDistance)
         } else {
           parentNode.add(node)
         }
+        // if (isLod) {
+        //   let lod = lods[baseName]
+        //   if (!lod) {
+        //     lod = createNode({
+        //       type: 'lod',
+        //       name: baseName,
+        //       position: [0, 0, 0], // object3d.position.toArray(),
+        //       quaternion: [0, 0, 0, 1], // object3d.quaternion.toArray(),
+        //       scale: [1, 1, 1], // object3d.scale.toArray(),
+        //     })
+        //     lods[baseName] = lod
+        //     parentNode.add(lod)
+        //   }
+        //   lod.insert(node, maxDistance)
+        // } else {
+        //   parentNode.add(node)
+        // }
         parse(object3d.children, node)
       }
       if (object3d.type === 'SkinnedMesh') {
@@ -96,7 +104,13 @@ export function glbToNodes(glb, world) {
       }
     }
   }
+  const rootHasLods = hasLods(glb.scene.children)
+  const root = createNode({
+    type: rootHasLods ? 'lod' : 'group',
+    name: '$root',
+  })
   parse(glb.scene.children, root)
+  // console.log('$root', root)
   return root
 }
 

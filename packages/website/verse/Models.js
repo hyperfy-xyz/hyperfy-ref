@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 
 import { System } from './System'
+import { isBoolean } from 'lodash-es'
 
 export class Models extends System {
   constructor(world) {
@@ -246,6 +247,7 @@ function makeColliderFactory(world, mesh) {
 
       return {
         setActive(value) {
+          value = isBoolean(value) ? value : !!value
           if (active === value) return
           active = value
           if (active) {
@@ -259,7 +261,9 @@ function makeColliderFactory(world, mesh) {
           actor.setGlobalPose(transform)
         },
         destroy() {
-          world.physics.scene.removeActor(actor)
+          if (active) {
+            world.physics.scene.removeActor(actor)
+          }
           shape.release()
           actor.release()
         },

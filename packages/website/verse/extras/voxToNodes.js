@@ -16,7 +16,7 @@ export function voxToNodes(vox, world) {
   }
   const root = createNode({
     type: 'group',
-    name: 'root',
+    name: '$root',
   })
   function parse(object3ds, parentNode) {
     for (const object3d of object3ds) {

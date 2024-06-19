@@ -30,7 +30,7 @@ export function vrmToNodes(glb, world) {
   }
   const root = createNode({
     type: 'group',
-    name: 'root',
+    name: '$root',
   })
   const vrm = createNode({
     type: 'vrm',
@@ -103,6 +103,15 @@ function buildVRMFactory(glb, world) {
   glb.userData.vrm.humanoid.update(0)
   skeleton.update()
 
+  // get height
+  let height = 1 // minimum
+  for (const mesh of skinnedMeshes) {
+    if (!mesh.boundingBox) mesh.computeBoundingBox()
+    if (height < mesh.boundingBox.max.y) {
+      height = mesh.boundingBox.max.y
+    }
+  }
+
   const getBoneName = vrmBoneName => {
     return glb.userData.vrm.humanoid.getRawBoneNode(vrmBoneName)?.name
   }
@@ -123,13 +132,21 @@ function buildVRMFactory(glb, world) {
     world.graphics.scene.add(vrm.scene)
 
     // spatial capsule
+    const cRadius = 0.3
     const sItem = {
       matrix,
-      geometry: createCapsule(0.4, 1),
+      geometry: createCapsule(cRadius, height - cRadius * 2),
       material,
       getEntity: () => node.entity,
     }
     world.spatial.octree.insert(sItem)
+
+    // debug capsule
+    // const foo = new THREE.Mesh(
+    //   sItem.geometry,
+    //   new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.5 })
+    // )
+    // vrm.scene.add(foo)
 
     // link back entity for raycasts
     const getEntity = () => node.entity
@@ -250,7 +267,7 @@ function getSkinnedMeshes(scene) {
 
 function createCapsule(radius, height) {
   const fullHeight = radius + height + radius
-  const geometry = new THREE.CapsuleGeometry(0.4, 1)
+  const geometry = new THREE.CapsuleGeometry(radius, height)
   geometry.translate(0, fullHeight / 2, 0)
   return geometry
 }
