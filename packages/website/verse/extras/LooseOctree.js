@@ -13,6 +13,8 @@ export class LooseOctree {
     this.debug = debug
     this.root = new LooseOctreeNode(this, center, size, 0)
     this.helper = null
+    this.totalDepth = 0
+    this.totalNodes = 0
   }
 
   insert(item) {
@@ -48,9 +50,18 @@ export class LooseOctree {
   //   return intersects
   // }
 
+  prune() {
+    console.time('prune')
+    this.pruneCount = 0
+    this.root.prune()
+    console.timeEnd('prune')
+    console.log('pruned:', this.pruneCount)
+  }
+
   setHelper(enabled) {
     if (enabled && !this.helper) {
       this.helper = createHelper(this)
+      this.helper.init()
     }
     if (!enabled && this.helper) {
       this.helper.destroy()
@@ -75,7 +86,11 @@ class LooseOctreeNode {
     )
     this.items = []
     this.children = []
-    this.octree.helper?.insert(this)
+    this.mountHelper()
+    if (octree.totalDepth < depth) {
+      octree.totalDepth = depth
+    }
+    octree.totalNodes++
   }
 
   insert(item) {
@@ -85,6 +100,11 @@ class LooseOctreeNode {
     if (!this.inner.containsPoint(item.sphere.center)) {
       return false
     }
+    if (this.size / 2 < item.sphere.radius) {
+      this.items.push(item)
+      item._node = this
+      return true
+    }
     if (!this.children.length) {
       this.subdivide()
     }
@@ -93,9 +113,11 @@ class LooseOctreeNode {
         return true
       }
     }
-    this.items.push(item)
-    item._node = this
-    return true
+    // this should never happen
+    console.error('octree insert fail')
+    // this.items.push(item)
+    // item._node = this
+    // return true
   }
 
   remove(item) {
@@ -188,6 +210,32 @@ class LooseOctreeNode {
   //   }
   //   return intersects
   // }
+
+  prune() {
+    let empty = true
+    for (const child of this.children) {
+      const canPrune = !child.items.length && child.prune()
+      if (!canPrune) {
+        empty = false
+      }
+    }
+    if (empty) {
+      for (const child of this.children) {
+        this.octree.helper?.remove(child)
+      }
+      this.children.length = 0
+      this.octree.pruneCount++
+    }
+    return empty
+  }
+
+  mountHelper() {
+    this.octree.helper?.insert(this)
+  }
+
+  unmountHelper() {
+    this.octree.helper?.remove(this)
+  }
 }
 
 function sortAscending(a, b) {
@@ -211,7 +259,7 @@ function createHelper(octree) {
     new Float32Array(100000 * 16),
     16
   )
-  // iMatrix.setUsage(THREE.DynamicDrawUsage)
+  iMatrix.setUsage(THREE.DynamicDrawUsage)
   geometry.setAttribute('iMatrix', iMatrix)
   const offset = new THREE.InstancedBufferAttribute(
     new Float32Array(100000 * 3),
@@ -227,7 +275,6 @@ function createHelper(octree) {
   const material = new THREE.LineBasicMaterial({
     color: 'red',
     onBeforeCompile: shader => {
-      console.log(shader.vertexShader)
       shader.vertexShader = shader.vertexShader.replace(
         '#include <common>',
         `
@@ -246,15 +293,37 @@ function createHelper(octree) {
   })
   const mesh = new THREE.LineSegments(geometry, material)
   mesh.frustumCulled = false
-
+  const items = []
   function insert(node) {
     const idx = mesh.geometry.instanceCount
     mesh.geometry.instanceCount++
     const position = _v1.copy(node.center)
     const quaternion = _q1.set(0, 0, 0, 1)
     const scale = _v2.setScalar(node.size * 2)
-    const matrix = _m1.compose(position, quaternion, scale)
+    const matrix = new THREE.Matrix4().compose(position, quaternion, scale)
     iMatrix.set(matrix.elements, idx * 16)
+    iMatrix.needsUpdate = true
+    node._helperItem = { idx, matrix }
+    items.push(node._helperItem)
+  }
+  function remove(node) {
+    const item = node._helperItem
+    const last = items[items.length - 1]
+    const isOnly = items.length === 1
+    const isLast = item === last
+    if (isOnly) {
+      items.length = 0
+      mesh.geometry.instanceCount = 0
+    } else if (isLast) {
+      items.pop()
+      mesh.geometry.instanceCount--
+    } else {
+      iMatrix.set(last.matrix.elements, item.idx * 16)
+      last.idx = item.idx
+      items[item.idx] = last
+      items.pop()
+      mesh.geometry.instanceCount--
+    }
     iMatrix.needsUpdate = true
   }
   function traverse(node, callback) {
@@ -266,12 +335,16 @@ function createHelper(octree) {
   function destroy() {
     octree.scene.remove(mesh)
   }
-  traverse(octree.root, node => {
-    insert(node)
-  })
+  function init() {
+    traverse(octree.root, node => {
+      node.mountHelper()
+    })
+  }
   octree.scene.add(mesh)
   return {
+    init,
     insert,
+    remove,
     destroy,
   }
 }

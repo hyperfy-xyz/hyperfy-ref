@@ -339,8 +339,8 @@ function Panels({ world }) {
       className='panel'
       css={css`
         position: absolute;
-        top: 360px;
-        left: 360px;
+        top: 100px;
+        left: 100px;
         width: 300px;
         height: 400px;
         background: #16161c;

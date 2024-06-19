@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
+
 import {
   computeBoundsTree,
   disposeBoundsTree,
@@ -154,12 +155,15 @@ export class Graphics extends System {
     this.world.loader.loadGLBRaw('/static/ground.glb').then(glb => {
       const mesh = glb.scene.children[0]
       mesh.geometry.computeBoundsTree() // three-mesh-bvh
-      mesh.geometry.computeBoundingBox()
+      // mesh.geometry.computeBoundingBox()
       mesh.material.shadowSide = THREE.BackSide // fix csm shadow banding
       mesh.castShadow = true
       mesh.receiveShadow = true
       mesh.matrixAutoUpdate = false
       mesh.matrixWorldAutoUpdate = false
+      // mesh.position.y -= 1 // temp
+      // mesh.matrixWorld.compose(mesh.position, mesh.quaternion, mesh.scale)
+      // mesh.matrix.copy(mesh.matrixWorld)
       this.scene.add(mesh)
       const sItem = {
         matrix: mesh.matrixWorld,
