@@ -36,7 +36,7 @@ const WHEEL_SPEED = 0.002
 const MOVE_SEND_RATE = 1 / 5
 const MOVE_ROTATE_SPEED = 0.1 * DEG2RAD
 
-// const RAY_RATE = 1 / 10
+const RAY_RATE = 1 / 10
 
 const e1 = new THREE.Euler(0, 0, 0, 'YXZ')
 const q1 = new THREE.Quaternion()
@@ -55,7 +55,7 @@ export class Control extends System {
       move: new THREE.Vector2(),
     }
     this.moving = null
-    // this.lastRay = 0
+    this.lastRay = 0
   }
 
   mount(viewport) {
@@ -80,13 +80,12 @@ export class Control extends System {
     if (this.keys.right) this.current.move.x += 1
     this.current.move.normalize() // prevent surfing
 
-    // For some reason not using three-mesh-bvh is faster
     // this.lastRay += delta
     // if (this.lastRay > RAY_RATE) {
-    //   console.time('hit')
+    //   console.time('ray')
     //   const hit = this.world.graphics.raycastViewport(this.pointer.coords)
     //   // console.log(hit?.instanceId)
-    //   console.timeEnd('hit')
+    //   console.timeEnd('ray')
     //   this.lastRay = 0
     // }
 

@@ -151,9 +151,13 @@ object.on('update', delta => {
     } else {
       velocity.y -= gravity * delta
     }
-    if (control?.jump && isGrounded) {
-      velocity.y = Math.sqrt(2 * gravity * jumpHeight)
+    // temp fly
+    if (control?.jump) {
+      velocity.y += 1
     }
+    // if (control?.jump && isGrounded) {
+    //   velocity.y = Math.sqrt(2 * gravity * jumpHeight)
+    // }
     displacement.y = velocity.y * delta
     base.move(displacement)
     isGrounded = base.isGrounded()
