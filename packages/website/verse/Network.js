@@ -151,12 +151,12 @@ export class Network extends System {
       authority: client.id,
       mode: 'active',
       modeClientId: null,
-      position: [num(-1, 1, 2), 0, 10],
-      quaternion: new THREE.Quaternion()
-        .setFromEuler(new THREE.Euler(0, num(0, 270, 2) * DEG2RAD, 0, 'YXZ'))
-        .toArray(),
-      // position: [0, 0, 10],
-      // quaternion: [0, 0, 0, 1],
+      // position: [num(-1, 1, 2), 0, 10],
+      // quaternion: new THREE.Quaternion()
+      //   .setFromEuler(new THREE.Euler(0, num(0, 270, 2) * DEG2RAD, 0, 'YXZ'))
+      //   .toArray(),
+      position: [0, 0, 10],
+      quaternion: [0, 0, 0, 1],
       state: {},
     }
     this.avatar = this.world.entities.addEntityLocal(avatar)

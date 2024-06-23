@@ -1,13 +1,21 @@
 import * as THREE from 'three'
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
-import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
+import {
+  BloomEffect,
+  EffectComposer,
+  EffectPass,
+  RenderPass,
+  SMAAPreset,
+  SMAAEffect,
+  ToneMappingEffect,
+  ToneMappingMode,
+} from 'postprocessing'
 
 import {
   computeBoundsTree,
   disposeBoundsTree,
   acceleratedRaycast,
 } from 'three-mesh-bvh'
-import { N8AOPass } from 'n8ao'
+import { N8AOPass, N8AOPostPass } from 'n8ao'
 
 import { Layers } from './extras/Layers'
 
@@ -23,9 +31,9 @@ THREE.Mesh.prototype.raycast = acceleratedRaycast
 // THREE.Object3D.DEFAULT_MATRIX_AUTO_UPDATE = false
 // THREE.Object3D.DEFAULT_MATRIX_WORLD_AUTO_UPDATE = false
 
-// THREE.ColorManagement.enabled = true
+THREE.ColorManagement.enabled = true
 
-const _identity = new THREE.Matrix4()
+// const _identity = new THREE.Matrix4()
 THREE.InstancedMesh.prototype.resize = function (size) {
   const prevSize = this.instanceMatrix.array.length / 16
   if (size <= prevSize) return
@@ -59,18 +67,19 @@ export class Graphics extends System {
     this.camera = new THREE.PerspectiveCamera(FOV, this.aspect, 0.1, 20000)
     this.camera.layers.enableAll()
     this.renderer = new THREE.WebGLRenderer({
-      // antialias: true,
       powerPreference: 'high-performance',
+      antialias: false,
+      // stencil: false, // ?
+      // depth: false, // ?
     })
     this.renderer.setSize(this.width, this.height)
     this.renderer.setClearColor(0xffffff, 0)
-    this.renderer.setPixelRatio(1)
-    // this.renderer.setPixelRatio(window.devicePixelRatio)
+    this.renderer.setPixelRatio(1 /*window.devicePixelRatio*/)
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    // this.renderer.toneMappingExposure = 1
-    // this.renderer.outputColorSpace = THREE.SRGBColorSpace
+    this.renderer.toneMapping = THREE.NoToneMapping
+    this.renderer.toneMappingExposure = 1
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace
 
     this.maxAnisotropy = this.renderer.capabilities.getMaxAnisotropy()
 
@@ -92,37 +101,48 @@ export class Graphics extends System {
       // shadowBias: 0.0002,
       // shadowMapSize: 1024,
       // lightDirection: new THREE.Vector3(-1, -1, -1).normalize(),
-      // lightIntensity: 2,
+      lightIntensity: 1,
       // lightNear: 0.0000001,
       // lightFar: 5000,
       // lightMargin: 200,
       // camera: this.camera,
       // parent: this.scene,
     })
-    this.csm.fade = true // must be set after!
-    for (const light of this.csm.lights) {
-      light.intensity = 1
-      light.color.set(0xffffff)
-    }
+    // this.csm.fade = true // must be set after!
     this.sunPosition = new THREE.Vector3(200, 400, 200)
     this.csm.lightDirection
       .subVectors(v1.set(0, 0, 0), this.sunPosition)
       .normalize() // directional vector from sun position to location
 
-    this.composer = new EffectComposer(this.renderer)
-    this.aoPass = new N8AOPass(this.scene, this.camera, this.width, this.height)
-    // old
-    // this.aoPass.configuration.aoRadius = 1
-    // this.aoPass.configuration.distanceFalloff = 1
-    // this.aoPass.configuration.intensity = 3
-    // new screenspace!
+    this.composer = new EffectComposer(this.renderer, {
+      frameBufferType: THREE.HalfFloatType,
+    })
+
+    this.renderPass = new RenderPass(this.scene, this.camera)
+    this.composer.addPass(this.renderPass)
+
+    this.aoPass = new N8AOPostPass(
+      this.scene,
+      this.camera,
+      this.width,
+      this.height
+    )
     this.aoPass.configuration.screenSpaceRadius = true
     this.aoPass.configuration.aoRadius = 64
     this.aoPass.configuration.distanceFalloff = 0.2
     this.aoPass.configuration.intensity = 3
     this.composer.addPass(this.aoPass)
-    this.aaPass = new SMAAPass(1822, 1328)
-    this.composer.addPass(this.aaPass)
+
+    this.effectPass = new EffectPass(
+      this.camera,
+      new SMAAEffect({
+        preset: SMAAPreset.ULTRA,
+      }),
+      new ToneMappingEffect({
+        mode: ToneMappingMode.AGX,
+      })
+    )
+    this.composer.addPass(this.effectPass)
 
     this.cameraRig = new THREE.Object3D()
     this.cameraRig.add(this.camera)
@@ -145,7 +165,9 @@ export class Graphics extends System {
     // hdr
     {
       this.world.loader.load('/static/day2.hdr').then(texture => {
+        // texture.colorSpace = THREE.NoColorSpace
         // texture.colorSpace = THREE.SRGBColorSpace
+        // texture.colorSpace = THREE.LinearSRGBColorSpace
         texture.mapping = THREE.EquirectangularReflectionMapping
         this.scene.environment = texture
       })
@@ -230,13 +252,6 @@ export class Graphics extends System {
     this.render()
   }
 
-  // start() {
-  //   // const geometry = new THREE.BoxGeometry(1, 1, 1)
-  //   // const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
-  //   // const cube = new THREE.Mesh(geometry, material)
-  //   // this.scene.add(cube)
-  // }
-
   update(delta) {
     this.csm.update()
     this.render()
@@ -286,7 +301,6 @@ export class Graphics extends System {
     //   const box = new THREE.Box3Helper(world, 'red')
     //   this.scene.add(box)
     // }
-
     return this.raycastHits
   }
 
