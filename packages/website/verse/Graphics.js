@@ -139,7 +139,7 @@ export class Graphics extends System {
         preset: SMAAPreset.ULTRA,
       }),
       new ToneMappingEffect({
-        mode: ToneMappingMode.AGX,
+        mode: ToneMappingMode.ACES_FILMIC,
       })
     )
     this.composer.addPass(this.effectPass)
