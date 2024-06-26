@@ -21,13 +21,22 @@ export class LooseOctree {
     if (!item.sphere) item.sphere = new THREE.Sphere()
     if (!item.geometry.boundingSphere) item.geometry.computeBoundingSphere()
     item.sphere.copy(item.geometry.boundingSphere).applyMatrix4(item.matrix)
-    this.root.insert(item)
+    return this.root.insert(item)
   }
 
   move(item) {
+    if (!item._node) {
+      // console.error('octree item move called but there is no _node')
+      return
+    }
     // TODO: we can do some magic to only re-insert if it goes outside its current node
     this.remove(item)
-    this.insert(item)
+    const added = this.insert(item)
+    if (!added) {
+      console.error(
+        'octree item moved but was not re-added. did it move outside octree bounds?'
+      )
+    }
   }
 
   remove(item) {
