@@ -129,6 +129,7 @@ function buildVRMFactory(glb, world) {
     rootBone.parent.remove(rootBone)
     rootBone.updateMatrixWorld(true)
     vrm.scene.matrix = matrix // synced!
+    vrm.scene.matrixWorld = matrix // synced!
     world.graphics.scene.add(vrm.scene)
 
     // spatial capsule

@@ -19,7 +19,8 @@ import { N8AOPass, N8AOPostPass } from 'n8ao'
 
 import { Layers } from './extras/Layers'
 
-import { CSM } from './libs/csm/CSM'
+// import { CSM } from './libs/csm/CSM'
+import { CSM } from 'three/examples/jsm/csm/CSM.js'
 
 import { System } from './System'
 

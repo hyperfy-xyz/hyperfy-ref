@@ -10,5 +10,10 @@
   },
   "engines": {
     "node": ">=20.11.0"
-  }
+  },
+  "overrides": {
+    "react": "canary",
+    "react-dom": "canary"
+  },
+  "packageManager": "yarn@4.3.1"
 }
