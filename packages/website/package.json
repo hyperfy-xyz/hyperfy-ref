@@ -29,7 +29,7 @@
     "react": "canary",
     "react-dom": "canary",
     "ses": "^1.4.1",
-    "three": "^0.166.0",
+    "three": "0.166.0",
     "three-mesh-bvh": "^0.7.4",
     "viem": "^2.9.23"
   },

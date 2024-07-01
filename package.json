@@ -15,5 +15,9 @@
     "react": "canary",
     "react-dom": "canary"
   },
+  "resolutions": {
+    "three": "0.166.0",
+    "three-mesh-bvh": "0.7.4"
+  },
   "packageManager": "yarn@4.3.1"
 }

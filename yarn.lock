@@ -7958,7 +7958,7 @@ __metadata:
     react: "npm:canary"
     react-dom: "npm:canary"
     ses: "npm:^1.4.1"
-    three: "npm:^0.166.0"
+    three: "npm:0.166.0"
     three-mesh-bvh: "npm:^0.7.4"
     viem: "npm:^2.9.23"
   languageName: unknown
@@ -8094,16 +8094,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"three-mesh-bvh@npm:^0.7.4":
-  version: 0.7.5
-  resolution: "three-mesh-bvh@npm:0.7.5"
+"three-mesh-bvh@npm:0.7.4":
+  version: 0.7.4
+  resolution: "three-mesh-bvh@npm:0.7.4"
   peerDependencies:
     three: ">= 0.151.0"
-  checksum: 10c0/f9225549c019b7146b31e0465bbcfb12fb2d97aacdd4ce0ed4670c56c2ae155205d0a43c350fad35da06f04caab9a46773a33cebc298a6c7404bee18a26f61b2
+  checksum: 10c0/39a020c79a6dc5e9f0053fa5a498daf5c7fe16674a30e014653a362470e9bec303b206096eeb55e94fa7621c6b1e25b3bfe50e044552b2860632290feffa3c3a
   languageName: node
   linkType: hard
 
-"three@npm:^0.166.0":
+"three@npm:0.166.0":
   version: 0.166.0
   resolution: "three@npm:0.166.0"
   checksum: 10c0/02c50d1c7c51c6a4ca2b29bc43086b49def4c2fd2a406abedb333c091b2e14be31cca98db2f629f19b796c5728e710a26c2bc3e139b770e6963d2c082b0b1d0f
