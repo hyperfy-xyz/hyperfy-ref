@@ -2,6 +2,7 @@
 .firebolt
 .secret
 .env*
+.yarn
 !.env.example
 node_modules/
 assets/
