@@ -53,6 +53,8 @@ export class Control extends System {
       coords: new THREE.Vector2(),
       start: null,
       move: new THREE.Vector2(),
+      lmb: false,
+      rmb: false,
     }
     this.moving = null
     this.lastRay = 0
@@ -96,6 +98,16 @@ export class Control extends System {
     // )
     // const [hit, entity] = this.resolveHit(hits)
     // console.timeEnd('ray')
+
+    // TEMP: terrain
+    if (this.pointer.down) {
+      const coords = this.pointer.coords
+      const hits = this.world.graphics.raycastViewport(coords)
+      const point = hits[0]?.point
+      if (point) {
+        this.world.terrain.paint(point, this.pointer.rmb)
+      }
+    }
 
     if (this.moving && this.moving.entity.destroyed) {
       this.setMoving(null)
@@ -327,6 +339,8 @@ export class Control extends System {
     this.pointer.down = true
     this.pointer.downAt = performance.now()
     this.pointer.move.set(0, 0)
+    this.pointer.lmb = lmb
+    this.pointer.rmb = rmb
     // this.viewport.setPointerCapture(e.pointerId)
     this.viewport.addEventListener('pointerup', this.onPointerUp)
     if (this.current) {
