@@ -1,3 +1,7 @@
+# Color Matching
+
+- blender color management exposure=0 is threejs toneMappingExposure=1
+
 # Todo
 
 - new model/script stuff
@@ -114,16 +118,16 @@ object.on('update', delta => {
 
 ## Tree Choppable
 
-```
+```jsx
 let trunk
 let leaves
 let stump
 let action
 
 object.on('setup', () => {
-  trunk = object.get('Trunk')
-  leaves = object.get('Leaves')
-  stump = object.get('Stump_collider_hidden')
+  trunk = object.get('trunk')
+  leaves = object.get('leaves')
+  stump = object.get('stump')
   action = object.create({
     type: 'action',
     text: 'Chop',
@@ -132,7 +136,7 @@ object.on('setup', () => {
       object.remove(leaves)
       stump.setVisible(true)
       object.remove(action)
-    }
+    },
   })
   object.add(action)
   action.position.y = 1
