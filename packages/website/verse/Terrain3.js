@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { createNoise3D } from 'simplex-noise'
 
 import { System } from './System'
 import { createSurface } from './libs/surface-nets/SurfaceNets'
@@ -17,6 +18,8 @@ const gridSize = new THREE.Vector3(16, 128, 16)
 
 // factor to convert chunk grid size in voxels to meters
 const scale = 1
+
+const noise = createNoise3D(() => 10)
 
 // TODO: have a utility size * scale vec3 for use instead of manually calculating everywhere
 
@@ -51,7 +54,7 @@ export class Terrain3 extends System {
     }
 
     console.time('generateChunks')
-    const radius = 40
+    const radius = 10
     for (let x = -radius / 2; x < radius / 2; x++) {
       for (let z = -radius / 2; z < radius / 2; z++) {
         const coords = new THREE.Vector3(x, 0, z)
@@ -153,52 +156,121 @@ class Chunk {
   }
 
   populate() {
-    console.time('populate')
+    console.time('populate');
 
-    // const resolution = 1 // TODO: factor to downsample number of voxels
+    const noiseScale = 0.02;
+    const heightScale = 30;
+    const baseHeight = 10;
+    const chunkOverlap = 2;
 
-    function field(x, y, z) {
-      // all solid inside
-      // if (
-      //   x <= 0 ||
-      //   x >= gridSize.x - 1 ||
-      //   y <= 0 ||
-      //   y >= gridSize.y - 1 ||
-      //   z <= 0 ||
-      //   z >= gridSize.z - 1
-      // ) {
-      //   return 1 // Outer two layers (empty)
-      // }
-      // return -1 // Inner part (solid)
+    const octaves = 4;
+    const persistence = 0.5;
+    const lacunarity = 2.0;
 
-      // bottom 2 layers solid
-      if (y <= 1) {
-        return -1 // Solid (bottom two layers)
+    const smoothStep = (min, max, value) => {
+      const x = Math.max(0, Math.min(1, (value - min) / (max - min)));
+      return x * x * (3 - 2 * x);
+    };
+
+    const field = (x, y, z) => {
+      const worldX = ((this.coords.x * (gridSize.x - chunkOverlap)) + x) * scale;
+      const worldZ = ((this.coords.z * (gridSize.z - chunkOverlap)) + z) * scale;
+      
+      let noiseValue = 0;
+      let amplitude = 1;
+      let frequency = 1;
+      let maxValue = 0;
+
+      for (let i = 0; i < octaves; i++) {
+        noiseValue += noise(
+          worldX * noiseScale * frequency, 
+          0,
+          worldZ * noiseScale * frequency
+        ) * amplitude;
+
+        maxValue += amplitude;
+        amplitude *= persistence;
+        frequency *= lacunarity;
       }
-      return 1 // Empty (everything else)
 
-      // sphere in center
-      const centerX = gridSize.x / 2
-      const centerY = gridSize.y / 2
-      const centerZ = gridSize.z / 2
-      const radius = Math.min(gridSize.x, gridSize.y, gridSize.z) * 0.4
-      return (
-        Math.sqrt(
-          (x - centerX) ** 2 + (y - centerY) ** 2 + (z - centerZ) ** 2
-        ) - radius
-      )
-    }
+      noiseValue /= maxValue;  // Normalize the noise value
 
-    let index = 0
+      // Apply smooth step function to create more gradual transitions
+      const smoothedNoise = smoothStep(-1, 1, noiseValue);
+
+      const height = Math.floor(smoothedNoise * heightScale) + baseHeight;
+
+      // Create a smooth transition between solid and air
+      const transition = 3;  // Adjust this value to control the smoothness of transitions
+      const density = (height - y) / transition;
+
+      if (density > 0.5) {
+        return -1;  // Solid
+      } else if (density > -0.5) {
+        return 0;  // Surface
+      } else {
+        return 1;  // Air
+      }
+    };
+
+    let index = 0;
     for (let z = 0; z < gridSize.z; z++) {
       for (let y = 0; y < gridSize.y; y++) {
         for (let x = 0; x < gridSize.x; x++) {
-          this.data[index++] = field(x, y, z)
+          this.data[index++] = field(x, y, z);
         }
       }
     }
 
-    console.timeEnd('populate')
+    console.timeEnd('populate');
+
+
+    // console.time('populate')
+
+    // // const resolution = 1 // TODO: factor to downsample number of voxels
+
+    // function field(x, y, z) {
+    //   // all solid inside
+    //   // if (
+    //   //   x <= 0 ||
+    //   //   x >= gridSize.x - 1 ||
+    //   //   y <= 0 ||
+    //   //   y >= gridSize.y - 1 ||
+    //   //   z <= 0 ||
+    //   //   z >= gridSize.z - 1
+    //   // ) {
+    //   //   return 1 // Outer two layers (empty)
+    //   // }
+    //   // return -1 // Inner part (solid)
+
+    //   // bottom 2 layers solid
+    //   if (y <= 1) {
+    //     return -1 // Solid (bottom two layers)
+    //   }
+    //   return 1 // Empty (everything else)
+
+    //   // sphere in center
+    //   const centerX = gridSize.x / 2
+    //   const centerY = gridSize.y / 2
+    //   const centerZ = gridSize.z / 2
+    //   const radius = Math.min(gridSize.x, gridSize.y, gridSize.z) * 0.4
+    //   return (
+    //     Math.sqrt(
+    //       (x - centerX) ** 2 + (y - centerY) ** 2 + (z - centerZ) ** 2
+    //     ) - radius
+    //   )
+    // }
+
+    // let index = 0
+    // for (let z = 0; z < gridSize.z; z++) {
+    //   for (let y = 0; y < gridSize.y; y++) {
+    //     for (let x = 0; x < gridSize.x; x++) {
+    //       this.data[index++] = field(x, y, z)
+    //     }
+    //   }
+    // }
+
+    // console.timeEnd('populate')
   }
 
   build() {
@@ -217,6 +289,10 @@ class Chunk {
     console.time('build')
 
     const surface = createSurface(this.data, this.dims)
+
+    // surface = weldVertices(surface.vertices, surface.indices)
+
+    
 
     // manually constructing these arrays is way faster
     // see https://x.com/AshConnell/status/1806531542946304374
@@ -238,10 +314,11 @@ class Chunk {
     geometry.computeBoundsTree()
 
     const material = new THREE.MeshStandardMaterial({
-      color: 'green',
+      color: 'black',
       // color: getRandomColorHex(),
       // side: THREE.DoubleSide,
       // wireframe: true,
+      flatShading: true
     })
     const mesh = new THREE.Mesh(geometry, material)
     // mesh.scale.setScalar(scale)
@@ -250,8 +327,8 @@ class Chunk {
       this.coords.y * gridSize.y * scale,
       this.coords.z * gridSize.z * scale - this.coords.z * 2 * scale // xz overlap
     )
-    mesh.castShadow = true
-    mesh.receiveShadow = true
+    // mesh.castShadow = true
+    // mesh.receiveShadow = true
     mesh.updateMatrix()
     mesh.updateMatrixWorld(true)
     mesh.chunk = this
@@ -756,4 +833,33 @@ function normalToCardinal(normal) {
     // North or South
     return cNormal.set(0, 0, Math.sign(normal.z))
   }
+}
+
+
+
+function weldVertices(vertices, indices, threshold = 1) {
+  const uniqueVertices = [];
+  const newIndices = [];
+  const vertexMap = new Map();
+
+  for (let i = 0; i < vertices.length; i += 3) {
+      const vertex = vertices.slice(i, i + 3);
+      const key = vertex.map(v => Math.round(v / threshold)).join(',');
+
+      if (!vertexMap.has(key)) {
+          vertexMap.set(key, uniqueVertices.length / 3);
+          uniqueVertices.push(...vertex);
+      }
+  }
+
+  for (const index of indices) {
+      const vertex = vertices.slice(index * 3, index * 3 + 3);
+      const key = vertex.map(v => Math.round(v / threshold)).join(',');
+      newIndices.push(vertexMap.get(key));
+  }
+
+  return {
+      vertices: uniqueVertices,
+      indices: newIndices
+  };
 }
