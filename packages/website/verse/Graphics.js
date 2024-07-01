@@ -81,6 +81,7 @@ export class Graphics extends System {
     this.renderer.toneMapping = THREE.NoToneMapping
     this.renderer.toneMappingExposure = 1
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
+    // this.renderer.logarithmicDepthBuffer = true // fix z-fighting with chunk overlaps
 
     this.maxAnisotropy = this.renderer.capabilities.getMaxAnisotropy()
 

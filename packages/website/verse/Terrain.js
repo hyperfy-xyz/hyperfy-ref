@@ -21,8 +21,8 @@ export class Terrain extends System {
     const size = 10
     for (let x = 0; x < size; x++) {
       for (let z = 0; z < size; z++) {
-        console.time('terrain')
         const key = getChunkKey(x, z)
+        console.time('terrain:noise')
         const noiseMap = generateNoiseMap(
           x,
           0,
@@ -31,7 +31,10 @@ export class Terrain extends System {
           this.seed,
           false
         )
+        console.timeEnd('terrain:noise')
+        console.time('terrain:mesh')
         const mesh = generateMesh(x, 0, z, { noiseMap }, true, false)
+        console.timeEnd('terrain:mesh')
         this.world.graphics.scene.add(mesh)
         // console.log('terrain', mesh)
         console.log(
@@ -40,8 +43,12 @@ export class Terrain extends System {
         )
         const matrix = mesh.matrixWorld
         // // collider
+        console.time('terrain:collider1')
         const factory = createColliderFactory(this.world, mesh)
+        console.timeEnd('terrain:collider1')
+        console.time('terrain:collider2')
         const collider = factory.create(null, matrix)
+        console.timeEnd('terrain:collider2')
         // // octree
         const sItem = {
           matrix,
@@ -53,7 +60,6 @@ export class Terrain extends System {
           },
         }
         this.world.spatial.octree.insert(sItem)
-        console.timeEnd('terrain')
         this.chunks[key] = {
           noiseMap,
           mesh,
@@ -114,5 +120,14 @@ export class Terrain extends System {
       chunk.sItem = sItem
     }
     console.timeEnd('paint')
+  }
+}
+
+class Chunk {
+  constructor({ world, x, y, z }) {
+    this.world = world
+    this.x = x
+    this.y = y
+    this.z = z
   }
 }

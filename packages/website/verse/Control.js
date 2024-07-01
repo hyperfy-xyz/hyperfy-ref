@@ -27,6 +27,7 @@ import { DnD } from './extras/DnD'
 import { DEG2RAD } from './extras/general'
 import { num } from './extras/num'
 import { hashFile } from './extras/hashFile'
+import { clamp } from './extras/utils'
 
 const UP = new THREE.Vector3(0, 1, 0)
 const PI_2 = Math.PI / 2
@@ -35,6 +36,10 @@ const WHEEL_SPEED = 0.002
 
 const MOVE_SEND_RATE = 1 / 5
 const MOVE_ROTATE_SPEED = 0.1 * DEG2RAD
+
+const TERRAIN_RADIUS_SPEED = 0.001
+const TERRAIN_RADIUS_MIN = 0.5
+const TERRAIN_RADIUS_MAX = 6
 
 const RAY_RATE = 1 / 10
 
@@ -58,6 +63,11 @@ export class Control extends System {
     }
     this.moving = null
     this.lastRay = 0
+    this.hits = []
+    this.terrain = {
+      editing: false,
+      radius: 1,
+    }
   }
 
   mount(viewport) {
@@ -99,23 +109,15 @@ export class Control extends System {
     // const [hit, entity] = this.resolveHit(hits)
     // console.timeEnd('ray')
 
-    // TEMP: terrain
-    if (this.pointer.down) {
-      const coords = this.pointer.coords
-      const hits = this.world.graphics.raycastViewport(coords)
-      const point = hits[0]?.point
-      if (point) {
-        this.world.terrain.paint(point, this.pointer.rmb)
-      }
-    }
+    this.hits = this.world.graphics.raycastViewport(this.pointer.coords)
 
     if (this.moving && this.moving.entity.destroyed) {
       this.setMoving(null)
     }
     if (this.moving) {
       const hits = this.world.graphics.raycastViewport(
-        this.world.control.pointer.coords,
-        this.world.graphics.maskMoving
+        this.world.control.pointer.coords
+        // this.world.graphics.maskMoving
       )
       const [hit, entity] = this.resolveHit(hits)
       if (hit) {
@@ -256,6 +258,12 @@ export class Control extends System {
       case 'KeyE':
         if (!meta) {
           this.keys.e = true
+        }
+        break
+      case 'KeyF':
+        if (!meta) {
+          this.keys.f = true
+          this.terrain.editing = !this.terrain.editing
         }
         break
     }
@@ -406,6 +414,15 @@ export class Control extends System {
   onWheel = e => {
     e.preventDefault()
     this.closeContext()
+    if (this.terrain.editing) {
+      this.terrain.radius += TERRAIN_RADIUS_SPEED * e.deltaY
+      this.terrain.radius = clamp(
+        this.terrain.radius,
+        TERRAIN_RADIUS_MIN,
+        TERRAIN_RADIUS_MAX
+      )
+      return
+    }
     if (this.moving) {
       q1.setFromAxisAngle(UP, MOVE_ROTATE_SPEED * e.deltaY).multiply(
         this.moving.entity.root.quaternion
