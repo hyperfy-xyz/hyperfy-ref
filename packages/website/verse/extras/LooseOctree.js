@@ -171,6 +171,7 @@ class LooseOctreeNode {
         for (let i = 0, l = _intersects.length; i < l; i++) {
           const intersect = _intersects[i]
           intersect.getEntity = item.getEntity
+          intersect.chunk = item.chunk
           intersects.push(intersect)
         }
         _intersects.length = 0
