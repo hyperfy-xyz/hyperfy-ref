@@ -1,14 +1,3 @@
-/**
- * Based off this:
- * https://github.com/mikolalysenko/isosurface/blob/master/lib/surfacenets.js
- * 
- * 1. Cleaned up the code to use ES6, etc
- * 2. Fixed `buffer` resizing outside createSurface()
- * 3. Generate triangles instead of quads
- * 4. Calculate and return vertex normals from all triangles
- * 5. Cull triangles relating to 2 voxel overlap as a final pass (seamless terrain chunks)
- * 
- */
 
 
 let cube_edges = new Int32Array(24)
@@ -48,7 +37,6 @@ export function createSurface(data, dims) {
   let vertices = []
   let indices = []
   let normals = []
-  let edgeFaces = new Set();
   let n = 0
   let x = new Int32Array(3)
   let R = new Int32Array([1, dims[0] + 1, (dims[0] + 1) * (dims[1] + 1)])
@@ -71,7 +59,7 @@ export function createSurface(data, dims) {
     // The contents of the buffer will be the indices of the vertices on the previous x/y slice of the volume
     let m = 1 + (dims[0] + 1) * (1 + buf_no * (dims[1] + 1))
 
-    for (x[1] = 0; x[1] < dims[1] - 1; ++x[1], ++n, m += 2) {
+    for (x[1] = 0; x[1] < dims[1] - 1; ++x[1], ++n, m += 2)
       for (x[0] = 0; x[0] < dims[0] - 1; ++x[0], ++n, ++m) {
         // Read in 8 field values around this vertex and store them in an array
         // Also calculate 8-bit mask, like in marching cubes, so we can speed up sign checks later
@@ -139,11 +127,29 @@ export function createSurface(data, dims) {
         let s = 1.0 / e_count
         for (let i = 0; i < 3; ++i) {
           v[i] = x[i] + s * v[i]
-        }        
+        }
+
+        // Calculate normal
+        let normal = [0, 0, 0]
+        for (let i = 0; i < 8; ++i) {
+          let g = grid[i]
+          normal[0] += g * (i & 1 ? 1 : -1)
+          normal[1] += g * (i & 2 ? 1 : -1)
+          normal[2] += g * (i & 4 ? 1 : -1)
+        }
+
+        // Normalize the normal vector
+        let len = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2])
+        if (len > 0) {
+          normal[0] /= len
+          normal[1] /= len
+          normal[2] /= len
+        }
 
         // Add vertex to buffer, store pointer to vertex index in buffer
         buffer[m] = vertices.length / 3
         vertices.push(v[0], v[1], v[2])
+        normals.push(normal[0], normal[1], normal[2])
 
         // Now we need to add faces together, to do this we just loop over 3 basis components
         for (let i = 0; i < 3; ++i) {
@@ -156,23 +162,11 @@ export function createSurface(data, dims) {
           let iu = (i + 1) % 3
           let iv = (i + 2) % 3
 
-          // If we are on a boundary, skip it (we are missing information)
+          // If we are on a boundary, skip it
           if (x[iu] === 0 || x[iv] === 0) {
             continue
           }
-          
-          // Data provided includes 2 voxel overlap with neighbours.
-          // This is required to get smooth vertex normals.
-          // Faces generated on these borders are built now and used for normal
-          // calculations later, but after that we discard them.
-          if (
-            x[i] <= 1 || x[iu] <= 1 || x[iv] <= 1 || 
-            x[i] >= dims[i] - 2 || x[iu] >= dims[iu] - 2 || x[iv] >= dims[iv] - 2
-          ) {
-            edgeFaces.add(indices.length / 3);
-            edgeFaces.add(indices.length / 3 + 1);
-          }
-          
+
           // Otherwise, look up adjacent edges in buffer
           let du = R[iu]
           let dv = R[iv]
@@ -187,76 +181,11 @@ export function createSurface(data, dims) {
           }
         }
       }
-    }
   }
-
-  // Calculate normals from ALL faces
-  normals = calculateNormals(vertices, indices)
-
-  // Remove edge faces relating to voxel overlap
-  let newIndices = [];
-  for (let i = 0; i < indices.length / 3; i++) {
-    if (!edgeFaces.has(i)) {
-      newIndices.push(indices[i*3], indices[i*3+1], indices[i*3+2]);
-    }
-  }
-  indices = newIndices;
 
   return { 
-    vertices,
+    vertices, 
     indices,
     normals,
   }
-}
-
-function calculateNormals(vertices, indices) {
-  const normals = new Float32Array(vertices.length);
-  const tempNormal = new Float32Array(3);
-
-  for (let i = 0; i < indices.length; i += 3) {
-    const i1 = indices[i] * 3;
-    const i2 = indices[i + 1] * 3;
-    const i3 = indices[i + 2] * 3;
-
-    // Calculate vectors
-    const ax = vertices[i2] - vertices[i1];
-    const ay = vertices[i2 + 1] - vertices[i1 + 1];
-    const az = vertices[i2 + 2] - vertices[i1 + 2];
-    const bx = vertices[i3] - vertices[i1];
-    const by = vertices[i3 + 1] - vertices[i1 + 1];
-    const bz = vertices[i3 + 2] - vertices[i1 + 2];
-
-    // Calculate cross product
-    tempNormal[0] = ay * bz - az * by;
-    tempNormal[1] = az * bx - ax * bz;
-    tempNormal[2] = ax * by - ay * bx;
-
-    // Add to vertex normals
-    for (let j = 0; j < 3; j++) {
-      const index = indices[i + j] * 3;
-      normals[index] += tempNormal[0];
-      normals[index + 1] += tempNormal[1];
-      normals[index + 2] += tempNormal[2];
-    }
-  }
-
-  // Normalize
-  for (let i = 0; i < normals.length; i += 3) {
-    const x = normals[i];
-    const y = normals[i + 1];
-    const z = normals[i + 2];
-    const length = Math.sqrt(x * x + y * y + z * z);
-
-    if (length > 0) {
-      normals[i] /= length;
-      normals[i + 1] /= length;
-      normals[i + 2] /= length;
-    } else {
-      normals[i] = 0;
-      normals[i + 1] = 1;
-      normals[i + 2] = 0;
-    }
-  }
-
-  return normals;
 }

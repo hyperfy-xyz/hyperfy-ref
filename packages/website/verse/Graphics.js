@@ -132,7 +132,7 @@ export class Graphics extends System {
     this.aoPass.configuration.screenSpaceRadius = true
     this.aoPass.configuration.aoRadius = 64
     this.aoPass.configuration.distanceFalloff = 0.2
-    this.aoPass.configuration.intensity = 3
+    this.aoPass.configuration.intensity = 2
     this.composer.addPass(this.aoPass)
 
     this.effectPass = new EffectPass(
@@ -175,28 +175,28 @@ export class Graphics extends System {
       })
     }
 
-    // ground
-    this.world.loader.loadGLBRaw('/static/ground.glb').then(glb => {
-      const mesh = glb.scene.children[0]
-      mesh.geometry.computeBoundsTree() // three-mesh-bvh
-      // mesh.geometry.computeBoundingBox()
-      mesh.material.shadowSide = THREE.BackSide // fix csm shadow banding
-      mesh.castShadow = true
-      mesh.receiveShadow = true
-      mesh.matrixAutoUpdate = false
-      mesh.matrixWorldAutoUpdate = false
-      // mesh.position.y -= 1 // temp
-      // mesh.matrixWorld.compose(mesh.position, mesh.quaternion, mesh.scale)
-      // mesh.matrix.copy(mesh.matrixWorld)
-      this.scene.add(mesh)
-      const sItem = {
-        matrix: mesh.matrixWorld,
-        geometry: mesh.geometry,
-        material: mesh.material,
-        getEntity: null,
-      }
-      this.world.spatial.octree.insert(sItem)
-    })
+    // // ground
+    // this.world.loader.loadGLBRaw('/static/ground.glb').then(glb => {
+    //   const mesh = glb.scene.children[0]
+    //   mesh.geometry.computeBoundsTree() // three-mesh-bvh
+    //   // mesh.geometry.computeBoundingBox()
+    //   mesh.material.shadowSide = THREE.BackSide // fix csm shadow banding
+    //   mesh.castShadow = true
+    //   mesh.receiveShadow = true
+    //   mesh.matrixAutoUpdate = false
+    //   mesh.matrixWorldAutoUpdate = false
+    //   // mesh.position.y -= 1 // temp
+    //   // mesh.matrixWorld.compose(mesh.position, mesh.quaternion, mesh.scale)
+    //   // mesh.matrix.copy(mesh.matrixWorld)
+    //   this.scene.add(mesh)
+    //   const sItem = {
+    //     matrix: mesh.matrixWorld,
+    //     geometry: mesh.geometry,
+    //     material: mesh.material,
+    //     getEntity: null,
+    //   }
+    //   this.world.spatial.octree.insert(sItem)
+    // })
 
     // sky
     this.world.loader.loadTEX('/static/day2-2k.jpg').then(texture => {

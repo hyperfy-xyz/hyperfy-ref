@@ -1,20 +1,40 @@
 import * as THREE from 'three'
 import { createNoise3D } from 'simplex-noise'
 
+
 import { System } from './System'
+
+import CustomShaderMaterial from './libs/three-custom-shader-material'
 import { createSurface } from './libs/surface-nets/SurfaceNets'
+
 import { createColliderFactory } from './extras/createColliderFactory'
 
 const MODIFY_RATE = 1 / 30
 
 const v1 = new THREE.Vector3()
 const v2 = new THREE.Vector3()
+const v3 = new THREE.Vector3()
 
 const center = new THREE.Vector3()
 const nCenter = new THREE.Vector3()
 
 // chunk grid size in # of voxels
 const gridSize = new THREE.Vector3(16, 128, 16)
+
+// chunk grid overlap (shared )
+const gridBorder = 2
+
+// chunk grid size inner (without border)
+const gridSizeInner = new THREE.Vector3(
+  gridSize.x - gridBorder * 2,
+  gridSize.y,
+  gridSize.z - gridBorder * 2
+)
+
+const neighbourDirections = [
+  [-1, 0], [1, 0], [0, -1], [0, 1],  // Orthogonal
+  [-1, -1], [1, 1], [-1, 1], [1, -1] // Diagonal
+]
 
 // factor to convert chunk grid size in voxels to meters
 const scale = 1
@@ -54,7 +74,7 @@ export class Terrain3 extends System {
     }
 
     console.time('generateChunks')
-    const radius = 10
+    const radius = 15
     for (let x = -radius / 2; x < radius / 2; x++) {
       for (let z = -radius / 2; z < radius / 2; z++) {
         const coords = new THREE.Vector3(x, 0, z)
@@ -156,12 +176,13 @@ class Chunk {
   }
 
   populate() {
+    
+
     console.time('populate');
 
     const noiseScale = 0.02;
-    const heightScale = 30;
-    const baseHeight = 10;
-    const chunkOverlap = 2;
+    const heightScale = 20;
+    const baseHeight = 2;
 
     const octaves = 4;
     const persistence = 0.5;
@@ -172,52 +193,44 @@ class Chunk {
       return x * x * (3 - 2 * x);
     };
 
-    const field = (x, y, z) => {
-      const worldX = ((this.coords.x * (gridSize.x - chunkOverlap)) + x) * scale;
-      const worldZ = ((this.coords.z * (gridSize.z - chunkOverlap)) + z) * scale;
-      
+    const field = (worldX, y, worldZ) => {
       let noiseValue = 0;
       let amplitude = 1;
       let frequency = 1;
       let maxValue = 0;
-
+    
       for (let i = 0; i < octaves; i++) {
         noiseValue += noise(
           worldX * noiseScale * frequency, 
           0,
           worldZ * noiseScale * frequency
         ) * amplitude;
-
+    
         maxValue += amplitude;
         amplitude *= persistence;
         frequency *= lacunarity;
       }
-
+    
       noiseValue /= maxValue;  // Normalize the noise value
-
+    
       // Apply smooth step function to create more gradual transitions
       const smoothedNoise = smoothStep(-1, 1, noiseValue);
-
-      const height = Math.floor(smoothedNoise * heightScale) + baseHeight;
-
-      // Create a smooth transition between solid and air
-      const transition = 3;  // Adjust this value to control the smoothness of transitions
-      const density = (height - y) / transition;
-
-      if (density > 0.5) {
-        return -1;  // Solid
-      } else if (density > -0.5) {
-        return 0;  // Surface
-      } else {
-        return 1;  // Air
-      }
+    
+      const height = smoothedNoise * heightScale + baseHeight;
+    
+      // Return a signed distance field value
+      return y - height;
     };
 
     let index = 0;
     for (let z = 0; z < gridSize.z; z++) {
       for (let y = 0; y < gridSize.y; y++) {
         for (let x = 0; x < gridSize.x; x++) {
-          this.data[index++] = field(x, y, z);
+          // Calculate world coordinates
+          const worldX = this.coords.x * (gridSize.x - gridBorder * 2) + x;
+          const worldZ = this.coords.z * (gridSize.z - gridBorder * 2) + z;
+          
+          this.data[index++] = field(worldX, y, worldZ);
         }
       }
     }
@@ -225,11 +238,14 @@ class Chunk {
     console.timeEnd('populate');
 
 
-    // console.time('populate')
+    // =====
 
-    // // const resolution = 1 // TODO: factor to downsample number of voxels
 
-    // function field(x, y, z) {
+    // // console.time('populate')
+
+    // // // const resolution = 1 // TODO: factor to downsample number of voxels
+
+    // const field = (x, y, z)  =>{
     //   // all solid inside
     //   // if (
     //   //   x <= 0 ||
@@ -244,10 +260,28 @@ class Chunk {
     //   // return -1 // Inner part (solid)
 
     //   // bottom 2 layers solid
-    //   if (y <= 1) {
-    //     return -1 // Solid (bottom two layers)
+    //   // if (y <= 1) {
+    //   //   return -1 // Solid (bottom two layers)
+    //   // }
+    //   // return 1 // Empty (everything else)
+
+    //   const globalX = this.coords.x * (gridSize.x - gridBorder * 2) + x
+    //   if (y <= globalX || y<= 1) {
+    //     return -1
     //   }
-    //   return 1 // Empty (everything else)
+    //   return 1
+
+    //   // const globalX = this.coords.x * (gridSize.x - gridBorder * 2) + x
+    //   // if (globalX % 2 === 0) {
+    //   //   if (y <= 1) {
+    //   //     return -1
+    //   //   }
+    //   // } else {
+    //   //   if (y <= 2) {
+    //   //     return -1
+    //   //   }
+    //   // }
+    //   // return 1
 
     //   // sphere in center
     //   const centerX = gridSize.x / 2
@@ -288,9 +322,12 @@ class Chunk {
 
     console.time('build')
 
-    const surface = createSurface(this.data, this.dims)
+    console.time('build:geometry')
 
-    // surface = weldVertices(surface.vertices, surface.indices)
+    const surface = createSurface(this.data, this.dims, gridBorder)
+    
+
+    console.log('surface',surface)
 
     
 
@@ -307,28 +344,73 @@ class Chunk {
       indices[i] = surface.indices[i]
     }
 
+    const normals = new Float32Array(surface.normals.length)
+    for (let i = 0; i < surface.normals.length; i++) {
+      normals[i] = surface.normals[i]
+    }
+
+    
+
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
+    // geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
     geometry.setIndex(new THREE.BufferAttribute(indices, 1))
-    geometry.computeVertexNormals()
+    geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
+    // geometry.computeVertexNormals()
     geometry.computeBoundsTree()
+    
+    console.timeEnd('build:geometry')
+
+    // const normals = geometry.getAttribute('normal').array
+
+    // const tex1 = this.world.loader.texLoader.load('/static/day2-2k.jpg')
+    // const material = new CustomShaderMaterial({
+    //   baseMaterial: THREE.MeshPhysicalMaterial,
+    //   vertexShader: `
+    //     varying vec2 vUv;
+    //     varying vec3 vPos;
+    //     void main() {
+    //       vUv = uv;
+    //       // vPos = position;
+    //       vec4 wPosition = modelMatrix * vec4(position, 1.0);
+    //       vPos = wPosition.xyz;
+    //       // vPos = worldPosition.xyz;
+    //     }
+    //   `,
+    //   fragmentShader: `
+    //     uniform sampler2D tex1;
+
+    //     varying vec2 vUv;
+    //     varying vec3 vPos;
+
+    //     void main() {
+    //       vec2 uv = vPos.xz * 0.5;
+    //       vec4 result = texture2D(tex1, uv);
+    //       csm_DiffuseColor *= result;
+    //     }
+    //   `,
+    //   uniforms: {
+    //     text1: { value: tex1 }
+    //   }
+    // })
 
     const material = new THREE.MeshStandardMaterial({
-      color: 'black',
-      // color: getRandomColorHex(),
+      // color: 'green',
+      color: getRandomColorHex(),
       // side: THREE.DoubleSide,
       // wireframe: true,
-      flatShading: true
+      // flatShading: true,
+      // map: this.world.loader.texLoader.load('/static/day2-2k.jpg')
     })
     const mesh = new THREE.Mesh(geometry, material)
     // mesh.scale.setScalar(scale)
     mesh.position.set(
-      this.coords.x * gridSize.x * scale - this.coords.x * 2 * scale, // xz overlap
+      this.coords.x * gridSize.x * scale - this.coords.x * (gridBorder*2) * scale, // xz overlap
       this.coords.y * gridSize.y * scale,
-      this.coords.z * gridSize.z * scale - this.coords.z * 2 * scale // xz overlap
+      this.coords.z * gridSize.z * scale - this.coords.z * (gridBorder*2) * scale // xz overlap
     )
-    // mesh.castShadow = true
-    // mesh.receiveShadow = true
+    mesh.castShadow = true
+    mesh.receiveShadow = true
     mesh.updateMatrix()
     mesh.updateMatrixWorld(true)
     mesh.chunk = this
@@ -343,17 +425,43 @@ class Chunk {
       },
       chunk: this,
     }
+
+    console.time('build:octree')
     this.world.spatial.octree.insert(sItem)
-    // console.time('terrain:collider1')
+    console.timeEnd('build:octree')
+    console.time('build:collider1')
     const factory = createColliderFactory(this.world, mesh)
-    // console.timeEnd('terrain:collider1')
-    // console.time('terrain:collider2')
+    console.timeEnd('build:collider1')
+    console.time('build:collider2')
     const collider = factory.create(null, mesh.matrixWorld)
-    // console.timeEnd('terrain:collider2')
+    console.timeEnd('build:collider2')
 
     this.mesh = mesh
     this.sItem = sItem
     this.collider = collider
+
+
+    // normals visual
+    // {
+    //   const geometry = new THREE.BufferGeometry();
+    //   const positions = [];
+    //   for (let i = 0; i < vertices.length; i += 3) {
+    //       positions.push(
+    //           vertices[i], vertices[i+1], vertices[i+2],
+    //           vertices[i] + normals[i] * scale,
+    //           vertices[i+1] + normals[i+1] * scale,
+    //           vertices[i+2] + normals[i+2] * scale
+    //       );
+    //   }  
+    //   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    //   const material = new THREE.LineBasicMaterial({ 
+    //     // color: 'black' 
+    //     color: getRandomColorHex(),
+    //   });
+    //   const lines = new THREE.LineSegments(geometry, material);
+    //   lines.position.copy(mesh.position)
+    //   this.world.graphics.scene.add(lines)
+    // }
 
     // chunk outline
     // {
@@ -465,17 +573,21 @@ class Chunk {
 
     const sign = subtract ? 1 : -1
     const radiusSquared = radius * radius
+    console.log('radius',radius)
     for (
+      // let z = 0; z < gridSize.z; z++
       let z = Math.max(0, center.z - radius);
       z <= Math.min(gridSize.z - 1, center.z + radius);
       z++
     ) {
       for (
+        // let y = 0; y < gridSize.y; y++
         let y = Math.max(0, center.y - radius);
         y <= Math.min(gridSize.y - 1, center.y + radius);
         y++
       ) {
         for (
+          // let x = 0; x < gridSize.x; x++
           let x = Math.max(0, center.x - radius);
           x <= Math.min(gridSize.x - 1, center.x + radius);
           x++
@@ -489,12 +601,16 @@ class Chunk {
           // Check if the voxel is within the sphere of influence
           if (distanceSquared <= radiusSquared) {
             // Calculate the effect based on the distance (linear fade out)
-            // const intensity = 1
-            // const effect = sign * intensity * (1 - Math.sqrt(distanceSquared) / radius) // prettier-ignore
+            const intensity = 0.05
+            const effect = sign * intensity * (1 - Math.sqrt(distanceSquared) / radius) // prettier-ignore
+            // if (x === center.x && y === center.y && z === center.z) {
+            //   console.log('effect', effect)
+            //   console.log(x,y,z)
+            // }
 
             // quadratic falloff
-            const intensity = 0.1
-            const effect = sign * intensity * (1 - distanceSquared / (radius * radius)) // prettier-ignore
+            // const intensity = 0.1
+            // const effect = sign * intensity * (1 - distanceSquared / (radius * radius)) // prettier-ignore
 
             // const intensity = 1
             // const t = 1 - Math.sqrt(distanceSquared) / radius
@@ -512,8 +628,14 @@ class Chunk {
 
             // Apply the effect to the solidity value
             const idx = z * gridSize.y * gridSize.x + y * gridSize.x + x
+            // if (x === center.x && y === center.y && z === center.z) {
+            //   console.log(`Modifying voxel at (${x}, ${y}, ${z}):`, 
+            // `Initial value: ${this.data[idx]}`,
+            // `Effect: ${effect}`,
+            // `Final value: ${this.data[idx] + effect}`);
+            // }
             this.data[idx] += effect
-            // this.data[idx] = Math.min(1, Math.max(-1, this.data[idx] + effect))
+            this.data[idx] = Math.min(1, Math.max(-1, this.data[idx] + effect))
 
             rebuild = true
           }
@@ -679,7 +801,39 @@ class Chunk {
   modifyNeighbours(center, radius, subtract) {
     const terrain = this.world.terrain3
 
-    const chunkOverlap = 2
+    // const chunkSize = gridSize.x - gridBorder * 2  // Assuming square chunks
+
+    // for (const [dx, dz] of neighbourDirections) {
+    //   const checkPoint = v1.set(
+    //     center.x + dx * radius,
+    //     center.y,
+    //     center.z + dz * radius
+    //   )
+      
+    //   if (checkPoint.x < gridBorder || checkPoint.x > chunkSize - gridBorder ||
+    //       checkPoint.z < gridBorder || checkPoint.z > chunkSize - gridBorder) {
+        
+    //     const nCoords = v2.set(
+    //       this.coords.x + dx,
+    //       0,
+    //       this.coords.z + dz
+    //     )
+        
+    //     const nChunk = terrain.getChunkByCoords(
+    //       nCoords.x,
+    //       nCoords.y,
+    //       nCoords.z
+    //     )
+        
+    //     if (nChunk) {
+    //       const nCenter = v3.copy(center).sub(
+    //         nCoords.set(dx * chunkSize, 0, dz * chunkSize)
+    //       )
+    //       nChunk.modifyGrid(nCenter, radius, subtract, false)
+    //     }
+    //   }
+    // }
+    // return   
 
     // todo: this is checking all neighbours for now because the if checks are incorrect
 
@@ -688,14 +842,14 @@ class Chunk {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x - 1, 0, this.coords.z) // prettier-ignore
       nCenter.copy(center)
-      nCenter.x += gridSize.x - chunkOverlap
+      nCenter.x += gridSize.x - (gridBorder * 2)
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
     // if (gridSize.x - center.x <= radius) {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x + 1, 0, this.coords.z) // prettier-ignore
       nCenter.copy(center)
-      nCenter.x = nCenter.x - gridSize.x + chunkOverlap
+      nCenter.x = nCenter.x - gridSize.x + (gridBorder * 2)
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
 
@@ -704,14 +858,14 @@ class Chunk {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x, 0, this.coords.z - 1) // prettier-ignore
       nCenter.copy(center)
-      nCenter.z += gridSize.z - chunkOverlap
+      nCenter.z += gridSize.z - (gridBorder * 2)
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
     // if (gridSize.z - center.z <= radius) {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x, 0, this.coords.z + 1) // prettier-ignore
       nCenter.copy(center)
-      nCenter.z = nCenter.z - gridSize.z + chunkOverlap
+      nCenter.z = nCenter.z - gridSize.z + (gridBorder * 2)
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
 
@@ -720,32 +874,32 @@ class Chunk {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x - 1, 0, this.coords.z - 1) // prettier-ignore
       nCenter.copy(center)
-      nCenter.x += gridSize.x - chunkOverlap
-      nCenter.z += gridSize.z - chunkOverlap
+      nCenter.x += gridSize.x - (gridBorder * 2)
+      nCenter.z += gridSize.z - (gridBorder * 2)
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
     // if (gridSize.x - center.x < radius && gridSize.z - center.z <= radius) {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x + 1, 0, this.coords.z + 1) // prettier-ignore
       nCenter.copy(center)
-      nCenter.x = nCenter.x - gridSize.x + chunkOverlap
-      nCenter.z = nCenter.z - gridSize.z + chunkOverlap
+      nCenter.x = nCenter.x - gridSize.x + (gridBorder * 2)
+      nCenter.z = nCenter.z - gridSize.z + (gridBorder * 2)
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
     // if (center.x < radius && gridSize.x - center.z <= radius) {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x - 1, 0, this.coords.z + 1) // prettier-ignore
       nCenter.copy(center)
-      nCenter.x += gridSize.x - chunkOverlap
-      nCenter.z = nCenter.z - gridSize.z + chunkOverlap
+      nCenter.x += gridSize.x - (gridBorder * 2)
+      nCenter.z = nCenter.z - gridSize.z + (gridBorder * 2)
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
     // if (gridSize.x - center.x < radius && center.z <= radius) {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x + 1, 0, this.coords.z - 1) // prettier-ignore
       nCenter.copy(center)
-      nCenter.x = nCenter.x - gridSize.x + chunkOverlap
-      nCenter.z += gridSize.z - chunkOverlap
+      nCenter.x = nCenter.x - gridSize.x + (gridBorder * 2)
+      nCenter.z += gridSize.z - (gridBorder * 2)
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
   }
@@ -837,29 +991,3 @@ function normalToCardinal(normal) {
 
 
 
-function weldVertices(vertices, indices, threshold = 1) {
-  const uniqueVertices = [];
-  const newIndices = [];
-  const vertexMap = new Map();
-
-  for (let i = 0; i < vertices.length; i += 3) {
-      const vertex = vertices.slice(i, i + 3);
-      const key = vertex.map(v => Math.round(v / threshold)).join(',');
-
-      if (!vertexMap.has(key)) {
-          vertexMap.set(key, uniqueVertices.length / 3);
-          uniqueVertices.push(...vertex);
-      }
-  }
-
-  for (const index of indices) {
-      const vertex = vertices.slice(index * 3, index * 3 + 3);
-      const key = vertex.map(v => Math.round(v / threshold)).join(',');
-      newIndices.push(vertexMap.get(key));
-  }
-
-  return {
-      vertices: uniqueVertices,
-      indices: newIndices
-  };
-}
