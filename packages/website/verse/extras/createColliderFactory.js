@@ -1,3 +1,4 @@
+import { isBoolean } from 'lodash-es'
 import * as THREE from 'three'
 
 export function createColliderFactory(world, mesh) {

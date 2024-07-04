@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { createNoise3D } from 'simplex-noise'
+import { createNoise2D, createNoise3D } from 'simplex-noise'
 
 
 import { System } from './System'
@@ -8,6 +8,7 @@ import CustomShaderMaterial from './libs/three-custom-shader-material'
 import { createSurface } from './libs/surface-nets/SurfaceNets'
 
 import { createColliderFactory } from './extras/createColliderFactory'
+import { clamp } from './extras/utils'
 
 const MODIFY_RATE = 1 / 30
 
@@ -27,7 +28,7 @@ const gridBorder = 2
 // chunk grid size inner (without border)
 const gridSizeInner = new THREE.Vector3(
   gridSize.x - gridBorder * 2,
-  gridSize.y,
+  gridSize.y - gridBorder * 2,
   gridSize.z - gridBorder * 2
 )
 
@@ -39,7 +40,6 @@ const neighbourDirections = [
 // factor to convert chunk grid size in voxels to meters
 const scale = 1
 
-const noise = createNoise3D(() => 10)
 
 // TODO: have a utility size * scale vec3 for use instead of manually calculating everywhere
 
@@ -48,9 +48,110 @@ export class Terrain3 extends System {
     super(world)
     this.chunks = new Map()
     this.modifyRate = 0
+    this.seed(0.1)
   }
 
   start() {
+    const layer1Map = this.world.loader.texLoader.load('/static/grass_darked.png')
+    layer1Map.wrapS = THREE.RepeatWrapping
+    layer1Map.wrapT = THREE.RepeatWrapping
+    layer1Map.colorSpace = THREE.SRGBColorSpace
+    const layer2Map = this.world.loader.texLoader.load('/static/dirt_claydarked.png')
+    layer2Map.wrapS = THREE.RepeatWrapping
+    layer2Map.wrapT = THREE.RepeatWrapping
+    layer2Map.colorSpace = THREE.SRGBColorSpace
+    this.material = new CustomShaderMaterial({
+      baseMaterial: THREE.MeshPhysicalMaterial,
+      vertexShader: `
+        attribute vec2 col;
+
+        varying vec3 vPos;
+        varying vec3 vNorm;
+        varying vec2 vCol;
+
+        void main() {
+          // vPos = position;
+          vNorm = normalize(normal);
+
+          vec4 wPosition = modelMatrix * vec4(position, 1.0);
+          vPos = wPosition.xyz;
+          // vPos = worldPosition.xyz;
+
+          vCol = col;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D layer1Map;
+        uniform float layer1Scale;
+        uniform sampler2D layer2Map;
+        uniform float layer2Scale;
+
+        varying vec3 vPos;
+        varying vec3 vNorm;
+        varying vec2 vCol;
+
+        float randMaskValue = 3.0;
+
+        float rand2(vec2 co) {
+          return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+
+        vec2 rotateUV(vec2 uv, float angle) {
+          float s = sin(angle);
+          float c = cos(angle);
+          uv -= 0.5;
+          uv = vec2(
+              c * uv.x - s * uv.y,
+              s * uv.x + c * uv.y
+          );
+          uv += 0.5;
+          return uv;
+        }
+
+        vec2 getRotatedUV(vec2 uv, float scale, float randMaskValue) {
+          float randValue = rand2(floor(uv)) * randMaskValue;
+          float angle = floor(randValue) * (PI / 2.0);
+          return rotateUV(uv, angle);
+        }
+
+        vec4 textureTriplanar(sampler2D tex, float scale, vec3 normal, vec3 position) {
+          // vec2 uv_x = getRotatedUV(position.yz * scale, scale, randMaskValue);
+          // vec2 uv_y = getRotatedUV(position.xz * scale, scale, randMaskValue);
+          // vec2 uv_z = getRotatedUV(position.xy * scale, scale, randMaskValue);
+          vec2 uv_x = position.yz * scale;
+          vec2 uv_y = position.xz * scale;
+          vec2 uv_z = position.xy * scale;
+          vec4 xProjection = texture2D(tex, uv_x);
+          vec4 yProjection = texture2D(tex, uv_y);
+          vec4 zProjection = texture2D(tex, uv_z);
+          vec3 weight = abs(normal);
+          weight = pow(weight, vec3(4.0)); // bias towards the major axis
+          weight = weight / (weight.x + weight.y + weight.z);
+          return xProjection * weight.x + yProjection * weight.y + zProjection * weight.z;
+        }
+
+        
+
+        void main() {
+          vec4 result = vec4(0, 0, 0, 1.0);
+          // result += textureTriplanar(layer1Map, layer1Scale, vNorm, vPos);
+          result += vCol.r * textureTriplanar(layer1Map, layer1Scale, vNorm, vPos);
+          result += vCol.g * textureTriplanar(layer2Map, layer2Scale, vNorm, vPos);
+          // result += vCol.b * textureTriplanar(layer2Map, layer2Scale, vNorm, vPos);
+          // result += (1.0 - vCol.a) * textureTriplanar(layer2Map, layer2Scale, vNorm, vPos);
+          csm_DiffuseColor *= result;
+        }
+      `,
+      uniforms: {
+        layer1Map: { value: layer1Map },
+        layer1Scale: { value: 0.2 },
+        layer2Map: { value: layer2Map },
+        layer2Scale: { value: 0.2 }
+      },
+      roughness: 1,
+      metallic: 0,
+    })
+
     this.cursor = new THREE.Mesh(
       new THREE.SphereGeometry(0.5),
       new THREE.MeshStandardMaterial({
@@ -70,19 +171,28 @@ export class Terrain3 extends System {
       const edges = new THREE.EdgesGeometry(geometry)
       const material = new THREE.LineBasicMaterial({ color: 'white' })
       this.point = new THREE.LineSegments(edges, material)
-      this.world.graphics.scene.add(this.point)
+      // this.world.graphics.scene.add(this.point)
     }
 
     console.time('generateChunks')
-    const radius = 15
-    for (let x = -radius / 2; x < radius / 2; x++) {
-      for (let z = -radius / 2; z < radius / 2; z++) {
+    this.radius = 16 // must be even num.
+    this.bounds = new THREE.Box3()
+    const foo = (this.radius / 2) * (gridSize.x - gridBorder * 2)
+    this.bounds.min.set(-foo, 0, -foo)
+    this.bounds.max.set(foo, gridSize.y - gridBorder * 2, foo)
+    for (let x = -this.radius / 2; x < this.radius / 2; x++) {
+      for (let z = -this.radius / 2; z < this.radius / 2; z++) {
         const coords = new THREE.Vector3(x, 0, z)
         const chunk = new Chunk(world, coords)
         this.chunks.set(chunk.id, chunk)
       }
     }
     console.timeEnd('generateChunks')
+  }
+
+  seed(value) {
+    this.noise2D = createNoise2D(() => value)
+    this.noise3D = createNoise3D(() => value)
   }
 
   update(delta) {
@@ -162,6 +272,8 @@ export class Terrain3 extends System {
   // }
 }
 
+let foo = 0
+
 class Chunk {
   constructor(world, coords) {
     this.id = `${coords.x},${coords.y},${coords.z}`
@@ -170,72 +282,495 @@ class Chunk {
 
     this.data = new Float32Array(gridSize.x * gridSize.y * gridSize.z)
     this.dims = [gridSize.x, gridSize.y, gridSize.z] // redundant cant we pass this to SurfaceNets as gridSize?
+    this.colors = new Float32Array(gridSize.x * gridSize.y * gridSize.z * 2)
 
     this.populate()
     this.build()
   }
 
-  populate() {
-    
+  populate() {   
 
-    console.time('populate');
+    const noise2D = this.world.terrain3.noise2D
+    const noise3D = this.world.terrain3.noise3D
 
-    const noiseScale = 0.02;
-    const heightScale = 20;
-    const baseHeight = 2;
+    const bounds = this.world.terrain3.bounds;
 
-    const octaves = 4;
-    const persistence = 0.5;
-    const lacunarity = 2.0;
+    const centerX = (bounds.min.x + bounds.max.x) / 2;
+    const centerZ = (bounds.min.z + bounds.max.z) / 2;
 
-    const smoothStep = (min, max, value) => {
+    function smoothstep(min, max, value) {
       const x = Math.max(0, Math.min(1, (value - min) / (max - min)));
       return x * x * (3 - 2 * x);
-    };
+    }
+    
+    // === 2 ===
 
-    const field = (worldX, y, worldZ) => {
-      let noiseValue = 0;
-      let amplitude = 1;
-      let frequency = 1;
-      let maxValue = 0;
-    
-      for (let i = 0; i < octaves; i++) {
-        noiseValue += noise(
-          worldX * noiseScale * frequency, 
-          0,
-          worldZ * noiseScale * frequency
-        ) * amplitude;
-    
-        maxValue += amplitude;
-        amplitude *= persistence;
-        frequency *= lacunarity;
-      }
-    
-      noiseValue /= maxValue;  // Normalize the noise value
-    
-      // Apply smooth step function to create more gradual transitions
-      const smoothedNoise = smoothStep(-1, 1, noiseValue);
-    
-      const height = smoothedNoise * heightScale + baseHeight;
-    
-      // Return a signed distance field value
-      return y - height;
-    };
-
-    let index = 0;
+    let idx = -1;
     for (let z = 0; z < gridSize.z; z++) {
       for (let y = 0; y < gridSize.y; y++) {
         for (let x = 0; x < gridSize.x; x++) {
-          // Calculate world coordinates
-          const worldX = this.coords.x * (gridSize.x - gridBorder * 2) + x;
-          const worldZ = this.coords.z * (gridSize.z - gridBorder * 2) + z;
+          idx++;
+          const w = v1.set(
+            this.coords.x * gridSizeInner.x + x,
+            this.coords.y * gridSizeInner.y + y,
+            this.coords.z * gridSizeInner.z + z
+          );
+
+          const dx = w.x - centerX;
+          const dz = w.z - centerZ;
+          const distToCenter = Math.sqrt(dx * dx + dz * dz);
+
+          const terrainHeight = 80
+
+          // slightly skewed surface
+          const surfaceAmp = 4
+          const surfaceNoiseScale = 0.02
+          let surfaceNoise = noise2D(w.x * surfaceNoiseScale, w.z * surfaceNoiseScale)
+          surfaceNoise = sinToAlpha(surfaceNoise)
+
+          // noise for hill locations
+          const hillLocationNoiseScale = 0.02
+          let hillLocationNoise = noise2D(w.x * hillLocationNoiseScale, w.z * hillLocationNoiseScale)
+          hillLocationNoise = sinToAlpha(hillLocationNoise)
+
+          // hills
+          const hillAmp = 8
+          const hillNoiseScale = 0.1
+          let hillNoise = noise2D(w.x * hillNoiseScale, w.z * hillNoiseScale)
+          hillNoise = sinToAlpha(hillNoise)
+
+          // modulate hills with their locations
+          const hillThreshold = 0.7
+          const hillIntensity = Math.max(0, (hillLocationNoise - hillThreshold) / (1 - hillThreshold)) // 0 to 1 inside threshold
+          hillNoise *= hillIntensity
+
+          // final surface height
+          const surfaceHeight = terrainHeight + (surfaceNoise * surfaceAmp)
+          let height = terrainHeight + (surfaceNoise * surfaceAmp) + (hillNoise * hillAmp);
+
+          // smooth density
+          const surfaceDistance = height - w.y;
+          const smoothStrength = 0.3
+          let smoothHeight = smoothstep(smoothStrength * terrainHeight, -smoothStrength * terrainHeight, surfaceDistance);
+          smoothHeight = alphaToSin(smoothHeight)
+
+          // island edge + smoothing
+          // const edgeRadius = 80
+          // const edgeTransition = 5
+          // const edgeFactor = smoothstep(edgeRadius - edgeTransition, edgeRadius, distToCenter);
+          // smoothHeight = smoothHeight * (1 - edgeFactor) + edgeFactor;
+
+          // wavy edge radius
+          const edgeNoiseScale = 0.03
+          let edgeNoise = noise2D(w.x * edgeNoiseScale, w.z * edgeNoiseScale)
+          edgeNoise = sinToAlpha(edgeNoise)
           
-          this.data[index++] = field(worldX, y, worldZ);
+          // modulate edge radius
+          const edgeRadius = 80
+          const edgeAmp = 10
+          const modulatedEdgeRadius = edgeRadius + (edgeNoise - 0.5) * 2 * edgeAmp
+          
+          // island edge + smoothing
+          const edgeTransition = 5
+          const edgeFactor = smoothstep(modulatedEdgeRadius - edgeTransition, modulatedEdgeRadius, distToCenter);
+          smoothHeight = smoothHeight * (1 - edgeFactor) + edgeFactor;
+
+          let density = smoothHeight
+
+          const crust = 3
+          if (w.y < surfaceHeight - crust) {
+            const underNoiseScale = 0.01
+            let underNoise = noise2D(w.x * underNoiseScale, w.z * underNoiseScale)
+            underNoise = sinToAlpha(underNoise)
+            underNoise = 1 - underNoise
+
+            const pointNoiseScale = 0.1
+            let pointNoise = noise2D(w.x * pointNoiseScale, w.z * pointNoiseScale)
+            pointNoise = sinToAlpha(pointNoise)
+            pointNoise = 1 - pointNoise
+            
+            // const maxDistance = Math.sqrt(edgeRadius * edgeRadius) - 10;
+            // const normalizedDistance = distToCenter / maxDistance;
+            const normalizedDistance = distToCenter / modulatedEdgeRadius;
+            
+            const underAmpMin = 1
+            const underAmpMax = 60
+            const underAmp = underAmpMax - (underAmpMax - underAmpMin) * normalizedDistance;
+            // const underAmp = smoothstep(underAmpMin, underAmpMax, distToCenter)
+
+            const pointAmpMin = 10
+            const pointAmpMax = 20
+            const pointAmp = pointAmpMax - (pointAmpMax - pointAmpMin) * normalizedDistance;
+            // const pointAmp = smoothstep(pointAmpMin, pointAmpMax, distToCenter)
+
+            let height2 = surfaceHeight - w.y - (underNoise * underAmp) - (pointNoise * pointAmp)
+
+            density = height2 * (1 - edgeFactor) + edgeFactor;
+          }
+
+          // 0 shows weird color, maybe we can fix in shader?
+          if (density === 0) density = -0.001
+
+          this.data[idx] = density
+          this.colors[idx * 2 + 0] = 1;
+          this.colors[idx * 2 + 1] = 0;
+          if (w.y < height - 2) {
+            this.colors[idx * 2 + 0] = 0;
+            this.colors[idx * 2 + 1] = 1;
+          }
         }
       }
     }
 
-    console.timeEnd('populate');
+    // === 1 ===
+
+    // const baseIslandRadius = 60;
+    // const offsetNoiseScale = 2;
+    // const offsetMax = 20;
+
+    // const heightNoiseScale = 0.02;
+    // const surfaceHeight = 50
+    // const surfaceOffsetMax = 10
+    // const smoothingFactor = 0.02
+
+    // const baseNoiseScale = 0.05
+
+    // function smoothstep(min, max, value) {
+    //   const x = Math.max(0, Math.min(1, (value - min) / (max - min)));
+    //   return x * x * (3 - 2 * x);
+    // }
+
+    // let idx = -1;
+    // for (let z = 0; z < gridSize.z; z++) {
+    //   for (let y = 0; y < gridSize.y; y++) {
+    //     for (let x = 0; x < gridSize.x; x++) {
+    //       idx++;
+    //       const w = v1.set(
+    //         this.coords.x * gridSizeInner.x + x,
+    //         this.coords.y * gridSizeInner.y + y,
+    //         this.coords.z * gridSizeInner.z + z
+    //       );
+
+    //       const dx = w.x - centerX;
+    //       const dz = w.z - centerZ;
+    //       const distToCenter = Math.sqrt(dx * dx + dz * dz);
+    //       const angle = Math.atan2(dz, dx);
+
+    //       const edgeNoise = noise2D(Math.cos(angle) * offsetNoiseScale, Math.sin(angle) * offsetNoiseScale, 0);
+    //       const edgeOffset = remapNoise(edgeNoise, 0, offsetMax)
+    //       const islandRadius = baseIslandRadius + edgeOffset
+
+    //       const heightNoise = noise2D(w.x * heightNoiseScale, w.z * heightNoiseScale)
+    //       let height = remapNoise(heightNoise, 0, surfaceOffsetMax)
+    //       // const ratioToEdge = distToCenter / islandRadius
+    //       // height = (1 - ratioToEdge) * height + surfaceHeight
+    //       height = height + surfaceHeight
+
+    //       const baseNoise = noise2D(w.x * baseNoiseScale, w.z * baseNoiseScale)
+    //       let base = remapNoise(baseNoise, 0, 20)
+    //       // const ratioToEdge = distToCenter / islandRadius
+    //       // base = height - 2 - (1 - ratioToEdge) * base
+    //       base = height - 2 - base
+
+    //       // const edgeTransition = smoothstep(islandRadius - 10, islandRadius, distToCenter);
+
+    //       // const shapeNoise = noise2D(distToCenter * 0.1, distToCenter * 0.1)
+    //       // const shapeNoise = noise2D(w.x * 1, w.z * 1)
+    //       // const shape = 1 - remapNoise(shapeNoise, 0, 1)
+
+    //       const shapeNoiseScale = 0.1; // Adjust this value to change the noise frequency
+    //       const shapeInfluence = 10; 
+    //       const shapeNoise = noise2D(w.x * shapeNoiseScale, w.z * shapeNoiseScale);
+    //       const shape = remapNoise(shapeNoise, -shapeInfluence, shapeInfluence);
+
+
+    //       if (distToCenter < islandRadius) {
+
+    //         const terrainValue = smoothstep(base, height, y);
+    // const edgeTransition = smoothstep(islandRadius - 10, islandRadius, distToCenter);
+    // const shapeTransition = smoothstep(-1, 1, shape + (height - y) / (height - base));
+
+    //     const finalValue = (1 - terrainValue) * (1 - edgeTransition) * shapeTransition;
+
+    //     this.data[idx] = finalValue * 2 - 1
+    //         // const detailNoise = noise3D(w.x * 0.1, w.y * 0.1, w.z * 0.1);
+    //         // const terrainValue = smoothstep(base, height, y + detailNoise * 5);
+    //         // const finalValue = 1 - (1 - terrainValue) * (1 - edgeTransition);
+    //         // this.data[idx] = finalValue * 2 - 1; // Map 0-1 to -1 to 1
+
+    //         // const terrainValue = Math.max(0, Math.min(1, (height - y) / (height - base)))
+    //         // this.data[idx] = terrainValue * 2 - 1; // Map 0-1 to -1 to 1
+
+    //         // this.data[idx] = -1
+    //         // this.data[idx] = -shape
+
+    //         const grass = y > height - 2 ? 1 : 0
+    //         this.colors[idx * 2 + 0] = grass;
+    //         this.colors[idx * 2 + 1] = 1- grass;
+    //       } else {
+    //         this.data[idx] = 1;
+    //         this.colors[idx * 2 + 0] = 0;
+    //         this.colors[idx * 2 + 1] = 1;
+    //       }
+    //     }
+    //   }
+    // }
+
+
+    // const scale = 0.05
+    // const amplitude = 10; 
+    // const midLevel = 10;
+    // const minLevel = 5;
+    // const maxLevel = 15
+
+    // const bounds = this.world.terrain3.bounds
+    // const centerX = (bounds.min.x + bounds.max.x) / 2;
+    // const centerZ = (bounds.min.z + bounds.max.z) / 2;
+    // const maxRadius = Math.min(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z) / 2;
+
+    // function islandShape(x, z) {
+    //   const dx = x - centerX;
+    //   const dz = z - centerZ;
+    //   const distanceFromCenter = Math.sqrt(dx * dx + dz * dz);
+      
+    //   // Normalize distance to be between 0 and 1
+    //   const normalizedDistance = distanceFromCenter / maxRadius;
+      
+    //   // Use noise to create an irregular edge
+    //   const edgeNoise = noise(x * 0.01, z * 0.01, 0) * 0.3 + 0.7;
+      
+    //   // Combine distance and noise
+    //   return normalizedDistance < edgeNoise;
+    // }
+
+    // let idx = -1;
+    // for (let z = 0; z < gridSize.z; z++) {
+    //   for (let y = 0; y < gridSize.y; y++) {
+    //     for (let x = 0; x < gridSize.x; x++) {
+    //       idx++;
+    //       const wX = this.coords.x * (gridSize.x - gridBorder * 2) + x;
+    //       const wY = y;
+    //       const wZ = this.coords.z * (gridSize.z - gridBorder * 2) + z;
+
+    //       const isLand = islandShape(wX, wZ);
+
+
+    //       // TODO: swap this isEdge check to actually use noise and figure out if the XZ distance to center should be the edge of a randomly generated top down shape for the island
+    //       // const isEdge = (wX < bounds.min.x + 10 || wX >= bounds.max.x - 10 || wZ < bounds.min.z + 10 || wZ >= bounds.max.z - 10)
+    //       if (!isLand) {
+    //         // Air
+    //         this.data[idx] = 1;
+    //         this.colors[idx * 2 + 0] = 1;
+    //         this.colors[idx * 2 + 1] = 1;
+    //         continue
+    //       }
+
+    //       const value = noise(wX * scale, wZ * scale, 0)
+    //       const surfaceOffset = value * amplitude;
+    //       const groundHeight = Math.max(minLevel, Math.min(maxLevel, midLevel + surfaceOffset));
+    //       const height = wY - groundHeight;
+
+    //       if (height < 0) {
+    //         this.data[idx] = -1;
+    //         this.colors[idx * 2 + 0] = 1;
+    //         this.colors[idx * 2 + 1] = 0;
+    //       } else {
+    //         // Air
+    //         this.data[idx] = 1;
+    //         this.colors[idx * 2 + 0] = 1;
+    //         this.colors[idx * 2 + 1] = 1;
+    //       }
+    //     }
+    //   }
+    // }
+
+    
+    // const noiseScale = 0.01;
+    // const shapeNoiseScale = 0.02;
+    // const heightScale = 5;
+    // const baseHeight = 5;
+    // const islandRadius = Math.min(this.world.terrain3.bounds.max.x, this.world.terrain3.bounds.max.z) * 0.7;
+    
+    // const centerX = (this.world.terrain3.bounds.max.x + this.world.terrain3.bounds.min.x) / 2;
+    // const centerZ = (this.world.terrain3.bounds.max.z + this.world.terrain3.bounds.min.z) / 2;
+
+    // let idx = -1;
+    // for (let z = 0; z < gridSize.z; z++) {
+    //   for (let y = 0; y < gridSize.y; y++) {
+    //     for (let x = 0; x < gridSize.x; x++) {
+    //       idx++;
+    //       const wX = this.coords.x * (gridSize.x - gridBorder * 2) + x;
+    //       const wY = y;
+    //       const wZ = this.coords.z * (gridSize.z - gridBorder * 2) + z;
+
+    //       // Calculate distance from center of the entire volume
+    //       const dx = wX - centerX;
+    //       const dz = wZ - centerZ;
+    //       const distanceFromCenter = Math.sqrt(dx * dx + dz * dz);
+
+    //       // Generate noise-based island shape
+    //       const shapeNoise = noise(wX * shapeNoiseScale, wZ * shapeNoiseScale, 0);
+    //       const shapeThreshold = 0.01;
+    //       const islandShape = Math.max(0, (shapeNoise - shapeThreshold) / (1 - shapeThreshold));
+
+    //       // Combine distance and noise for island factor
+    //       const islandFactor = Math.max(0, islandShape - distanceFromCenter / islandRadius);
+
+    //       // Generate island height
+    //       const heightNoise = noise(wX * noiseScale, wZ * noiseScale, 0);
+    //       const islandHeight = baseHeight + heightNoise * heightScale * islandFactor;
+
+    //       if (wY < islandHeight && islandFactor > 0) {
+    //         // Inside the island
+    //         this.data[idx] = -1;
+    //         this.colors[idx * 2 + 0] = 1;
+    //         this.colors[idx * 2 + 1] = 0;
+    //       } else {
+    //         // Air
+    //         this.data[idx] = 1;
+    //         this.colors[idx * 2 + 0] = 1;
+    //         this.colors[idx * 2 + 1] = 1;
+    //       }
+    //     }
+    //   }
+    // }
+
+    // const surfaceY = 6
+    // const noiseScale = 0.01
+    // const threshold = 0.1
+    // const bufferSize = 4
+    // const bounds = this.world.terrain3.bounds
+
+    // let idx = -1;
+    // for (let z = 0; z < gridSize.z; z++) {
+    //   for (let y = 0; y < gridSize.y; y++) {
+    //     for (let x = 0; x < gridSize.x; x++) {
+    //       idx++
+    //       const wX = this.coords.x * (gridSize.x - gridBorder * 2) + x;
+    //       const wY = y;
+    //       const wZ = this.coords.z * (gridSize.z - gridBorder * 2) + z;
+
+    //       const isInBuffer = wX < bounds.min.x + bufferSize || wX >= bounds.max.x - bufferSize || 
+    //                         //  wY < bounds.min.y + bufferSize || wY >= bounds.max.y - bufferSize || 
+    //                          wZ < bounds.min.z + bufferSize || wZ >= bounds.max.z - bufferSize
+
+    //       if (isInBuffer) {
+    //         // air
+    //         this.data[idx] = 1;
+    //         this.colors[idx * 2 + 0] = 1;
+    //         this.colors[idx * 2 + 1] = 1;
+    //         continue
+    //       }
+
+
+    //       const noiseValue = noise(wX * noiseScale, wZ * noiseScale, 0);
+    //       const isIsland = noiseValue > threshold;
+
+    //       if (y <= surfaceY && isIsland) {
+    //         // Solid part of the floating island
+    //         this.data[idx] = -1;
+    //         this.colors[idx * 2 + 0] = 1;
+    //         this.colors[idx * 2 + 1] = 0;
+    //       } else {
+    //         // Air
+    //         this.data[idx] = 1;
+    //         this.colors[idx * 2 + 0] = 1;
+    //         this.colors[idx * 2 + 1] = 1;
+    //       }
+    //     }
+    //   }
+    // }
+
+    // return
+
+
+
+    // console.time('populate');
+
+    // const noiseScale = 0.02;
+    // const heightScale = 20;
+    // const baseHeight = 2;
+
+    // const octaves = 4;
+    // const persistence = 0.5;
+    // const lacunarity = 2.0;
+
+    // const smoothStep = (min, max, value) => {
+    //   const x = Math.max(0, Math.min(1, (value - min) / (max - min)));
+    //   return x * x * (3 - 2 * x);
+    // };
+
+    // const field = (worldX, y, worldZ) => {
+    //   let noiseValue = 0;
+    //   let amplitude = 1;
+    //   let frequency = 1;
+    //   let maxValue = 0;
+    
+    //   for (let i = 0; i < octaves; i++) {
+    //     noiseValue += noise(
+    //       worldX * noiseScale * frequency, 
+    //       0,
+    //       worldZ * noiseScale * frequency
+    //     ) * amplitude;
+    
+    //     maxValue += amplitude;
+    //     amplitude *= persistence;
+    //     frequency *= lacunarity;
+    //   }
+    
+    //   noiseValue /= maxValue;  // Normalize the noise value
+    
+    //   // Apply smooth step function to create more gradual transitions
+    //   const smoothedNoise = smoothStep(-1, 1, noiseValue);
+    
+    //   const height = smoothedNoise * heightScale + baseHeight;
+    
+    //   // Return a signed distance field value
+    //   return y - height;
+    // };
+
+    // let index = 0;
+    // for (let z = 0; z < gridSize.z; z++) {
+    //   for (let y = 0; y < gridSize.y; y++) {
+    //     for (let x = 0; x < gridSize.x; x++) {
+    //       // Calculate world coordinates
+    //       const worldX = this.coords.x * (gridSize.x - gridBorder * 2) + x;
+    //       const worldZ = this.coords.z * (gridSize.z - gridBorder * 2) + z;
+          
+    //       const idx = index++
+
+    //       this.data[idx] = field(worldX, y, worldZ);
+
+    //       if (this.data[idx] < 0) {
+    //         this.colors[idx * 2 + 0] = 1
+    //         this.colors[idx * 2 + 1] = 0
+    //       } else {
+    //         this.colors[idx * 2 + 0] = 1
+    //         this.colors[idx * 2 + 1] = 0
+    //       }
+
+    //       const isUnderground = this.data[idx] < -1.5;
+    //       if (isUnderground) {
+    //         this.colors[idx * 2 + 0] = 0
+    //         this.colors[idx * 2 + 1] = 1
+    //       } else {
+    //         this.colors[idx * 2 + 0] = 1
+    //         this.colors[idx * 2 + 1] = 0
+    //       }
+
+    //       // const val = Math.random()
+    //       // this.colors[idx * 2 + 0] = val
+    //       // this.colors[idx * 2 + 1] = 1 - val
+
+    //       // this.colors[idx * 3 + 0] = Math.random()
+    //       // this.colors[idx * 3 + 1] = Math.random()
+    //       // this.colors[idx * 3 + 2] = Math.random()
+    //       // this.colors[idx * 3 + 3] = Math.random()
+    //     }
+    //   }
+    // }
+
+    // console.timeEnd('populate');
 
 
     // =====
@@ -312,7 +847,9 @@ class Chunk {
     if (this.mesh) {
       this.world.graphics.scene.remove(this.mesh)
       this.mesh.geometry.dispose()
-      this.mesh.material.dispose()
+      if (this.mesh.material !== this.world.terrain3.material) {
+        this.mesh.material.dispose()
+      }
       this.mesh = null
       this.world.spatial.octree.remove(this.sItem)
       this.sItem = null
@@ -320,14 +857,17 @@ class Chunk {
       this.collider = null
     }
 
-    console.time('build')
+    console.time('chunk')
+    console.time('chunk:geometry')
 
-    console.time('build:geometry')
+    const surface = createSurface(this.data, this.dims, this.colors)
+    // console.log('surface',surface)
 
-    const surface = createSurface(this.data, this.dims, gridBorder)
-    
-
-    console.log('surface',surface)
+    if (!surface.indices.length) {
+      console.timeEnd('chunk')
+      console.timeEnd('chunk:geometry')
+      return
+    }
 
     
 
@@ -349,6 +889,11 @@ class Chunk {
       normals[i] = surface.normals[i]
     }
 
+    const colors = new Float32Array(surface.colors.length)
+    for (let i = 0; i < surface.colors.length; i++) {
+      colors[i] = surface.colors[i]
+    }
+
     
 
     const geometry = new THREE.BufferGeometry()
@@ -356,52 +901,23 @@ class Chunk {
     // geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
     geometry.setIndex(new THREE.BufferAttribute(indices, 1))
     geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
+    geometry.setAttribute('col', new THREE.BufferAttribute(colors, 2))
     // geometry.computeVertexNormals()
     geometry.computeBoundsTree()
     
-    console.timeEnd('build:geometry')
+    console.timeEnd('chunk:geometry')
 
     // const normals = geometry.getAttribute('normal').array
 
-    // const tex1 = this.world.loader.texLoader.load('/static/day2-2k.jpg')
-    // const material = new CustomShaderMaterial({
-    //   baseMaterial: THREE.MeshPhysicalMaterial,
-    //   vertexShader: `
-    //     varying vec2 vUv;
-    //     varying vec3 vPos;
-    //     void main() {
-    //       vUv = uv;
-    //       // vPos = position;
-    //       vec4 wPosition = modelMatrix * vec4(position, 1.0);
-    //       vPos = wPosition.xyz;
-    //       // vPos = worldPosition.xyz;
-    //     }
-    //   `,
-    //   fragmentShader: `
-    //     uniform sampler2D tex1;
-
-    //     varying vec2 vUv;
-    //     varying vec3 vPos;
-
-    //     void main() {
-    //       vec2 uv = vPos.xz * 0.5;
-    //       vec4 result = texture2D(tex1, uv);
-    //       csm_DiffuseColor *= result;
-    //     }
-    //   `,
-    //   uniforms: {
-    //     text1: { value: tex1 }
-    //   }
+    const material = this.world.terrain3.material
+    // const material = new THREE.MeshStandardMaterial({
+    //   // color: 'green',
+    //   color: getRandomColorHex(),
+    //   // side: THREE.DoubleSide,
+    //   // wireframe: true,
+    //   // flatShading: true,
+    //   // map: this.world.loader.texLoader.load('/static/day2-2k.jpg')
     // })
-
-    const material = new THREE.MeshStandardMaterial({
-      // color: 'green',
-      color: getRandomColorHex(),
-      // side: THREE.DoubleSide,
-      // wireframe: true,
-      // flatShading: true,
-      // map: this.world.loader.texLoader.load('/static/day2-2k.jpg')
-    })
     const mesh = new THREE.Mesh(geometry, material)
     // mesh.scale.setScalar(scale)
     mesh.position.set(
@@ -426,15 +942,15 @@ class Chunk {
       chunk: this,
     }
 
-    console.time('build:octree')
+    console.time('chunk:octree')
     this.world.spatial.octree.insert(sItem)
-    console.timeEnd('build:octree')
-    console.time('build:collider1')
+    console.timeEnd('chunk:octree')
+    console.time('chunk:collider1')
     const factory = createColliderFactory(this.world, mesh)
-    console.timeEnd('build:collider1')
-    console.time('build:collider2')
+    console.timeEnd('chunk:collider1')
+    console.time('chunk:collider2')
     const collider = factory.create(null, mesh.matrixWorld)
-    console.timeEnd('build:collider2')
+    console.timeEnd('chunk:collider2')
 
     this.mesh = mesh
     this.sItem = sItem
@@ -636,6 +1152,11 @@ class Chunk {
             // }
             this.data[idx] += effect
             this.data[idx] = Math.min(1, Math.max(-1, this.data[idx] + effect))
+
+            this.colors[idx * 2 + 0] += subtract ? -0.1 : 0.1
+            this.colors[idx * 2 + 0] = clamp(this.colors[idx * 2 + 0], 0, 1)
+            this.colors[idx * 2 + 1] += subtract ? 0.1 : -0.1
+            this.colors[idx * 2 + 1] = clamp(this.colors[idx * 2 + 1], 0, 1)
 
             rebuild = true
           }
@@ -966,10 +1487,10 @@ function map(n, start1, stop1, start2, stop2, withinBounds) {
   }
 }
 
-function smoothstep(edge0, edge1, x) {
-  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)))
-  return t * t * (3 - 2 * t)
-}
+// function smoothstep(edge0, edge1, x) {
+//   const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)))
+//   return t * t * (3 - 2 * t)
+// }
 
 const cNormal = new THREE.Vector3()
 function normalToCardinal(normal) {
@@ -991,3 +1512,20 @@ function normalToCardinal(normal) {
 
 
 
+
+
+function remap(value, min, max) {
+  return min + (max - min) * value;
+}
+
+function remapNoise(value, min, max) {
+  return min + (max - min) * (value + 1) / 2;
+}
+
+function alphaToSin(value) {
+  return value * 2 - 1 // map (0, 1) to (-1, 1)
+}
+
+function sinToAlpha(value) {
+  return value / 2 + 0.5 // map (-1, 1) to (0, 1)
+}

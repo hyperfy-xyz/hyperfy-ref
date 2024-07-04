@@ -110,7 +110,7 @@ export class Graphics extends System {
       // camera: this.camera,
       // parent: this.scene,
     })
-    // this.csm.fade = true // must be set after!
+    this.csm.fade = true // must be set after!
     this.sunPosition = new THREE.Vector3(200, 400, 200)
     this.csm.lightDirection
       .subVectors(v1.set(0, 0, 0), this.sunPosition)
@@ -199,7 +199,10 @@ export class Graphics extends System {
     // })
 
     // sky
-    this.world.loader.loadTEX('/static/day2-2k.jpg').then(texture => {
+    // const skyUrl = '/static/day2-2k.jpg'
+    const skyUrl = '/static/above-day-a.png'
+    // const skyUrl = '/static/above-day-b.png'
+    this.world.loader.loadTEX(skyUrl).then(texture => {
       texture.minFilter = texture.magFilter = THREE.LinearFilter
       texture.mapping = THREE.EquirectangularReflectionMapping
       // texture.encoding = Encoding[this.encoding]

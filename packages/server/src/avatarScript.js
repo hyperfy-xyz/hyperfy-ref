@@ -155,6 +155,9 @@ object.on('update', delta => {
     if (control?.jump) {
       velocity.y += 1
     }
+    if (control?.crouch) {
+      velocity.y =0
+    }
     // if (control?.jump && isGrounded) {
     //   velocity.y = Math.sqrt(2 * gravity * jumpHeight)
     // }

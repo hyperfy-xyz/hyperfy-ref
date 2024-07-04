@@ -248,6 +248,12 @@ export class Control extends System {
           }
         }
         break
+      case 'KeyC':
+        this.keys.c = true
+        if (this.current) {
+          this.current.crouch = true
+        }
+        break
       case 'ShiftLeft':
       case 'ShiftRight':
         this.keys.shift = true
@@ -307,6 +313,12 @@ export class Control extends System {
           if (this.current) {
             this.current.jump = false
           }
+        }
+        break
+      case 'KeyC':
+        this.keys.c = false
+        if (this.current) {
+          this.current.crouch = false
         }
         break
       case 'ShiftLeft':
@@ -514,6 +526,7 @@ export class Control extends System {
       move: new THREE.Vector3(),
       run: false,
       jump: false,
+      crouch: false,
       look: {
         rotation: new THREE.Euler(0, 0, 0, 'YXZ'),
         quaternion: new THREE.Quaternion(),

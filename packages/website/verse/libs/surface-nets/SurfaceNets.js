@@ -44,10 +44,11 @@ for (let i = 0; i < buffer.length; ++i) {
   buffer[i] = 0
 }
 
-export function createSurface(data, dims) {
+export function createSurface(data, dims, colorData) {
   let vertices = []
   let indices = []
   let normals = []
+  let colors = []
   let edgeFaces = new Set();
   let n = 0
   let x = new Int32Array(3)
@@ -58,6 +59,43 @@ export function createSurface(data, dims) {
   // Resize buffer if necessary
   if (R[2] * 2 > buffer.length) {
     buffer = new Int32Array(R[2] * 2)
+  }
+
+  function interpolateColor(x, y, z) {
+    let colorSum = [0, 0];
+    let weightSum = 0;
+  
+    for (let i = 0; i < 2; i++) {
+      for (let j = 0; j < 2; j++) {
+        for (let k = 0; k < 2; k++) {
+          let vx = Math.floor(x) + i;
+          let vy = Math.floor(y) + j;
+          let vz = Math.floor(z) + k;
+          
+          let dataIndex = vz * dims[1] * dims[0] + vy * dims[0] + vx;
+          
+          // Only consider solid voxels (negative values)
+          if (data[dataIndex] < 0) {
+            let weight = (1 - Math.abs(x - vx)) * (1 - Math.abs(y - vy)) * (1 - Math.abs(z - vz));
+            
+            let colorIndex = dataIndex * 2;
+            
+            for (let c = 0; c < 2; c++) {
+              colorSum[c] += colorData[colorIndex + c] * weight;
+            }
+            
+            weightSum += weight;
+          }
+        }
+      }
+    }
+  
+    // If no solid voxels were found, return a default color (e.g., white)
+    if (weightSum === 0) {
+      return [1, 1];
+    }
+  
+    return colorSum.map(c => c / weightSum);
   }
 
   // March over the voxel grid
@@ -145,6 +183,9 @@ export function createSurface(data, dims) {
         buffer[m] = vertices.length / 3
         vertices.push(v[0], v[1], v[2])
 
+        // Interpolate and add color for this vertex
+        colors.push(...interpolateColor(v[0], v[1], v[2]));
+
         // Now we need to add faces together, to do this we just loop over 3 basis components
         for (let i = 0; i < 3; ++i) {
           // The first three entries of the edge_mask count the crossings along the edge
@@ -206,6 +247,7 @@ export function createSurface(data, dims) {
     vertices,
     indices,
     normals,
+    colors,
   }
 }
 
