@@ -807,24 +807,48 @@ export class Control extends System {
         visible: true,
         disabled: false,
         execute: () => {
-          if (!window.bomb) window.bomb = 1000
-          for (let i = 0; i < window.bomb; i++) {
-            e1.set(0, num(0, 360, 2) * DEG2RAD, 0)
-            q1.setFromEuler(e1)
-            this.world.entities.addEntityLocal({
+          for (let i = 0; i < 10; i++) {
+            const schema = {
               id: this.world.network.makeId(),
-              schemaId: entity.schema.id,
-              creator: this.world.network.client.user.id, // ???
-              authority: this.world.network.client.id,
-              mode: 'active',
-              modeClientId: null,
-              position: [num(-200, 200, 3), 0, num(-200, 200, 3)], // ground
-              quaternion: q1.toArray(),
-              // position: [num(-100, 100, 3), num(0, 100, 3), num(-100, 100, 3)], // everywhere
-              // quaternion: [0, 0, 0, 1],
-              state: entity.state,
-            })
+              type: 'prototype',
+              model: `tmp/${i}`,
+              modelType: 'glb',
+              script: null,
+            }
+            this.world.entities.upsertSchemaLocal(schema)
+            for (let n = 0; n < 50; n++) {
+              const entity = this.world.entities.addEntityLocal({
+                id: this.world.network.makeId(),
+                schemaId: schema.id,
+                creator: this.world.network.client.user.id,
+                authority: this.world.network.client.id,
+                uploading: this.world.network.client.id,
+                mode: 'active',
+                modeClientId: this.world.network.client.id,
+                position: [num(-200, 200, 3), 0, num(-200, 200, 3)], // ground
+                quaternion: [0, 0, 0, 1],
+                state: {},
+              })
+            }
           }
+          // if (!window.bomb) window.bomb = 1000
+          // for (let i = 0; i < window.bomb; i++) {
+          //   e1.set(0, num(0, 360, 2) * DEG2RAD, 0)
+          //   q1.setFromEuler(e1)
+          //   this.world.entities.addEntityLocal({
+          //     id: this.world.network.makeId(),
+          //     schemaId: entity.schema.id,
+          //     creator: this.world.network.client.user.id, // ???
+          //     authority: this.world.network.client.id,
+          //     mode: 'active',
+          //     modeClientId: null,
+          //     position: [num(-200, 200, 3), 0, num(-200, 200, 3)], // ground
+          //     quaternion: q1.toArray(),
+          //     // position: [num(-100, 100, 3), num(0, 100, 3), num(-100, 100, 3)], // everywhere
+          //     // quaternion: [0, 0, 0, 1],
+          //     state: entity.state,
+          //   })
+          // }
         },
       })
       add({

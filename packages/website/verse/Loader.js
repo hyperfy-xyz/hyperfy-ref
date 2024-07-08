@@ -6,6 +6,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 
 import { VRMLoaderPlugin as VRMLoader } from './libs/three-vrm.js'
 
+import { getRandomColorHex } from './extras/utils'
 import { VOXLoader } from './extras/VoxLoader'
 import { glbToNodes } from './extras/glbToNodes'
 import { voxToNodes } from './extras/voxToNodes'
@@ -120,8 +121,60 @@ export class Loader extends System {
   }
 
   loadGLB(url) {
+    console.log('loadGLB', url)
+    if (url.startsWith('tmp/')) {
+      return new Promise(async resolve => {
+        function canvasToPNG(canvas) {
+          return new Promise((resolve) => {
+            canvas.toBlob((blob) => {
+              const url = URL.createObjectURL(blob);
+              resolve(url);
+            }, 'image/png');
+          });
+        }
+        async function createTexture() {
+          const size = 512
+          const color = getRandomColorHex()
+
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          canvas.width = size;
+          canvas.height = size;
+          
+          const cellSize = size / 10;
+          
+          for (let i = 0; i < 10; i++) {
+            for (let j = 0; j < 10; j++) {
+              ctx.fillStyle = (i + j) % 2 === 0 ? color : 'black';
+              ctx.fillRect(i * cellSize, j * cellSize, cellSize, cellSize);
+            }
+          }
+
+          const pngUrl = await canvasToPNG(canvas);
+
+          const loader = new THREE.TextureLoader();
+          const texture = await loader.loadAsync(pngUrl)
+          URL.revokeObjectURL(pngUrl); // Clean up the object URL
+          
+          return texture;
+        }
+        const scene = new THREE.Scene()
+        scene.name = 'Scene'
+        const geometry = new THREE.TorusKnotGeometry( 10, 3, 50, 16 ); 
+        const texture = await createTexture()
+        const material = new THREE.MeshStandardMaterial( { map: texture } ); 
+        const mesh = new THREE.Mesh( geometry, material ); 
+        mesh.scale.setScalar(0.1)
+        mesh.name = 'Torus'
+        scene.add(mesh)
+        const nodes = glbToNodes({ scene }, this.world)
+        setTimeout(() => resolve(nodes), 100)
+
+      })
+    }
     return this.gltfLoader.loadAsync(url).then(glb => {
-      return glbToNodes(glb, world)
+      return glbToNodes(glb, this.world)
     })
   }
 
@@ -132,7 +185,7 @@ export class Loader extends System {
 
   loadVRM(url) {
     return this.gltfLoader.loadAsync(url).then(vrm => {
-      return vrmToNodes(vrm, world)
+      return vrmToNodes(vrm, this.world)
     })
   }
 
@@ -144,7 +197,7 @@ export class Loader extends System {
 
   loadVOX(url) {
     return this.voxLoader.loadAsync(url).then(vox => {
-      return voxToNodes(vox, world)
+      return voxToNodes(vox, this.world)
     })
   }
 
