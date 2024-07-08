@@ -52,22 +52,30 @@ export class Terrain3 extends System {
   }
 
   start() {
-    const layer1Map = this.world.loader.texLoader.load('/static/grass_darked.png')
+    const layer1Map = this.world.loader.texLoader.load('/static/terrain/Grass1.png')
     layer1Map.wrapS = THREE.RepeatWrapping
     layer1Map.wrapT = THREE.RepeatWrapping
     layer1Map.colorSpace = THREE.SRGBColorSpace
-    const layer2Map = this.world.loader.texLoader.load('/static/dirt_claydarked.png')
+    const layer2Map = this.world.loader.texLoader.load('/static/terrain/Dirt2.png')
     layer2Map.wrapS = THREE.RepeatWrapping
     layer2Map.wrapT = THREE.RepeatWrapping
     layer2Map.colorSpace = THREE.SRGBColorSpace
+    const layer3Map = this.world.loader.texLoader.load('/static/terrain/Cliffs2_1.png')
+    layer3Map.wrapS = THREE.RepeatWrapping
+    layer3Map.wrapT = THREE.RepeatWrapping
+    layer3Map.colorSpace = THREE.SRGBColorSpace
+    const noiseTexture = this.world.loader.texLoader.load('/static/terrain/noise.png')
+    // const noiseTexture = generateNoiseTexture()
+    noiseTexture.wrapS = THREE.RepeatWrapping;
+    noiseTexture.wrapT = THREE.RepeatWrapping;
     this.material = new CustomShaderMaterial({
       baseMaterial: THREE.MeshPhysicalMaterial,
       vertexShader: `
-        attribute vec2 col;
+        attribute vec3 col;
 
         varying vec3 vPos;
         varying vec3 vNorm;
-        varying vec2 vCol;
+        varying vec3 vCol;
 
         void main() {
           // vPos = position;
@@ -80,73 +88,330 @@ export class Terrain3 extends System {
           vCol = col;
         }
       `,
+      // fragmentShader: `
+      //   // original
+      //   uniform sampler2D layer1Map;
+      //   uniform float layer1Scale;
+      //   uniform sampler2D layer2Map;
+      //   uniform float layer2Scale;
+      //   uniform sampler2D layer3Map;
+      //   uniform float layer3Scale;
+
+      //   varying vec3 vPos;
+      //   varying vec3 vNorm;
+      //   varying vec3 vCol;
+
+      //   vec4 textureTriplanar(sampler2D tex, float scale, vec3 normal, vec3 position) {
+      //     vec2 uv_x = position.yz * scale;
+      //     vec2 uv_y = position.xz * scale;
+      //     vec2 uv_z = position.xy * scale;
+      //     vec4 xProjection = texture2D(tex, uv_x);
+      //     vec4 yProjection = texture2D(tex, uv_y);
+      //     vec4 zProjection = texture2D(tex, uv_z);
+      //     vec3 weight = abs(normal);
+      //     weight = pow(weight, vec3(4.0)); // bias towards the major axis
+      //     weight = weight / (weight.x + weight.y + weight.z);
+      //     return xProjection * weight.x + yProjection * weight.y + zProjection * weight.z;
+      //   }       
+
+      //   void main() {
+      //     vec4 result = vec4(0, 0, 0, 1.0);
+      //     // result += textureTriplanar(layer1Map, layer1Scale, vNorm, vPos);
+      //     result += vCol.r * textureTriplanar(layer1Map, layer1Scale, vNorm, vPos);
+      //     result += vCol.g * textureTriplanar(layer2Map, layer2Scale, vNorm, vPos);
+      //     result += vCol.b * textureTriplanar(layer3Map, layer3Scale, vNorm, vPos);
+      //     // result += vCol.b * textureTriplanar(layer2Map, layer2Scale, vNorm, vPos);
+      //     // result += (1.0 - vCol.a) * textureTriplanar(layer2Map, layer2Scale, vNorm, vPos);
+      //     csm_DiffuseColor *= result;
+      //   }
+      // `,
       fragmentShader: `
+        // NoTile best performance so far
+        // https://www.shadertoy.com/view/WdVGWG
+        // https://claude.ai/chat/1911bc24-c928-4060-a05e-6a68f329c5a9
+
         uniform sampler2D layer1Map;
         uniform float layer1Scale;
         uniform sampler2D layer2Map;
         uniform float layer2Scale;
+        uniform sampler2D layer3Map;
+        uniform float layer3Scale;
+        uniform sampler2D noiseTexture; // For smooth noise
+
 
         varying vec3 vPos;
         varying vec3 vNorm;
-        varying vec2 vCol;
+        varying vec3 vCol;
 
-        float randMaskValue = 3.0;
+        const float layersCount = 5.0;
+        const float pi = 3.141592;
 
-        float rand2(vec2 co) {
-          return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+        struct InterpNodes2 {
+            vec2 seeds;
+            vec2 weights;
+        };
+
+        InterpNodes2 GetNoiseInterpNodes(float smoothNoise) {
+            vec2 globalPhases = vec2(smoothNoise * 0.5) + vec2(0.5, 0.0);
+            vec2 phases = fract(globalPhases);
+            vec2 seeds = floor(globalPhases) * 2.0 + vec2(0.0, 1.0);
+            vec2 weights = min(phases, vec2(1.0) - phases) * 2.0;
+            return InterpNodes2(seeds, weights);
         }
 
-        vec2 rotateUV(vec2 uv, float angle) {
-          float s = sin(angle);
-          float c = cos(angle);
-          uv -= 0.5;
-          uv = vec2(
-              c * uv.x - s * uv.y,
-              s * uv.x + c * uv.y
-          );
-          uv += 0.5;
-          return uv;
+        vec3 hash33(vec3 p) {
+            p = vec3(dot(p,vec3(127.1,311.7, 74.7)),
+                      dot(p,vec3(269.5,183.3,246.1)),
+                      dot(p,vec3(113.5,271.9,124.6)));
+            return fract(sin(p)*43758.5453123);
         }
 
-        vec2 getRotatedUV(vec2 uv, float scale, float randMaskValue) {
-          float randValue = rand2(floor(uv)) * randMaskValue;
-          float angle = floor(randValue) * (PI / 2.0);
-          return rotateUV(uv, angle);
+        vec4 GetTextureSample(sampler2D tex, vec2 pos, float freq, float seed) {
+            vec3 hash = hash33(vec3(seed, 0.0, 0.0));
+            float ang = hash.x * 2.0 * pi;
+            mat2 rotation = mat2(cos(ang), sin(ang), -sin(ang), cos(ang));
+            
+            vec2 uv = rotation * pos * freq + hash.yz;
+            return texture2D(tex, uv);
         }
 
-        vec4 textureTriplanar(sampler2D tex, float scale, vec3 normal, vec3 position) {
-          // vec2 uv_x = getRotatedUV(position.yz * scale, scale, randMaskValue);
-          // vec2 uv_y = getRotatedUV(position.xz * scale, scale, randMaskValue);
-          // vec2 uv_z = getRotatedUV(position.xy * scale, scale, randMaskValue);
-          vec2 uv_x = position.yz * scale;
-          vec2 uv_y = position.xz * scale;
-          vec2 uv_z = position.xy * scale;
-          vec4 xProjection = texture2D(tex, uv_x);
-          vec4 yProjection = texture2D(tex, uv_y);
-          vec4 zProjection = texture2D(tex, uv_z);
-          vec3 weight = abs(normal);
-          weight = pow(weight, vec3(4.0)); // bias towards the major axis
-          weight = weight / (weight.x + weight.y + weight.z);
-          return xProjection * weight.x + yProjection * weight.y + zProjection * weight.z;
-        }
-
+        // vec4 textureTriplanar(sampler2D tex, float scale, vec3 normal, vec3 position) {
+        //   vec2 uv_x = position.yz * scale;
+        //   vec2 uv_y = position.xz * scale;
+        //   vec2 uv_z = position.xy * scale;
+        //   vec4 xProjection = texture2D(tex, uv_x);
+        //   vec4 yProjection = texture2D(tex, uv_y);
+        //   vec4 zProjection = texture2D(tex, uv_z);
+        //   vec3 weight = abs(normal);
+        //   weight = pow(weight, vec3(4.0)); // bias towards the major axis
+        //   weight = weight / (weight.x + weight.y + weight.z);
+        //   return xProjection * weight.x + yProjection * weight.y + zProjection * weight.z;
+        // }   
         
+        vec4 textureTriplanarVaried(sampler2D tex, float scale, vec3 normal, vec3 position) {
+            vec2 uv_x = position.yz * scale;
+            vec2 uv_y = position.xz * scale;
+            vec2 uv_z = position.xy * scale;
+            
+            float smoothNoise = texture2D(noiseTexture, position.xz * 0.002).r;
+            InterpNodes2 interpNodes = GetNoiseInterpNodes(smoothNoise * layersCount);
+            
+            vec4 xProjection = vec4(0.0);
+            vec4 yProjection = vec4(0.0);
+            vec4 zProjection = vec4(0.0);
+            
+            for(int i = 0; i < 2; i++) {
+                float weight = interpNodes.weights[i];
+                xProjection += GetTextureSample(tex, uv_x, 1.0, interpNodes.seeds[i]) * weight;
+                yProjection += GetTextureSample(tex, uv_y, 1.0, interpNodes.seeds[i]) * weight;
+                zProjection += GetTextureSample(tex, uv_z, 1.0, interpNodes.seeds[i]) * weight;
+            }
+            
+            vec3 blendWeight = abs(normal);
+            blendWeight = pow(blendWeight, vec3(4.0)); // bias towards the major axis
+            blendWeight = blendWeight / (blendWeight.x + blendWeight.y + blendWeight.z);
+            
+            return xProjection * blendWeight.x + yProjection * blendWeight.y + zProjection * blendWeight.z;
+        }
 
         void main() {
           vec4 result = vec4(0, 0, 0, 1.0);
-          // result += textureTriplanar(layer1Map, layer1Scale, vNorm, vPos);
-          result += vCol.r * textureTriplanar(layer1Map, layer1Scale, vNorm, vPos);
-          result += vCol.g * textureTriplanar(layer2Map, layer2Scale, vNorm, vPos);
-          // result += vCol.b * textureTriplanar(layer2Map, layer2Scale, vNorm, vPos);
-          // result += (1.0 - vCol.a) * textureTriplanar(layer2Map, layer2Scale, vNorm, vPos);
+          // result += textureTriplanarVaried(layer1Map, layer1Scale, vNorm, vPos);
+          result += vCol.r * textureTriplanarVaried(layer1Map, layer1Scale, vNorm, vPos);
+          result += vCol.g * textureTriplanarVaried(layer2Map, layer2Scale, vNorm, vPos);
+          result += vCol.b * textureTriplanarVaried(layer3Map, layer3Scale, vNorm, vPos);
+          // result += vCol.b * textureTriplanarVaried(layer2Map, layer2Scale, vNorm, vPos);
+          // result += (1.0 - vCol.a) * textureTriplanarVaried(layer2Map, layer2Scale, vNorm, vPos);
           csm_DiffuseColor *= result;
         }
       `,
+      
+      // fragmentShader: `
+      //   uniform sampler2D layer1Map;
+      //   uniform float layer1Scale;
+      //   uniform sampler2D layer2Map;
+      //   uniform float layer2Scale;
+      //   uniform sampler2D layer3Map;
+      //   uniform float layer3Scale;
+      //   uniform sampler2D noiseTexture;
+
+      //   varying vec3 vPos;
+      //   varying vec3 vNorm;
+      //   varying vec3 vCol;
+
+      //   #define BLEND_WIDTH 0.4
+
+      //   // vec4 getNoiseVec4(vec2 p) {
+      //   //   return texture2D(noiseTexture, p);
+      //   // }
+
+        
+
+      //   vec4 hash4(vec2 p) {
+      //       return fract(sin(vec4(1.0+dot(p,vec2(37.0,17.0)), 
+      //                             2.0+dot(p,vec2(11.0,47.0)),
+      //                             3.0+dot(p,vec2(41.0,29.0)),
+      //                             4.0+dot(p,vec2(23.0,31.0))))*103.);
+      //   }
+
+      //   vec4 textureNoTile_3weights(sampler2D samp, in vec2 uv) {
+      //     vec2 iuv = floor(uv);
+      //     vec2 fuv = fract(uv);
+      //     vec2 ddx = dFdx(uv);
+      //     vec2 ddy = dFdy(uv);
+      //     vec4 res = vec4(0.0);
+      //     int sampleCnt = 0;
+          
+      //     float w3 = (fuv.x+fuv.y) - 1.;
+      //     vec2 iuv3 = iuv;
+      //     if(w3 < 0.) {
+      //         w3 = -w3;
+      //     } else {
+      //         iuv3 += 1.;
+      //     }
+      //     w3 = smoothstep(BLEND_WIDTH, 1.-BLEND_WIDTH, w3);
+
+      //     if(w3 <= 0.999) {
+      //         float w12 = dot(fuv,vec2(.5,-.5)) + .5;
+      //         w12 = smoothstep(1.125*BLEND_WIDTH, 1.-1.125*BLEND_WIDTH, w12);
+
+      //         vec4 ofa = getNoiseVec4(iuv + vec2(1.0,0.0));
+      //         vec4 ofb = getNoiseVec4(iuv + vec2(0.0,1.0));
+              
+      //         ofa.zw = sign(ofa.zw-0.5);
+      //         ofb.zw = sign(ofb.zw-0.5);
+              
+      //         vec2 uva = uv*ofa.zw + ofa.xy; vec2 ddxa = ddx*ofa.zw; vec2 ddya = ddy*ofa.zw;
+      //         vec2 uvb = uv*ofb.zw + ofb.xy; vec2 ddxb = ddx*ofb.zw; vec2 ddyb = ddy*ofb.zw;
+              
+      //         if(w12 >= 0.001) res += w12 * textureGrad(samp, uva, ddxa, ddya), sampleCnt++;
+      //         if(w12 <= 0.999) res += (1.-w12) * textureGrad(samp, uvb, ddxb, ddyb), sampleCnt++;
+      //     }
+
+      //     if(w3 >= 0.001) {
+      //         vec4 ofc = getNoiseVec4(iuv3);
+      //         ofc.zw = sign(ofc.zw-0.5);
+      //         vec2 uvc = uv*ofc.zw + ofc.xy; vec2 ddxc = ddx*ofc.zw; vec2 ddyc = ddy*ofc.zw;
+      //         res = mix(res, textureGrad(samp, uvc, ddxc, ddyc), w3);
+      //         sampleCnt++;
+      //     }
+
+      //     return res;
+      //   }
+
+      //   vec4 textureTriplanarNoTile(sampler2D tex, float scale, vec3 normal, vec3 position) {
+      //     vec2 uv_x = position.yz * scale;
+      //     vec2 uv_y = position.xz * scale;
+      //     vec2 uv_z = position.xy * scale;
+      //     vec4 xProjection = textureNoTile_3weights(tex, uv_x);
+      //     vec4 yProjection = textureNoTile_3weights(tex, uv_y);
+      //     vec4 zProjection = textureNoTile_3weights(tex, uv_z);
+      //     vec3 weight = abs(normal);
+      //     weight = pow(weight, vec3(4.0)); // bias towards the major axis
+      //     weight = weight / (weight.x + weight.y + weight.z);
+      //     return xProjection * weight.x + yProjection * weight.y + zProjection * weight.z;
+      //   }   
+
+      //   void main() {
+      //     vec4 result = vec4(0, 0, 0, 1.0);
+      //     // result += textureTriplanarNoTile(layer1Map, layer1Scale, vNorm, vPos);
+      //     result += vCol.r * textureTriplanarNoTile(layer1Map, layer1Scale, vNorm, vPos);
+      //     result += vCol.g * textureTriplanarNoTile(layer2Map, layer2Scale, vNorm, vPos);
+      //     result += vCol.b * textureTriplanarNoTile(layer3Map, layer3Scale, vNorm, vPos);
+      //     // result += vCol.b * textureTriplanarNoTile(layer2Map, layer2Scale, vNorm, vPos);
+      //     // result += (1.0 - vCol.a) * textureTriplanarNoTile(layer2Map, layer2Scale, vNorm, vPos);
+      //     csm_DiffuseColor *= result;
+      //   }
+      // `,
+      // fragmentShader: `
+      //   // initial no-tile implementation, but heavy GPU usage
+      //   uniform sampler2D layer1Map;
+      //   uniform float layer1Scale;
+      //   uniform sampler2D layer2Map;
+      //   uniform float layer2Scale;
+      //   uniform sampler2D layer3Map;
+      //   uniform float layer3Scale;
+
+      //   varying vec3 vPos;
+      //   varying vec3 vNorm;
+      //   varying vec3 vCol;
+
+      //   // Hash function for generating per-tile transforms
+      //   vec4 hash4(vec2 p) {
+      //       return fract(sin(vec4(1.0+dot(p,vec2(37.0,17.0)), 
+      //                             2.0+dot(p,vec2(11.0,47.0)),
+      //                             3.0+dot(p,vec2(41.0,29.0)),
+      //                             4.0+dot(p,vec2(23.0,31.0))))*103.0);
+      //   }
+
+      //   // Modified textureNoTile function
+      //   vec4 textureNoTile(sampler2D samp, in vec2 uv) {
+      //       vec2 iuv = floor(uv);
+      //       vec2 fuv = fract(uv);
+
+      //       // Generate per-tile transform
+      //       vec4 ofa = hash4(iuv + vec2(0.0,0.0));
+      //       vec4 ofb = hash4(iuv + vec2(1.0,0.0));
+      //       vec4 ofc = hash4(iuv + vec2(0.0,1.0));
+      //       vec4 ofd = hash4(iuv + vec2(1.0,1.0));
+
+      //       vec2 ddx = dFdx(uv);
+      //       vec2 ddy = dFdy(uv);
+
+      //       // Transform per-tile uvs
+      //       ofa.zw = sign(ofa.zw-0.5);
+      //       ofb.zw = sign(ofb.zw-0.5);
+      //       ofc.zw = sign(ofc.zw-0.5);
+      //       ofd.zw = sign(ofd.zw-0.5);
+
+      //       // uv's, and derivatives (for correct mipmapping)
+      //       vec2 uva = uv*ofa.zw + ofa.xy; vec2 ddxa = ddx*ofa.zw; vec2 ddya = ddy*ofa.zw;
+      //       vec2 uvb = uv*ofb.zw + ofb.xy; vec2 ddxb = ddx*ofb.zw; vec2 ddyb = ddy*ofb.zw;
+      //       vec2 uvc = uv*ofc.zw + ofc.xy; vec2 ddxc = ddx*ofc.zw; vec2 ddyc = ddy*ofc.zw;
+      //       vec2 uvd = uv*ofd.zw + ofd.xy; vec2 ddxd = ddx*ofd.zw; vec2 ddyd = ddy*ofd.zw;
+
+      //       // Fetch and blend
+      //       vec2 b = smoothstep(0.25,0.75,fuv);
+
+      //       return mix(mix(textureGrad(samp, uva, ddxa, ddya), 
+      //                     textureGrad(samp, uvb, ddxb, ddyb), b.x), 
+      //                 mix(textureGrad(samp, uvc, ddxc, ddyc),
+      //                     textureGrad(samp, uvd, ddxd, ddyd), b.x), b.y);
+      //   }
+
+      //   // Modified textureTriplanar function
+      //   vec4 textureTriplanarNoTile(sampler2D tex, float scale, vec3 normal, vec3 position) {
+      //       vec2 uv_x = position.yz * scale;
+      //       vec2 uv_y = position.xz * scale;
+      //       vec2 uv_z = position.xy * scale;
+            
+      //       vec4 xProjection = textureNoTile(tex, uv_x);
+      //       vec4 yProjection = textureNoTile(tex, uv_y);
+      //       vec4 zProjection = textureNoTile(tex, uv_z);
+            
+      //       vec3 weight = abs(normal);
+      //       weight = pow(weight, vec3(4.0)); // bias towards the major axis
+      //       weight = weight / (weight.x + weight.y + weight.z);
+            
+      //       return xProjection * weight.x + yProjection * weight.y + zProjection * weight.z;
+      //   }
+
+      //   void main() {
+      //       vec4 result = vec4(0, 0, 0, 1.0);
+      //       result += vCol.r * textureTriplanarNoTile(layer1Map, layer1Scale, vNorm, vPos);
+      //       result += vCol.g * textureTriplanarNoTile(layer2Map, layer2Scale, vNorm, vPos);
+      //       result += vCol.b * textureTriplanarNoTile(layer3Map, layer3Scale, vNorm, vPos);
+      //       csm_DiffuseColor *= result;
+      //   }
+      // `,      
       uniforms: {
         layer1Map: { value: layer1Map },
-        layer1Scale: { value: 0.2 },
+        layer1Scale: { value: 0.4 },
         layer2Map: { value: layer2Map },
-        layer2Scale: { value: 0.2 }
+        layer2Scale: { value: 0.4 },
+        layer3Map: { value: layer3Map },
+        layer3Scale: { value: 0.1 },
+        noiseTexture: { value: noiseTexture }
       },
       roughness: 1,
       metallic: 0,
@@ -175,7 +440,8 @@ export class Terrain3 extends System {
     }
 
     console.time('generateChunks')
-    this.radius = 16 // must be even num.
+    // huge: 70 radius, 2 scale, increase island size to 600
+    this.radius = 10 // must be even num.
     this.bounds = new THREE.Box3()
     const foo = (this.radius / 2) * (gridSize.x - gridBorder * 2)
     this.bounds.min.set(-foo, 0, -foo)
@@ -282,19 +548,16 @@ class Chunk {
 
     this.data = new Float32Array(gridSize.x * gridSize.y * gridSize.z)
     this.dims = [gridSize.x, gridSize.y, gridSize.z] // redundant cant we pass this to SurfaceNets as gridSize?
-    this.colors = new Float32Array(gridSize.x * gridSize.y * gridSize.z * 2)
+    this.colors = new Float32Array(gridSize.x * gridSize.y * gridSize.z * 3)
 
     this.populate()
     this.build()
   }
 
-  populate() {   
-
+  populate() {  
     const noise2D = this.world.terrain3.noise2D
     const noise3D = this.world.terrain3.noise3D
-
     const bounds = this.world.terrain3.bounds;
-
     const centerX = (bounds.min.x + bounds.max.x) / 2;
     const centerZ = (bounds.min.z + bounds.max.z) / 2;
 
@@ -302,8 +565,8 @@ class Chunk {
       const x = Math.max(0, Math.min(1, (value - min) / (max - min)));
       return x * x * (3 - 2 * x);
     }
-    
-    // === 2 ===
+
+    // === simple ground ===
 
     let idx = -1;
     for (let z = 0; z < gridSize.z; z++) {
@@ -316,15 +579,11 @@ class Chunk {
             this.coords.z * gridSizeInner.z + z
           );
 
-          const dx = w.x - centerX;
-          const dz = w.z - centerZ;
-          const distToCenter = Math.sqrt(dx * dx + dz * dz);
+          const baseY = 20
 
-          const terrainHeight = 80
-
-          // slightly skewed surface
-          const surfaceAmp = 4
-          const surfaceNoiseScale = 0.02
+          // flat-ish surface
+          const surfaceAmp = 2
+          const surfaceNoiseScale = 0.01
           let surfaceNoise = noise2D(w.x * surfaceNoiseScale, w.z * surfaceNoiseScale)
           surfaceNoise = sinToAlpha(surfaceNoise)
 
@@ -334,7 +593,7 @@ class Chunk {
           hillLocationNoise = sinToAlpha(hillLocationNoise)
 
           // hills
-          const hillAmp = 8
+          const hillAmp = 16
           const hillNoiseScale = 0.1
           let hillNoise = noise2D(w.x * hillNoiseScale, w.z * hillNoiseScale)
           hillNoise = sinToAlpha(hillNoise)
@@ -344,83 +603,150 @@ class Chunk {
           const hillIntensity = Math.max(0, (hillLocationNoise - hillThreshold) / (1 - hillThreshold)) // 0 to 1 inside threshold
           hillNoise *= hillIntensity
 
-          // final surface height
-          const surfaceHeight = terrainHeight + (surfaceNoise * surfaceAmp)
-          let height = terrainHeight + (surfaceNoise * surfaceAmp) + (hillNoise * hillAmp);
+          // const surfaceHeight = baseY + (surfaceNoise * surfaceAmp)
+          let height = baseY + (surfaceNoise * surfaceAmp) + (hillNoise * hillAmp);
 
-          // smooth density
           const surfaceDistance = height - w.y;
           const smoothStrength = 0.3
-          let smoothHeight = smoothstep(smoothStrength * terrainHeight, -smoothStrength * terrainHeight, surfaceDistance);
-          smoothHeight = alphaToSin(smoothHeight)
-
-          // island edge + smoothing
-          // const edgeRadius = 80
-          // const edgeTransition = 5
-          // const edgeFactor = smoothstep(edgeRadius - edgeTransition, edgeRadius, distToCenter);
-          // smoothHeight = smoothHeight * (1 - edgeFactor) + edgeFactor;
-
-          // wavy edge radius
-          const edgeNoiseScale = 0.03
-          let edgeNoise = noise2D(w.x * edgeNoiseScale, w.z * edgeNoiseScale)
-          edgeNoise = sinToAlpha(edgeNoise)
-          
-          // modulate edge radius
-          const edgeRadius = 80
-          const edgeAmp = 10
-          const modulatedEdgeRadius = edgeRadius + (edgeNoise - 0.5) * 2 * edgeAmp
-          
-          // island edge + smoothing
-          const edgeTransition = 5
-          const edgeFactor = smoothstep(modulatedEdgeRadius - edgeTransition, modulatedEdgeRadius, distToCenter);
-          smoothHeight = smoothHeight * (1 - edgeFactor) + edgeFactor;
-
-          let density = smoothHeight
-
-          const crust = 3
-          if (w.y < surfaceHeight - crust) {
-            const underNoiseScale = 0.01
-            let underNoise = noise2D(w.x * underNoiseScale, w.z * underNoiseScale)
-            underNoise = sinToAlpha(underNoise)
-            underNoise = 1 - underNoise
-
-            const pointNoiseScale = 0.1
-            let pointNoise = noise2D(w.x * pointNoiseScale, w.z * pointNoiseScale)
-            pointNoise = sinToAlpha(pointNoise)
-            pointNoise = 1 - pointNoise
-            
-            // const maxDistance = Math.sqrt(edgeRadius * edgeRadius) - 10;
-            // const normalizedDistance = distToCenter / maxDistance;
-            const normalizedDistance = distToCenter / modulatedEdgeRadius;
-            
-            const underAmpMin = 1
-            const underAmpMax = 60
-            const underAmp = underAmpMax - (underAmpMax - underAmpMin) * normalizedDistance;
-            // const underAmp = smoothstep(underAmpMin, underAmpMax, distToCenter)
-
-            const pointAmpMin = 10
-            const pointAmpMax = 20
-            const pointAmp = pointAmpMax - (pointAmpMax - pointAmpMin) * normalizedDistance;
-            // const pointAmp = smoothstep(pointAmpMin, pointAmpMax, distToCenter)
-
-            let height2 = surfaceHeight - w.y - (underNoise * underAmp) - (pointNoise * pointAmp)
-
-            density = height2 * (1 - edgeFactor) + edgeFactor;
-          }
+          let density = smoothstep(smoothStrength * baseY, -smoothStrength * baseY, surfaceDistance);
+          density = alphaToSin(density)
 
           // 0 shows weird color, maybe we can fix in shader?
           if (density === 0) density = -0.001
 
           this.data[idx] = density
-          this.colors[idx * 2 + 0] = 1;
-          this.colors[idx * 2 + 1] = 0;
-          if (w.y < height - 2) {
-            this.colors[idx * 2 + 0] = 0;
-            this.colors[idx * 2 + 1] = 1;
+          this.colors[idx * 3 + 0] = 1;
+          this.colors[idx * 3 + 1] = 0;
+          this.colors[idx * 3 + 2] = 0;
+          if (w.y < height - 3) {
+            this.colors[idx * 3 + 0] = 0;
+            this.colors[idx * 3 + 1] = 1;
+            this.colors[idx * 3 + 2] = 0;
           }
+
         }
       }
     }
+    
+    // === floating island v1 ===
+    // recommended: radius=16 scale=1
+
+    // let idx = -1;
+    // for (let z = 0; z < gridSize.z; z++) {
+    //   for (let y = 0; y < gridSize.y; y++) {
+    //     for (let x = 0; x < gridSize.x; x++) {
+    //       idx++;
+    //       const w = v1.set(
+    //         this.coords.x * gridSizeInner.x + x,
+    //         this.coords.y * gridSizeInner.y + y,
+    //         this.coords.z * gridSizeInner.z + z
+    //       );
+
+    //       const dx = w.x - centerX;
+    //       const dz = w.z - centerZ;
+    //       const distToCenter = Math.sqrt(dx * dx + dz * dz);
+
+    //       const terrainHeight = 80
+
+    //       // slightly skewed surface
+    //       const surfaceAmp = 4
+    //       const surfaceNoiseScale = 0.02
+    //       let surfaceNoise = noise2D(w.x * surfaceNoiseScale, w.z * surfaceNoiseScale)
+    //       surfaceNoise = sinToAlpha(surfaceNoise)
+
+    //       // noise for hill locations
+    //       const hillLocationNoiseScale = 0.02
+    //       let hillLocationNoise = noise2D(w.x * hillLocationNoiseScale, w.z * hillLocationNoiseScale)
+    //       hillLocationNoise = sinToAlpha(hillLocationNoise)
+
+    //       // hills
+    //       const hillAmp = 8
+    //       const hillNoiseScale = 0.1
+    //       let hillNoise = noise2D(w.x * hillNoiseScale, w.z * hillNoiseScale)
+    //       hillNoise = sinToAlpha(hillNoise)
+
+    //       // modulate hills with their locations
+    //       const hillThreshold = 0.7
+    //       const hillIntensity = Math.max(0, (hillLocationNoise - hillThreshold) / (1 - hillThreshold)) // 0 to 1 inside threshold
+    //       hillNoise *= hillIntensity
+
+    //       // final surface height
+    //       const surfaceHeight = terrainHeight + (surfaceNoise * surfaceAmp)
+    //       let height = terrainHeight + (surfaceNoise * surfaceAmp) + (hillNoise * hillAmp);
+
+    //       // smooth density
+    //       const surfaceDistance = height - w.y;
+    //       const smoothStrength = 0.3
+    //       let smoothHeight = smoothstep(smoothStrength * terrainHeight, -smoothStrength * terrainHeight, surfaceDistance);
+    //       smoothHeight = alphaToSin(smoothHeight)
+
+    //       // island edge + smoothing
+    //       // const edgeRadius = 80
+    //       // const edgeTransition = 5
+    //       // const edgeFactor = smoothstep(edgeRadius - edgeTransition, edgeRadius, distToCenter);
+    //       // smoothHeight = smoothHeight * (1 - edgeFactor) + edgeFactor;
+
+    //       // wavy edge radius
+    //       const edgeNoiseScale = 0.03
+    //       let edgeNoise = noise2D(w.x * edgeNoiseScale, w.z * edgeNoiseScale)
+    //       edgeNoise = sinToAlpha(edgeNoise)
+          
+    //       // modulate edge radius
+    //       const edgeRadius = 80
+    //       const edgeAmp = 10
+    //       const modulatedEdgeRadius = edgeRadius + (edgeNoise - 0.5) * 2 * edgeAmp
+          
+    //       // island edge + smoothing
+    //       const edgeTransition = 5
+    //       const edgeFactor = smoothstep(modulatedEdgeRadius - edgeTransition, modulatedEdgeRadius, distToCenter);
+    //       smoothHeight = smoothHeight * (1 - edgeFactor) + edgeFactor;
+
+    //       let density = smoothHeight
+
+    //       const crust = 3
+    //       if (w.y < surfaceHeight - crust) {
+    //         const underNoiseScale = 0.01
+    //         let underNoise = noise2D(w.x * underNoiseScale, w.z * underNoiseScale)
+    //         underNoise = sinToAlpha(underNoise)
+    //         underNoise = 1 - underNoise
+
+    //         const pointNoiseScale = 0.1
+    //         let pointNoise = noise2D(w.x * pointNoiseScale, w.z * pointNoiseScale)
+    //         pointNoise = sinToAlpha(pointNoise)
+    //         pointNoise = 1 - pointNoise
+            
+    //         // const maxDistance = Math.sqrt(edgeRadius * edgeRadius) - 10;
+    //         // const normalizedDistance = distToCenter / maxDistance;
+    //         const normalizedDistance = distToCenter / modulatedEdgeRadius;
+            
+    //         const underAmpMin = 1
+    //         const underAmpMax = 60
+    //         const underAmp = underAmpMax - (underAmpMax - underAmpMin) * normalizedDistance;
+    //         // const underAmp = smoothstep(underAmpMin, underAmpMax, distToCenter)
+
+    //         const pointAmpMin = 10
+    //         const pointAmpMax = 20
+    //         const pointAmp = pointAmpMax - (pointAmpMax - pointAmpMin) * normalizedDistance;
+    //         // const pointAmp = smoothstep(pointAmpMin, pointAmpMax, distToCenter)
+
+    //         let height2 = surfaceHeight - w.y - (underNoise * underAmp) - (pointNoise * pointAmp)
+
+    //         density = height2 * (1 - edgeFactor) + edgeFactor;
+    //       }
+
+    //       // 0 shows weird color, maybe we can fix in shader?
+    //       if (density === 0) density = -0.001
+
+    //       this.data[idx] = density
+    //       this.colors[idx * 2 + 0] = 1;
+    //       this.colors[idx * 2 + 1] = 0;
+    //       if (w.y < height - 2) {
+    //         this.colors[idx * 2 + 0] = 0;
+    //         this.colors[idx * 2 + 1] = 1;
+    //       }
+    //     }
+    //   }
+    // }
 
     // === 1 ===
 
@@ -860,7 +1186,7 @@ class Chunk {
     console.time('chunk')
     console.time('chunk:geometry')
 
-    const surface = createSurface(this.data, this.dims, this.colors)
+    const surface = createSurface(this.data, this.dims, this.colors, 3)
     // console.log('surface',surface)
 
     if (!surface.indices.length) {
@@ -901,7 +1227,7 @@ class Chunk {
     // geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
     geometry.setIndex(new THREE.BufferAttribute(indices, 1))
     geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
-    geometry.setAttribute('col', new THREE.BufferAttribute(colors, 2))
+    geometry.setAttribute('col', new THREE.BufferAttribute(colors, 3))
     // geometry.computeVertexNormals()
     geometry.computeBoundsTree()
     
@@ -1150,13 +1476,17 @@ class Chunk {
             // `Effect: ${effect}`,
             // `Final value: ${this.data[idx] + effect}`);
             // }
-            this.data[idx] += effect
-            this.data[idx] = Math.min(1, Math.max(-1, this.data[idx] + effect))
 
-            this.colors[idx * 2 + 0] += subtract ? -0.1 : 0.1
-            this.colors[idx * 2 + 0] = clamp(this.colors[idx * 2 + 0], 0, 1)
-            this.colors[idx * 2 + 1] += subtract ? 0.1 : -0.1
-            this.colors[idx * 2 + 1] = clamp(this.colors[idx * 2 + 1], 0, 1)
+
+            // this.data[idx] += effect
+            // this.data[idx] = Math.min(1, Math.max(-1, this.data[idx] + effect))
+
+            this.colors[idx * 3 + 0] += subtract ? -0.1 : 0.1
+            this.colors[idx * 3 + 0] = clamp(this.colors[idx * 3 + 0], 0, 1)
+            // this.colors[idx * 3 + 1] += subtract ? 0.1 : -0.1
+            // this.colors[idx * 3 + 1] = clamp(this.colors[idx * 3 + 1], 0, 1)
+            this.colors[idx * 3 + 2] += subtract ? 0.1 : -0.1
+            this.colors[idx * 3 + 2] = clamp(this.colors[idx * 3 + 2], 0, 1)
 
             rebuild = true
           }
@@ -1528,4 +1858,109 @@ function alphaToSin(value) {
 
 function sinToAlpha(value) {
   return value / 2 + 0.5 // map (-1, 1) to (0, 1)
+}
+
+// function generateNoiseTexture(width = 4096, height = 4096) {
+//   const canvas = document.createElement('canvas');
+//   canvas.width = width;
+//   canvas.height = height;
+//   const ctx = canvas.getContext('2d');
+
+//   const imageData = ctx.createImageData(width, height);
+//   const data = imageData.data;
+
+//   for (let i = 0; i < data.length; i += 4) {
+//     const value = Math.random() * 255;
+//     data[i] = value;     // R
+//     data[i + 1] = value; // G
+//     data[i + 2] = value; // B
+//     data[i + 3] = 255;   // A
+//   }
+
+//   ctx.putImageData(imageData, 0, 0);
+
+//   const texture = new THREE.CanvasTexture(canvas);
+//   texture.wrapS = THREE.RepeatWrapping;
+//   texture.wrapT = THREE.RepeatWrapping;
+//   texture.minFilter = THREE.LinearMipmapLinearFilter;
+//   texture.magFilter = THREE.LinearFilter;
+
+//   return texture;
+// }
+
+function generateNoiseTexture(width = 512, height = 512) {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  const imageData = ctx.createImageData(width, height);
+  const data = imageData.data;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      
+      // Generate tileable noise using smoothed noise function
+      const value = tileableNoise(x / width, y / height) * 255;
+      
+      data[i] = value;     // R
+      data[i + 1] = value; // G
+      data[i + 2] = value; // B
+      data[i + 3] = 255;   // A
+    }
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+
+  return texture;
+}
+
+function tileableNoise(x, y) {
+  const n = 8; // Number of intervals
+  const fx = Math.floor(x * n);
+  const fy = Math.floor(y * n);
+  const dx = x * n - fx;
+  const dy = y * n - fy;
+  
+  const rx0 = fx / n;
+  const rx1 = (fx + 1) / n;
+  const ry0 = fy / n;
+  const ry1 = (fy + 1) / n;
+  
+  const c00 = smoothNoise(rx0, ry0);
+  const c10 = smoothNoise(rx1, ry0);
+  const c01 = smoothNoise(rx0, ry1);
+  const c11 = smoothNoise(rx1, ry1);
+  
+  const nx0 = lerp(c00, c10, smoothStep(dx));
+  const nx1 = lerp(c01, c11, smoothStep(dx));
+  
+  return lerp(nx0, nx1, smoothStep(dy));
+}
+
+function smoothNoise(x, y) {
+  const corners = (noise(x-1, y-1) + noise(x+1, y-1) + noise(x-1, y+1) + noise(x+1, y+1)) / 16;
+  const sides = (noise(x-1, y) + noise(x+1, y) + noise(x, y-1) + noise(x, y+1)) / 8;
+  const center = noise(x, y) / 4;
+  return corners + sides + center;
+}
+
+function noise(x, y) {
+  const n = x + y * 57;
+  return (Math.sin(n * 21942.21) * 43758.5453) % 1;
+}
+
+function lerp(a, b, t) {
+  return a + t * (b - a);
+}
+
+function smoothStep(t) {
+  return t * t * (3 - 2 * t);
 }

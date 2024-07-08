@@ -44,7 +44,7 @@ for (let i = 0; i < buffer.length; ++i) {
   buffer[i] = 0
 }
 
-export function createSurface(data, dims, colorData, numColors) {
+export function createSurface(data, dims, colorData) {
   let vertices = []
   let indices = []
   let normals = []
@@ -62,7 +62,7 @@ export function createSurface(data, dims, colorData, numColors) {
   }
 
   function interpolateColor(x, y, z) {
-    let colorSum = new Array(numColors).fill(0);
+    let colorSum = [0, 0];
     let weightSum = 0;
   
     for (let i = 0; i < 2; i++) {
@@ -78,9 +78,9 @@ export function createSurface(data, dims, colorData, numColors) {
           if (data[dataIndex] < 0) {
             let weight = (1 - Math.abs(x - vx)) * (1 - Math.abs(y - vy)) * (1 - Math.abs(z - vz));
             
-            let colorIndex = dataIndex * numColors;
+            let colorIndex = dataIndex * 2;
             
-            for (let c = 0; c < numColors; c++) {
+            for (let c = 0; c < 2; c++) {
               colorSum[c] += colorData[colorIndex + c] * weight;
             }
             
@@ -92,7 +92,7 @@ export function createSurface(data, dims, colorData, numColors) {
   
     // If no solid voxels were found, return a default color (e.g., white)
     if (weightSum === 0) {
-      return new Array(colorComponents).fill(1); // white
+      return [1, 1];
     }
   
     return colorSum.map(c => c / weightSum);
