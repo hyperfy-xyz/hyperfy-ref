@@ -155,7 +155,7 @@ export class Network extends System {
       // quaternion: new THREE.Quaternion()
       //   .setFromEuler(new THREE.Euler(0, num(0, 270, 2) * DEG2RAD, 0, 'YXZ'))
       //   .toArray(),
-      position: [0, 60, 80],
+      position: [0, 0, 0],
       quaternion: [0, 0, 0, 1],
       state: {},
     }

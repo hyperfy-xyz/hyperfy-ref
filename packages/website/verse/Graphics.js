@@ -175,32 +175,50 @@ export class Graphics extends System {
       })
     }
 
-    // // ground
-    // this.world.loader.loadGLBRaw('/static/ground.glb').then(glb => {
-    //   const mesh = glb.scene.children[0]
-    //   mesh.geometry.computeBoundsTree() // three-mesh-bvh
-    //   // mesh.geometry.computeBoundingBox()
-    //   mesh.material.shadowSide = THREE.BackSide // fix csm shadow banding
+    // water
+    // {
+    //   const geometry = new THREE.BoxGeometry(2000, 1, 2000, 1000, 1000)
+    //   const material = new THREE.MeshStandardMaterial({ color: new THREE.Color('#1681ea').convertSRGBToLinear() })
+    //   const mesh = new THREE.Mesh(geometry, material)
+    //   mesh.material.shadowSide = THREE.BackSide
     //   mesh.castShadow = true
     //   mesh.receiveShadow = true
+    //   mesh.position.y = -0.5 + 16
+    //   mesh.updateMatrix()
+    //   // mesh.updateWorldMatrix(true, true)
+    //   mesh.updateMatrixWorld(true)
     //   mesh.matrixAutoUpdate = false
     //   mesh.matrixWorldAutoUpdate = false
-    //   // mesh.position.y -= 1 // temp
-    //   // mesh.matrixWorld.compose(mesh.position, mesh.quaternion, mesh.scale)
-    //   // mesh.matrix.copy(mesh.matrixWorld)
     //   this.scene.add(mesh)
-    //   const sItem = {
-    //     matrix: mesh.matrixWorld,
-    //     geometry: mesh.geometry,
-    //     material: mesh.material,
-    //     getEntity: null,
-    //   }
-    //   this.world.spatial.octree.insert(sItem)
-    // })
+    // }
+
+    // ground
+    this.world.loader.loadGLBRaw('/static/ground.glb').then(glb => {
+      const mesh = glb.scene.children[0]
+      mesh.geometry.computeBoundsTree() // three-mesh-bvh
+      // mesh.geometry.computeBoundingBox()
+      mesh.material.shadowSide = THREE.BackSide // fix csm shadow banding
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+      mesh.matrixAutoUpdate = false
+      mesh.matrixWorldAutoUpdate = false
+      // mesh.position.y -= 1 // temp
+      // mesh.matrixWorld.compose(mesh.position, mesh.quaternion, mesh.scale)
+      // mesh.matrix.copy(mesh.matrixWorld)
+      this.scene.add(mesh)
+      const sItem = {
+        matrix: mesh.matrixWorld,
+        geometry: mesh.geometry,
+        material: mesh.material,
+        getEntity: null,
+      }
+      this.world.spatial.octree.insert(sItem)
+    })
 
     // sky
-    // const skyUrl = '/static/day2-2k.jpg'
-    const skyUrl = '/static/above-day-a.png'
+    const skyUrl = '/static/day2-2k.jpg'
+    // const skyUrl = '/static/sky/Linekotsi_Sky02_DaySky_02.png'
+    // const skyUrl = '/static/above-day-a.png'
     // const skyUrl = '/static/above-day-b.png'
     this.world.loader.loadTEX(skyUrl).then(texture => {
       texture.minFilter = texture.magFilter = THREE.LinearFilter

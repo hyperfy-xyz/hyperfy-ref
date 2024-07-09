@@ -92,7 +92,7 @@ export function createSurface(data, dims, colorData, numColors) {
   
     // If no solid voxels were found, return a default color (e.g., white)
     if (weightSum === 0) {
-      return new Array(colorComponents).fill(1); // white
+      return new Array(numColors).fill(1); // white
     }
   
     return colorSum.map(c => c / weightSum);
