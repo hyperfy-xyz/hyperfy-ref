@@ -28,8 +28,8 @@ const walkEmote = 'avatar@walk.glb'
 
 const jumpHeight = 1.5
 const turnSpeed = 3
-const walkSpeed = 5
-const runSpeed = 20
+const walkSpeed = 10
+const runSpeed = 30
 const displacement = new Vector3(0, 0, 0)
 const gravity = 20 // 9.81
 

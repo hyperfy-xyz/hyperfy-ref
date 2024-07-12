@@ -20,7 +20,7 @@ const center = new THREE.Vector3()
 const nCenter = new THREE.Vector3()
 
 // chunk grid size in # of voxels
-const gridSize = new THREE.Vector3(16, 128, 16)
+const gridSize = new THREE.Vector3(16, 64, 16)
 
 // chunk grid overlap (shared )
 const gridBorder = 2
@@ -38,7 +38,7 @@ const neighbourDirections = [
 ]
 
 // factor to convert chunk grid size in voxels to meters
-const scale = 1
+const scale = 2
 
 
 // TODO: have a utility size * scale vec3 for use instead of manually calculating everywhere
@@ -439,21 +439,27 @@ export class Terrain extends System {
       // this.world.graphics.scene.add(this.point)
     }
 
-    console.time('generateChunks')
     // huge: 70 radius, 2 scale, increase island size to 600
-    this.radius = 20 // must be even num.
+    this.radius = 8 // must be even num.
     this.bounds = new THREE.Box3()
     const foo = (this.radius / 2) * (gridSize.x - gridBorder * 2)
     this.bounds.min.set(-foo, 0, -foo)
     this.bounds.max.set(foo, gridSize.y - gridBorder * 2, foo)
-    for (let x = -this.radius / 2; x < this.radius / 2; x++) {
-      for (let z = -this.radius / 2; z < this.radius / 2; z++) {
+    for (let x = -this.radius; x < this.radius; x++) {
+      for (let z = -this.radius; z < this.radius; z++) {
         const coords = new THREE.Vector3(x, 0, z)
         const chunk = new Chunk(world, coords)
         this.chunks.set(chunk.id, chunk)
       }
     }
-    console.timeEnd('generateChunks')
+    const total = this.radius * this.radius
+    console.log('terrain chunks:', total)
+    console.time('terrain:generate')
+    this.chunks.forEach(chunk => chunk.generate())
+    console.timeEnd('terrain:generate')
+    console.time('terrain:build')
+    this.chunks.forEach(chunk => chunk.build())
+    console.timeEnd('terrain:build')
   }
 
   seed(value) {
@@ -549,12 +555,9 @@ class Chunk {
     this.data = new Float32Array(gridSize.x * gridSize.y * gridSize.z)
     this.dims = [gridSize.x, gridSize.y, gridSize.z] // redundant cant we pass this to SurfaceNets as gridSize?
     this.colors = new Float32Array(gridSize.x * gridSize.y * gridSize.z * 3)
-
-    this.populate()
-    this.build()
   }
 
-  populate() {  
+  generate() {  
     const noise2D = this.world.terrain.noise2D
     const noise3D = this.world.terrain.noise3D
     const bounds = this.world.terrain.bounds;
@@ -579,7 +582,7 @@ class Chunk {
             this.coords.z * gridSizeInner.z + z
           );
 
-          const radius = 120
+          const radius = 70
           const seaLevel = 16
           const maxHeight = 24
 
@@ -1108,7 +1111,7 @@ class Chunk {
 
 
 
-    // console.time('populate');
+    // console.time('generate');
 
     // const noiseScale = 0.02;
     // const heightScale = 20;
@@ -1193,13 +1196,13 @@ class Chunk {
     //   }
     // }
 
-    // console.timeEnd('populate');
+    // console.timeEnd('generate');
 
 
     // =====
 
 
-    // // console.time('populate')
+    // // console.time('generate')
 
     // // // const resolution = 1 // TODO: factor to downsample number of voxels
 
@@ -1262,7 +1265,7 @@ class Chunk {
     //   }
     // }
 
-    // console.timeEnd('populate')
+    // console.timeEnd('generate')
   }
 
   build() {
@@ -1278,6 +1281,8 @@ class Chunk {
       this.sItem = null
       this.collider.destroy()
       this.collider = null
+      this.colliderFactory.destroy()
+      this.colliderFactory = null
     }
 
     console.time('chunk')
@@ -1369,15 +1374,16 @@ class Chunk {
     this.world.spatial.octree.insert(sItem)
     console.timeEnd('chunk:octree')
     console.time('chunk:collider1')
-    const factory = createColliderFactory(this.world, mesh)
+    const colliderFactory = createColliderFactory(this.world, mesh)
     console.timeEnd('chunk:collider1')
     console.time('chunk:collider2')
-    const collider = factory.create(null, mesh.matrixWorld)
+    const collider = colliderFactory.create(null, mesh.matrixWorld)
     console.timeEnd('chunk:collider2')
 
     this.mesh = mesh
     this.sItem = sItem
     this.collider = collider
+    this.colliderFactory = colliderFactory
 
 
     // normals visual
@@ -1425,7 +1431,7 @@ class Chunk {
     //   this.world.graphics.scene.add(mesh)
     // }
 
-    console.timeEnd('build')
+    console.timeEnd('chunk')
   }
 
   modify(point, normal, radius, subtract, checkNeighbours) {
@@ -1575,13 +1581,13 @@ class Chunk {
             // }
 
 
-            // this.data[idx] += effect
-            // this.data[idx] = Math.min(1, Math.max(-1, this.data[idx] + effect))
+            this.data[idx] += effect
+            this.data[idx] = Math.min(1, Math.max(-1, this.data[idx] + effect))
 
-            this.colors[idx * 3 + 0] += subtract ? -0.1 : 0.1
-            this.colors[idx * 3 + 0] = clamp(this.colors[idx * 3 + 0], 0, 1)
-            this.colors[idx * 3 + 1] += subtract ? 0.1 : -0.1
-            this.colors[idx * 3 + 1] = clamp(this.colors[idx * 3 + 1], 0, 1)
+            // this.colors[idx * 3 + 0] += subtract ? -0.1 : 0.1
+            // this.colors[idx * 3 + 0] = clamp(this.colors[idx * 3 + 0], 0, 1)
+            // this.colors[idx * 3 + 1] += subtract ? 0.1 : -0.1
+            // this.colors[idx * 3 + 1] = clamp(this.colors[idx * 3 + 1], 0, 1)
             // this.colors[idx * 3 + 2] += subtract ? 0.1 : -0.1
             // this.colors[idx * 3 + 2] = clamp(this.colors[idx * 3 + 2], 0, 1)
 

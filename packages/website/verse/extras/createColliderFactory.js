@@ -65,11 +65,15 @@ export function createColliderFactory(world, mesh) {
   const material = physics.createMaterial(0.5, 0.5, 0.5)
 
   const tmpFilterData = new PHYSX.PxFilterData(1, 1, 0, 0)
+  
+  const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
+
 
   PHYSX.destroy(scale)
   PHYSX.destroy(desc)
   PHYSX.destroy(points)
   PHYSX.destroy(triangles)
+
 
   return {
     create(node, matrix) {
@@ -81,7 +85,6 @@ export function createColliderFactory(world, mesh) {
       const qua = new THREE.Quaternion()
       const sca = new THREE.Vector3()
       matrix.decompose(pos, qua, sca)
-      const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
       pos.toPxTransform(transform)
       qua.toPxTransform(transform)
 
@@ -118,5 +121,12 @@ export function createColliderFactory(world, mesh) {
         },
       }
     },
+    destroy() {
+      pmesh.release()
+      PHYSX.destroy(geometry)
+      PHYSX.destroy(transform)
+      PHYSX.destroy(tmpFilterData)
+      material.release()
+    }
   }
 }

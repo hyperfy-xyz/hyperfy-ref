@@ -33,7 +33,7 @@ export class World extends EventEmitter {
     this.frame = 0
 
     this.spatial = this.register(Spatial)
-    // this.terrain = this.register(Terrain)
+    this.terrain = this.register(Terrain)
     this.wind = this.register(Wind)
     this.actions = this.register(Actions)
     this.models = this.register(Models)
