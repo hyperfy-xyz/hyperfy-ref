@@ -59,7 +59,7 @@ export class Instance {
     })
     const schemas = Array.from(this.schemas.values())
     const entities = Array.from(this.entities.values())
-    const init = {
+    const snapshot = {
       clientId: client.id,
       meta: this.meta,
       permissions: this.permissions,
@@ -67,70 +67,66 @@ export class Instance {
       schemas,
       entities,
     }
-    client.sock.send('init', init)
-    client.sock.on('update-client', this.onUpdateClient) // todo: move to 'update' event
-    client.sock.on('packet', this.onPacket)
-    this.broadcast('add-client', client.serialize(), client)
+    client.sock.send('snapshot', snapshot)
+    client.sock.on('client:updated', this.onClientUpdated)
+    client.sock.on('schema:upserted', this.onSchemaUpserted)
+    client.sock.on('entity:added', this.onEntityAdded)
+    client.sock.on('entity:updated', this.onEntityUpdated)
+    client.sock.on('entity:removed', this.onEntityRemoved)
     client.active = true
+    this.broadcast('client:added', client.serialize(), client)
   }
 
-  onUpdateClient = (sock, data) => {
+  onClientUpdated = (sock, data) => {
     sock.client.deserialize(data)
+    this.broadcast('client:updated', sock.client.serialize(), sock.client)
   }
 
-  onPacket = (sock, data) => {
-    const client = sock.client
-    for (const schemaId in data.schemas) {
-      const schema = data.schemas[schemaId]
-      this.schemas.set(schema.id, schema)
-      this.broadcast('upsert-schema', schema, client)
-      // TODO: remove schemas when not needed so they don't build up
-      // the initial state sent to new clients?
-    }
-    for (const entityId in data.entities) {
-      const update = data.entities[entityId]
-      if (update.remove) {
-        this.entities.delete(entityId)
-        this.broadcast('remove-entity', entityId, client)
-        continue
-      }
-      if (update.add) {
-        this.entities.set(entityId, update.add)
-        this.broadcast('add-entity', update.add, client)
-      }
-      if (update.state) {
-        const entity = this.entities.get(entityId)
-        if (!entity) continue
-        const state = update.state
-        entity.state = {
-          ...entity.state,
-          ...state,
-        }
-        this.broadcast('update-entity', { id: entityId, state }, client)
-      }
-      if (update.props) {
-        const entity = this.entities.get(entityId)
-        if (!entity) continue
-        const props = update.props
-        // TODO: check permission for changing props
-        if (props.hasOwnProperty('mode')) {
-          entity.mode = props.mode
-        }
-        if (props.hasOwnProperty('modeClientId')) {
-          entity.modeClientId = props.modeClientId
-        }
-        if (props.hasOwnProperty('uploading')) {
-          entity.uploading = props.uploading
-        }
-        if (props.position) {
-          entity.position = props.position
-        }
-        if (props.quaternion) {
-          entity.quaternion = props.quaternion
-        }
-        this.broadcast('update-entity', { id: entityId, props }, client)
+  onSchemaUpserted = (sock, schema) => {
+    this.schemas.set(schema.id, schema)
+    this.broadcast('schema:upserted', schema, sock.client)
+    // TODO: remove schemas when not needed so they don't build up
+    // the initial state sent to new clients?
+  }
+
+  onEntityAdded = (sock, data) => {
+    this.entities.set(data.id, data)
+    this.broadcast('entity:added', data, sock.client)
+  }
+
+  onEntityUpdated = (sock, data) => {
+    const { id, state, props } = data
+    const entity = this.entities.get(id)
+    if (!entity) return
+    if (state) {
+      entity.state = {
+        ...entity.state,
+        ...state,
       }
     }
+    if (props) {
+      if (props.hasOwnProperty('mode')) {
+        entity.mode = props.mode
+      }
+      if (props.hasOwnProperty('modeClientId')) {
+        entity.modeClientId = props.modeClientId
+      }
+      if (props.hasOwnProperty('uploading')) {
+        entity.uploading = props.uploading
+      }
+      if (props.position) {
+        entity.position = props.position
+      }
+      if (props.quaternion) {
+        entity.quaternion = props.quaternion
+      }
+    }
+    this.broadcast('entity:updated', data, sock.client)
+  }
+
+  onEntityRemoved = (sock, id) => {
+    this.entities.delete(id)
+    this.broadcast('entity:removed', id, sock.client)
   }
 
   onDisconnect = sock => {
@@ -149,14 +145,14 @@ export class Instance {
     })
     for (const entity of toRemove) {
       this.entities.delete(entity.id)
-      this.broadcast('remove-entity', entity.id)
+      this.broadcast('entity:removed', entity.id)
     }
     // if they were editing/moving an entity, reactivate it
     this.entities.forEach(entity => {
       if (entity.modeClientId === client.id) {
         entity.mode = 'active'
         entity.modeClientId = null
-        this.broadcast('update-entity', {
+        this.broadcast('entity:updated', {
           id: entity.id,
           props: {
             mode: entity.mode,
@@ -165,7 +161,7 @@ export class Instance {
         })
       }
     })
-    this.broadcast('remove-client', client.id)
+    this.broadcast('client:removed', client.id)
   }
 
   broadcast(event, data, skipClient) {

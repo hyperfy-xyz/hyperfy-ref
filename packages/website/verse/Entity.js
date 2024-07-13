@@ -338,15 +338,19 @@ export class Entity {
   }
 
   getUpdate = () => {
-    const packet = this.world.network.packet
-    if (!packet.entities) {
-      packet.entities = {}
+    if (this.nextMsg?.sent) {
+      this.nextMsg = null
     }
-    if (!packet.entities[this.id]) {
-      packet.entities[this.id] = {}
+    if (!this.nextMsg) {
+      this.nextMsg = {
+        event: 'entity:updated',
+        data: {
+          id: this.id,
+        },
+      }
+      this.world.network.sendLater(this.nextMsg)
     }
-    const update = packet.entities[this.id]
-    return update
+    return this.nextMsg.data
   }
 
   applyLocalChanges({ sync, state, props }) {
@@ -360,9 +364,9 @@ export class Entity {
         }
       }
       if (sync && !isEmpty(changed)) {
-        const update = this.getUpdate()
-        update.state = {
-          ...update.state,
+        const data = this.getUpdate()
+        data.state = {
+          ...data.state,
           ...changed,
         }
       }
@@ -408,9 +412,9 @@ export class Entity {
         this.checkMode()
       }
       if (sync && !isEmpty(changed)) {
-        const update = this.getUpdate()
-        update.props = {
-          ...update.props,
+        const data = this.getUpdate()
+        data.props = {
+          ...data.props,
           ...changed,
         }
       }

@@ -31,7 +31,7 @@ export class Entities extends System {
 
   upsertSchemaLocal(schema) {
     this.upsertSchema(schema)
-    this.world.network.pushSchema(schema)
+    this.world.network.send('schema:upserted', schema)
     return schema
   }
 
@@ -47,10 +47,7 @@ export class Entities extends System {
 
   addEntityLocal(data) {
     const entity = this.addEntity(data)
-    const packet = this.world.network.packet
-    if (!packet.entities) packet.entities = {}
-    if (!packet.entities[entity.id]) packet.entities[entity.id] = {}
-    packet.entities[entity.id].add = data
+    this.world.network.send('entity:added', data)
     return entity
   }
 
@@ -67,10 +64,7 @@ export class Entities extends System {
 
   removeEntityLocal(id) {
     this.removeEntity(id)
-    const packet = this.world.network.packet
-    if (!packet.entities) packet.entities = {}
-    if (!packet.entities[id]) packet.entities[id] = {}
-    packet.entities[id].remove = true
+    this.world.network.send('entity:removed', id)
   }
 
   countEntitysBySchema(id) {

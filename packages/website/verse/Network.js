@@ -18,7 +18,7 @@ export class Network extends System {
     this.permissions = null
     this.clients = new Map()
     this.client = null
-    this.packet = {}
+    this.sendQueue = []
     this.lastSendTime = 0
     this.status = 'connecting'
   }
@@ -29,14 +29,14 @@ export class Network extends System {
 
     this.sock = new Sock(url, false)
     this.sock.on('connect', this.onConnect)
-    this.sock.on('init', this.onInit)
-    this.sock.on('add-client', this.onAddClient)
-    this.sock.on('update-client', this.onUpdateClient)
-    this.sock.on('remove-client', this.onRemoveClient)
-    this.sock.on('upsert-schema', this.onUpsertSchema)
-    this.sock.on('add-entity', this.onAddEntity)
-    this.sock.on('update-entity', this.onUpdateEntity)
-    this.sock.on('remove-entity', this.onRemoveEntity)
+    this.sock.on('snapshot', this.onSnapshot)
+    this.sock.on('client:added', this.onClientAdded)
+    this.sock.on('client:updated', this.onClientUpdated)
+    this.sock.on('client:removed', this.onClientRemoved)
+    this.sock.on('schema:upserted', this.onSchemaUpserted)
+    this.sock.on('entity:added', this.onEntityAdded)
+    this.sock.on('entity:updated', this.onEntityUpdated)
+    this.sock.on('entity:removed', this.onEntityRemoved)
     this.sock.on('disconnect', this.onDisconnect)
 
     this.world.on('auth-change', this.updateClient)
@@ -46,26 +46,35 @@ export class Network extends System {
     this.sock.flush()
     this.lastSendTime += delta
     if (this.lastSendTime >= SEND_RATE) {
-      if (Object.keys(this.packet).length) {
-        this.sock.send('packet', this.packet)
-        this.packet = {}
+      while (this.sendQueue.length) {
+        const msg = this.sendQueue.shift()
+        this.send(msg.event, msg.data)
+        msg.sent = true // used to notify
       }
       this.lastSendTime = 0
     }
+  }
+
+  sendLater(msg) {
+    this.sendQueue.push(msg)
   }
 
   makeId() {
     return `${this.client.id}.${++ids}`
   }
 
+  send(event, data) {
+    this.sock.send(event, data)
+  }
+
   onConnect = async () => {
     this.status = 'connected'
     this.world.emit('status', this.status)
-    this.sock.send('auth', this.world.auth.token)
+    this.send('auth', this.world.auth.token)
   }
 
-  onInit = async data => {
-    this.log('init', data)
+  onSnapshot = async data => {
+    this.log('snapshot', data)
     this.sock.useQueue = true
     this.meta = data.meta
     this.permissions = data.permissions
@@ -102,39 +111,6 @@ export class Network extends System {
       }, 100)
       this.onCameraReady = null
     }
-
-    // // ground
-    // {
-    //   const schema = {
-    //     id: this.world.network.makeId(),
-    //     type: 'prototype',
-    //     model: '/static/ground.glb',
-    //     modelType: 'glb',
-    //     script: null,
-    //   }
-    //   this.world.entities.upsertSchema(schema)
-    //   const entity = this.world.entities.addEntity({
-    //     id: this.world.network.makeId(),
-    //     schemaId: schema.id,
-    //     creator: this.world.network.client.user.id, // ???
-    //     authority: this.world.network.client.id,
-    //     mode: 'active',
-    //     modeClientId: null,
-    //     // position: entity.root.position.toArray(),
-    //     // quaternion: entity.root.quaternion.toArray(),
-    //     // state: entity.state,
-    //   })
-    //   // this.world.loader.loadGLBRaw('/static/ground.glb').then(glb => {
-    //   //   const mesh = glb.scene.children[0]
-    //   //   mesh.geometry.computeBoundsTree() // three-mesh-bvh
-    //   //   mesh.material.shadowSide = THREE.BackSide // fix csm shadow banding
-    //   //   mesh.castShadow = true
-    //   //   mesh.receiveShadow = true
-    //   //   mesh.matrixAutoUpdate = false
-    //   //   mesh.matrixWorldAutoUpdate = false
-    //   //   this.scene.add(mesh)
-    //   // })
-    // }
 
     const schema = {
       id: this.world.network.makeId(),
@@ -198,20 +174,13 @@ export class Network extends System {
     }
   }
 
-  pushSchema(schema) {
-    if (!this.packet.schemas) {
-      this.packet.schemas = {}
-    }
-    this.packet.schemas[schema.id] = schema
-  }
-
   updateClient = () => {
     if (this.status !== 'active') return
     const user = this.world.auth.user
     const client = this.client
     client.name = user.name
     client.address = user.address
-    this.sock.send('update-client', client.serialize())
+    this.send('client:updated', client.serialize())
   }
 
   findUser(userId) {
@@ -220,40 +189,40 @@ export class Network extends System {
     }
   }
 
-  onAddClient = data => {
-    this.log('add-client', data)
+  onClientAdded = data => {
+    this.log('client:added', data)
     const client = new Client().deserialize(data)
     this.clients.set(client.id, client)
   }
 
-  onUpdateClient = data => {
-    this.log('update-client', data)
+  onClientUpdated = data => {
+    this.log('client:updated', data)
     const client = this.clients.get(data.id)
     client.deserialize(data)
   }
 
-  onRemoveClient = id => {
-    this.log('remove-client', id)
+  onClientRemoved = id => {
+    this.log('client:removed', id)
     this.clients.delete(id)
   }
 
-  onUpsertSchema = schema => {
+  onSchemaUpserted = schema => {
     this.world.entities.upsertSchema(schema)
   }
 
-  onAddEntity = data => {
-    this.log('add-entity', data)
+  onEntityAdded = data => {
+    this.log('entity:added', data)
     this.world.entities.addEntity(data)
   }
 
-  onUpdateEntity = data => {
-    // this.log('update-entity', data)
+  onEntityUpdated = data => {
+    this.log('entity:updated', data)
     const entity = this.world.entities.getEntity(data.id)
     entity?.applyNetworkChanges(data)
   }
 
-  onRemoveEntity = id => {
-    this.log('remove-entity', id)
+  onEntityRemoved = id => {
+    this.log('entity:removed', id)
     this.world.entities.removeEntity(id)
   }
 
