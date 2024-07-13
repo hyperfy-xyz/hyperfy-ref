@@ -1,4 +1,5 @@
-import './sourceMapSupport'
+import './utils/source-maps'
+
 import 'dotenv-flow/config'
 import http from 'http'
 import express from 'express'
@@ -6,10 +7,9 @@ import cors from 'cors'
 import compression from 'compression'
 import cookieParser from 'cookie-parser'
 import { WebSocketServer } from 'ws'
-import { World } from './World'
-import { api } from './api'
 
-const prod = process.env.NODE_ENV === 'production'
+import { Instance } from './Instance'
+import { api } from './api'
 
 const port = process.env.PORT
 if (!port) throw new Error('port not set')
@@ -27,7 +27,7 @@ app.use('/assets', express.static('assets'))
 
 app.use('/api', api)
 
-const worlds = new Map()
+const instances = new Map()
 server.on('upgrade', (req, sock, head) => {
   const url = new URL(req.url, 'http://supaverse')
   const pathname = url.pathname
@@ -36,17 +36,17 @@ server.on('upgrade', (req, sock, head) => {
   if (!id) return sock.destroy()
   id = id.toLowerCase()
   wss.handleUpgrade(req, sock, head, ws => {
-    let world = worlds.get(id)
-    if (!world) {
-      world = new World({
+    let instance = instances.get(id)
+    if (!instance) {
+      instance = new Instance({
         id,
         onDestroy: () => {
-          worlds.delete(id)
+          instances.delete(id)
         },
       })
-      worlds.set(id, world)
+      instances.set(id, instance)
     }
-    world.onConnect(ws)
+    instance.onConnect(ws)
   })
 })
 

@@ -1,7 +1,8 @@
 import moment from 'moment'
 
+import { readToken } from './utils/jwt'
+
 import { db } from './db'
-import { readToken } from './jwt'
 
 export async function getOrCreateWorld(id) {
   let world = await db('worlds').where('id', id).first()

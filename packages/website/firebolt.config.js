@@ -1,6 +1,6 @@
 import icons from '@firebolt-dev/icons'
 
-import { API } from './utils/api'
+import { API } from './api'
 
 export const config = {
   plugins: [icons()],

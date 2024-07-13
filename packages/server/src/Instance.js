@@ -1,14 +1,12 @@
-import { SockServer } from './SockServer'
+import { Sock } from './Sock'
 import {
   getEntitiesByWorld,
   getOrCreatePermissions,
   getOrCreateWorld,
   getUserByToken,
-} from './fns'
+} from './actions'
 
-let ids = 0
-
-export class World {
+export class Instance {
   constructor({ id, onDestroy }) {
     this.id = id
     this.meta = null
@@ -16,15 +14,14 @@ export class World {
     this.schemas = new Map()
     this.entities = new Map()
     this.clients = new Map()
-    this.checkInterval = setInterval(() => this.checkConnections(), 10000)
-    this.ready = new Promise(async resolve => {
-      await this.init()
-      resolve()
-    })
     this.onDestroy = onDestroy
+    this.checkInterval = setInterval(() => this.checkConnections(), 10000)
+    this.init()
   }
 
   async init() {
+    let resolve
+    this.ready = new Promise(r => (resolve = r))
     try {
       this.meta = await getOrCreateWorld(this.id)
       this.permissions = await getOrCreatePermissions(this.id)
@@ -35,7 +32,9 @@ export class World {
     } catch (err) {
       console.error(err)
       this.destroy()
+      return
     }
+    resolve()
   }
 
   onConnect = async ws => {
@@ -200,11 +199,13 @@ export class World {
   }
 }
 
+let ids = 0
+
 class Client {
-  constructor(world, ws) {
-    this.world = world
-    this.sock = new SockServer(ws)
+  constructor(instance, ws) {
     this.id = ++ids
+    this.sock = new Sock(ws)
+    this.instance = instance
     this.user = null
     this.permissions = null
     this.active = false
@@ -230,9 +231,9 @@ class Client {
 
   canMoveEntity(entity) {
     const userId = this.user.id
-    const worldPerms = this.world.permissions
+    const worldPerms = this.instance.permissions
     const userPerms = this.permissions
-    const schema = this.world.schemas.get(entity.schemaId)
+    const schema = this.instance.schemas.get(entity.schemaId)
     if (schema.type === 'prototype') {
       // if you created it you can move it if you still have the create permission
       if (entity.creator === userId) {
@@ -249,9 +250,9 @@ class Client {
 
   canEditEntity(entity) {
     const userId = this.user.id
-    const worldPerms = this.world.permissions
+    const worldPerms = this.instance.permissions
     const userPerms = this.permissions
-    const schema = this.world.schemas.get(entity.schemaId)
+    const schema = this.instance.schemas.get(entity.schemaId)
     if (schema.type === 'prototype') {
       // if you created it you can edit it if you still have the create permission
       if (entity.creator === userId) {
@@ -265,9 +266,9 @@ class Client {
 
   canDestroyEntity(entity) {
     const userId = this.user.id
-    const worldPerms = this.world.permissions
+    const worldPerms = this.instance.permissions
     const userPerms = this.permissions
-    const schema = this.world.schemas.get(entity.schemaId)
+    const schema = this.instance.schemas.get(entity.schemaId)
     if (schema.type === 'prototype') {
       // if you created it you can destroy it if you still have the create permission
       if (entity.creator === userId) {

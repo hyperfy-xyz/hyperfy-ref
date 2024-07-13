@@ -4,7 +4,7 @@ import { DEG2RAD } from './extras/general'
 import { num } from './extras/num'
 
 import { System } from './System'
-import { SockClient } from './SockClient'
+import { Sock } from './Sock'
 
 const SEND_RATE = 1 / 5 // 5Hz (5 times per second)
 
@@ -13,7 +13,7 @@ let ids = 0
 export class Network extends System {
   constructor(world) {
     super(world)
-    this.server = null
+    this.sock = null
     this.meta = null
     this.permissions = null
     this.clients = new Map()
@@ -27,27 +27,27 @@ export class Network extends System {
     const url = `${process.env.PUBLIC_WORLDS_URL}/${this.world.id}`
     this.log('connecting', url)
 
-    this.server = new SockClient(url, false)
-    this.server.on('connect', this.onConnect)
-    this.server.on('init', this.onInit)
-    this.server.on('add-client', this.onAddClient)
-    this.server.on('update-client', this.onUpdateClient)
-    this.server.on('remove-client', this.onRemoveClient)
-    this.server.on('upsert-schema', this.onUpsertSchema)
-    this.server.on('add-entity', this.onAddEntity)
-    this.server.on('update-entity', this.onUpdateEntity)
-    this.server.on('remove-entity', this.onRemoveEntity)
-    this.server.on('disconnect', this.onDisconnect)
+    this.sock = new Sock(url, false)
+    this.sock.on('connect', this.onConnect)
+    this.sock.on('init', this.onInit)
+    this.sock.on('add-client', this.onAddClient)
+    this.sock.on('update-client', this.onUpdateClient)
+    this.sock.on('remove-client', this.onRemoveClient)
+    this.sock.on('upsert-schema', this.onUpsertSchema)
+    this.sock.on('add-entity', this.onAddEntity)
+    this.sock.on('update-entity', this.onUpdateEntity)
+    this.sock.on('remove-entity', this.onRemoveEntity)
+    this.sock.on('disconnect', this.onDisconnect)
 
     this.world.on('auth-change', this.updateClient)
   }
 
   update(delta) {
-    this.server.flush()
+    this.sock.flush()
     this.lastSendTime += delta
     if (this.lastSendTime >= SEND_RATE) {
       if (Object.keys(this.packet).length) {
-        this.server.send('packet', this.packet)
+        this.sock.send('packet', this.packet)
         this.packet = {}
       }
       this.lastSendTime = 0
@@ -61,12 +61,12 @@ export class Network extends System {
   onConnect = async () => {
     this.status = 'connected'
     this.world.emit('status', this.status)
-    this.server.send('auth', this.world.auth.token)
+    this.sock.send('auth', this.world.auth.token)
   }
 
   onInit = async data => {
     this.log('init', data)
-    this.server.useQueue = true
+    this.sock.useQueue = true
     this.meta = data.meta
     this.permissions = data.permissions
     for (const clientData of data.clients) {
@@ -86,7 +86,7 @@ export class Network extends System {
     // await this.world.loader.preload()
     // const place = this.world.items.findPlace('spawn')
     // this.world.avatars.spawn(place)
-    // await this.server.call('auth', this.world.token)
+    // await this.sock.call('auth', this.world.token)
 
     this.updateClient()
 
@@ -211,7 +211,7 @@ export class Network extends System {
     const client = this.client
     client.name = user.name
     client.address = user.address
-    this.server.send('update-client', client.serialize())
+    this.sock.send('update-client', client.serialize())
   }
 
   findUser(userId) {
@@ -267,7 +267,7 @@ export class Network extends System {
   }
 
   destroy() {
-    this.server.disconnect()
+    this.sock.disconnect()
   }
 }
 

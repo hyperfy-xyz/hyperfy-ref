@@ -9,8 +9,7 @@ export const db = Knex({
 })
 
 export async function migrate() {
-  const hasUsersTable = await db.schema.hasTable('users')
-  if (!hasUsersTable) {
+  if (!(await db.schema.hasTable('users'))) {
     await db.schema.createTable('users', table => {
       table.string('id').primary()
       table.string('name').unique().notNullable()
@@ -19,8 +18,7 @@ export async function migrate() {
       table.timestamp('updatedAt').notNullable()
     })
   }
-  const hasWorldsTable = await db.schema.hasTable('worlds')
-  if (!hasWorldsTable) {
+  if (!(await db.schema.hasTable('worlds'))) {
     await db.schema.createTable('worlds', table => {
       table.string('id').primary()
       table.string('name').notNullable()
@@ -29,8 +27,7 @@ export async function migrate() {
       table.timestamp('updatedAt').notNullable()
     })
   }
-  // const hasEntitiesTable = await db.schema.hasTable('entities')
-  // if (!hasEntitiesTable) {
+  // if (!(await db.schema.hasTable('entities'))) {
   //   await db.schema.createTable('entities', table => {
   //     table.string('id').primary()
   //     table.string('name').notNullable()
@@ -39,8 +36,7 @@ export async function migrate() {
   //     table.timestamp('updatedAt').notNullable()
   //   })
   // }
-  const hasPermissionsTable = await db.schema.hasTable('permissions')
-  if (!hasPermissionsTable) {
+  if (!(await db.schema.hasTable('permissions'))) {
     await db.schema.createTable('permissions', table => {
       table.string('id').primary()
       table.boolean('worldAdmin').notNullable()
@@ -59,8 +55,7 @@ export async function migrate() {
       table.timestamp('updatedAt').notNullable()
     })
   }
-  const hasScriptsTable = await db.schema.hasTable('scripts')
-  if (!hasScriptsTable) {
+  if (!(await db.schema.hasTable('scripts'))) {
     await db.schema.createTable('scripts', table => {
       table.string('id').primary()
       table.text('raw').notNullable()

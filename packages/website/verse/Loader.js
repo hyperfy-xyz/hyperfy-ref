@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 
-import { VRMLoaderPlugin as VRMLoader } from './libs/three-vrm.js'
+import { VRMLoaderPlugin as VRMLoader } from './libs/three-vrm'
 
 import { VOXLoader } from './extras/VoxLoader'
 import { glbToNodes } from './extras/glbToNodes'

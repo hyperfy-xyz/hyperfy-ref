@@ -1,18 +1,19 @@
 import express from 'express'
 import moment from 'moment'
-import { recoverMessageAddress } from 'viem'
 import fs from 'fs-extra'
 import multer from 'multer'
 import path from 'path'
+import { recoverMessageAddress } from 'viem'
+
+import { generateName } from './utils/names'
+import { createToken, readToken } from './utils/jwt'
+import { uuid } from './utils/uuid'
+import { hashFile, hashString } from './utils/hash'
+
+import { avatarScriptCompiled, avatarScriptRaw } from './scripts/avatar'
+import { botScriptCompiled, botScriptRaw } from './scripts/bot'
 
 import { db, migrate } from './db'
-import { generateName } from './names'
-import { createToken, readToken } from './jwt'
-import { uuid } from './uuid'
-import { hashFile } from './hashFile'
-import { avatarScriptCompiled, avatarScriptRaw } from './avatarScript'
-import { botScriptCompiled, botScriptRaw } from './botScript'
-import { hashString } from './hashString'
 
 export const api = express.Router()
 

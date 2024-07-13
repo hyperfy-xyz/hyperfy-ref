@@ -1,4 +1,5 @@
-import { db } from './db'
+import { db } from '../db'
+
 import { muid } from './uuid'
 
 export async function generateName() {
