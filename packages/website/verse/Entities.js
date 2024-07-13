@@ -1,6 +1,8 @@
 import { System } from './System'
 import { Entity } from './Entity'
 
+import { Events } from './extras/Events'
+
 export class Entities extends System {
   constructor(world) {
     super(world)
@@ -31,7 +33,7 @@ export class Entities extends System {
 
   upsertSchemaLocal(schema) {
     this.upsertSchema(schema)
-    this.world.network.send('schema:upserted', schema)
+    this.world.network.send(Events.SCHEMA_UPSERTED, schema)
     return schema
   }
 
@@ -47,7 +49,7 @@ export class Entities extends System {
 
   addEntityLocal(data) {
     const entity = this.addEntity(data)
-    this.world.network.send('entity:added', data)
+    this.world.network.send(Events.ENTITY_ADDED, data)
     return entity
   }
 
@@ -64,7 +66,7 @@ export class Entities extends System {
 
   removeEntityLocal(id) {
     this.removeEntity(id)
-    this.world.network.send('entity:removed', id)
+    this.world.network.send(Events.ENTITY_REMOVED, id)
   }
 
   countEntitysBySchema(id) {

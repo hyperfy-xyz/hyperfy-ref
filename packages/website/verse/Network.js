@@ -1,10 +1,11 @@
 import * as THREE from 'three'
 
-import { DEG2RAD } from './extras/general'
-import { num } from './extras/num'
-
 import { System } from './System'
 import { Sock } from './Sock'
+
+import { DEG2RAD } from './extras/general'
+import { num } from './extras/num'
+import { Events } from './extras/Events'
 
 const SEND_RATE = 1 / 5 // 5Hz (5 times per second)
 
@@ -29,14 +30,14 @@ export class Network extends System {
 
     this.sock = new Sock(url, false)
     this.sock.on('connect', this.onConnect)
-    this.sock.on('snapshot', this.onSnapshot)
-    this.sock.on('client:added', this.onClientAdded)
-    this.sock.on('client:updated', this.onClientUpdated)
-    this.sock.on('client:removed', this.onClientRemoved)
-    this.sock.on('schema:upserted', this.onSchemaUpserted)
-    this.sock.on('entity:added', this.onEntityAdded)
-    this.sock.on('entity:updated', this.onEntityUpdated)
-    this.sock.on('entity:removed', this.onEntityRemoved)
+    this.sock.on(Events.SNAPSHOT, this.onSnapshot)
+    this.sock.on(Events.CLIENT_ADDED, this.onClientAdded)
+    this.sock.on(Events.CLIENT_UPDATED, this.onClientUpdated)
+    this.sock.on(Events.CLIENT_REMOVED, this.onClientRemoved)
+    this.sock.on(Events.SCHEMA_UPSERTED, this.onSchemaUpserted)
+    this.sock.on(Events.ENTITY_ADDED, this.onEntityAdded)
+    this.sock.on(Events.ENTITY_UPDATED, this.onEntityUpdated)
+    this.sock.on(Events.ENTITY_REMOVED, this.onEntityRemoved)
     this.sock.on('disconnect', this.onDisconnect)
 
     this.world.on('auth-change', this.updateClient)
@@ -70,7 +71,7 @@ export class Network extends System {
   onConnect = async () => {
     this.status = 'connected'
     this.world.emit('status', this.status)
-    this.send('auth', this.world.auth.token)
+    this.send(Events.AUTH, this.world.auth.token)
   }
 
   onSnapshot = async data => {
@@ -180,7 +181,7 @@ export class Network extends System {
     const client = this.client
     client.name = user.name
     client.address = user.address
-    this.send('client:updated', client.serialize())
+    this.send(Events.CLIENT_UPDATED, client.serialize())
   }
 
   findUser(userId) {

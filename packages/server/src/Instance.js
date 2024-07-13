@@ -1,4 +1,5 @@
 import { Sock } from './Sock'
+import { Events } from './Events'
 import {
   getEntitiesByWorld,
   getOrCreatePermissions,
@@ -41,7 +42,7 @@ export class Instance {
     const client = new Client(this, ws)
     this.clients.set(client.id, client)
     client.sock.client = client
-    client.sock.on('auth', this.onAuth)
+    client.sock.on(Events.AUTH, this.onAuth)
     client.sock.on('disconnect', this.onDisconnect)
   }
 
@@ -67,31 +68,31 @@ export class Instance {
       schemas,
       entities,
     }
-    client.sock.send('snapshot', snapshot)
-    client.sock.on('client:updated', this.onClientUpdated)
-    client.sock.on('schema:upserted', this.onSchemaUpserted)
-    client.sock.on('entity:added', this.onEntityAdded)
-    client.sock.on('entity:updated', this.onEntityUpdated)
-    client.sock.on('entity:removed', this.onEntityRemoved)
+    client.sock.send(Events.SNAPSHOT, snapshot)
+    client.sock.on(Events.CLIENT_UPDATED, this.onClientUpdated)
+    client.sock.on(Events.SCHEMA_UPSERTED, this.onSchemaUpserted)
+    client.sock.on(Events.ENTITY_ADDED, this.onEntityAdded)
+    client.sock.on(Events.ENTITY_UPDATED, this.onEntityUpdated)
+    client.sock.on(Events.ENTITY_REMOVED, this.onEntityRemoved)
     client.active = true
-    this.broadcast('client:added', client.serialize(), client)
+    this.broadcast(Events.CLIENT_ADDED, client.serialize(), client)
   }
 
   onClientUpdated = (sock, data) => {
     sock.client.deserialize(data)
-    this.broadcast('client:updated', sock.client.serialize(), sock.client)
+    this.broadcast(Events.CLIENT_UPDATED, sock.client.serialize(), sock.client)
   }
 
   onSchemaUpserted = (sock, schema) => {
     this.schemas.set(schema.id, schema)
-    this.broadcast('schema:upserted', schema, sock.client)
+    this.broadcast(Events.SCHEMA_UPSERTED, schema, sock.client)
     // TODO: remove schemas when not needed so they don't build up
     // the initial state sent to new clients?
   }
 
   onEntityAdded = (sock, data) => {
     this.entities.set(data.id, data)
-    this.broadcast('entity:added', data, sock.client)
+    this.broadcast(Events.ENTITY_ADDED, data, sock.client)
   }
 
   onEntityUpdated = (sock, data) => {
@@ -121,12 +122,12 @@ export class Instance {
         entity.quaternion = props.quaternion
       }
     }
-    this.broadcast('entity:updated', data, sock.client)
+    this.broadcast(Events.ENTITY_UPDATED, data, sock.client)
   }
 
   onEntityRemoved = (sock, id) => {
     this.entities.delete(id)
-    this.broadcast('entity:removed', id, sock.client)
+    this.broadcast(Events.ENTITY_REMOVED, id, sock.client)
   }
 
   onDisconnect = sock => {
@@ -145,14 +146,14 @@ export class Instance {
     })
     for (const entity of toRemove) {
       this.entities.delete(entity.id)
-      this.broadcast('entity:removed', entity.id)
+      this.broadcast(Events.ENTITY_REMOVED, entity.id)
     }
     // if they were editing/moving an entity, reactivate it
     this.entities.forEach(entity => {
       if (entity.modeClientId === client.id) {
         entity.mode = 'active'
         entity.modeClientId = null
-        this.broadcast('entity:updated', {
+        this.broadcast(Events.ENTITY_UPDATED, {
           id: entity.id,
           props: {
             mode: entity.mode,
@@ -161,7 +162,7 @@ export class Instance {
         })
       }
     })
-    this.broadcast('client:removed', client.id)
+    this.broadcast(Events.CLIENT_REMOVED, client.id)
   }
 
   broadcast(event, data, skipClient) {

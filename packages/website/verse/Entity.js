@@ -1,8 +1,10 @@
+import { isEmpty } from 'lodash-es'
+
 import * as Nodes from './nodes'
 
 import { QuaternionLerp } from './extras/QuaternionLerp'
 import { Vector3Lerp } from './extras/Vector3Lerp'
-import { isEmpty } from 'lodash-es'
+import { Events } from './extras/Events'
 
 const MOVING_SEND_RATE = 1 / 5
 
@@ -343,7 +345,7 @@ export class Entity {
     }
     if (!this.nextMsg) {
       this.nextMsg = {
-        event: 'entity:updated',
+        event: Events.ENTITY_UPDATED,
         data: {
           id: this.id,
         },

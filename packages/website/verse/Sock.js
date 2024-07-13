@@ -40,7 +40,7 @@ export class Sock {
       console.error(err)
       return
     }
-    this.emit(msg.event, msg.data)
+    this.emit(msg[0], msg[1])
   }
 
   on(event, handler) {
@@ -52,7 +52,7 @@ export class Sock {
   }
 
   async send(event, data) {
-    this.ws.send(JSON.stringify({ event, data }))
+    this.ws.send(JSON.stringify([event, data]))
   }
 
   disconnect(code) {

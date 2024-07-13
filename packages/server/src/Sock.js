@@ -19,7 +19,7 @@ export class Sock {
         console.error(err)
         return
       }
-      this.emit(msg.event, msg.data)
+      this.emit(msg[0], msg[1])
     })
     this.ws.on('pong', () => {
       this.alive = true
@@ -40,7 +40,7 @@ export class Sock {
   }
 
   send(event, data) {
-    this.ws.send(JSON.stringify({ event, data }))
+    this.ws.send(JSON.stringify([event, data]))
   }
 
   close(code) {
