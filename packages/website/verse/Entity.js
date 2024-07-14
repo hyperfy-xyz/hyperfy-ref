@@ -1,3 +1,5 @@
+import * as THREE from 'three'
+
 import { isEmpty } from 'lodash-es'
 
 import * as Nodes from './nodes'
@@ -5,6 +7,7 @@ import * as Nodes from './nodes'
 import { QuaternionLerp } from './extras/QuaternionLerp'
 import { Vector3Lerp } from './extras/Vector3Lerp'
 import { Events } from './extras/Events'
+import { smoothDamp } from './extras/smoothDamp'
 
 const MOVING_SEND_RATE = 1 / 5
 
@@ -24,8 +27,8 @@ export class Entity {
       position: data.position,
       quaternion: data.quaternion,
     })
-    this.positionLerp = new Vector3Lerp(this.root.position, MOVING_SEND_RATE)
-    this.quaternionLerp = new QuaternionLerp(this.root.quaternion, MOVING_SEND_RATE) // prettier-ignore
+    this.networkPosition = new THREE.Vector3().copy(this.root.position)
+    this.networkQuaternion = new THREE.Quaternion().copy(this.root.quaternion)
     this.state = data.state || {}
     this.stateProxy = new Proxy(this.state, {
       set: (target, key, value) => {
@@ -103,6 +106,7 @@ export class Entity {
 
   rebuild() {
     // unmount nodes (including detached)
+    const prevRoot = this.root
     this.root.deactivate()
     this.nodes.forEach(node => {
       node.deactivate()
@@ -142,13 +146,9 @@ export class Entity {
       this.root = this.blueprint.clone(true)
       this.root.bind(this)
     }
-    // re-point the lerpers
-    this.root.position.copy(this.positionLerp.value)
-    this.positionLerp.value = this.root.position
-    this.root.quaternion.copy(this.quaternionLerp.value)
-    this.quaternionLerp.value = this.root.quaternion
-    this.positionLerp.snap()
-    this.quaternionLerp.snap()
+    // copy over transforms
+    this.root.position.copy(prevRoot.position)
+    this.root.quaternion.copy(prevRoot.quaternion)
     // re-collect nodes by name
     this.root.traverse(node => {
       if (this.nodes.has(node.name)) {
@@ -174,6 +174,12 @@ export class Entity {
     }
     if (prevMode === 'moving') {
       this.world.entities.decActive(this)
+      const isMover = prevModeClientId !== this.world.network.client.id
+      if (!isMover) {
+        // before rebuilding, snap to final network transforms for accuracy
+        this.root.position.copy(this.networkPosition)
+        this.root.quaternion.copy(this.networkQuaternion)
+      }
     }
     // rebuild
     this.rebuild()
@@ -242,9 +248,13 @@ export class Entity {
       }
     }
     if (this.mode === 'moving') {
-      this.positionLerp.update(delta)
-      this.quaternionLerp.update(delta)
-      this.root.dirty()
+      const isMover = this.modeClientId === this.world.network.client.id
+      if (!isMover) {
+        const smoothTime = MOVING_SEND_RATE * 2.5
+        smoothDamp(this.root.position, this.networkPosition, smoothTime, delta)
+        this.root.quaternion.slerp(this.networkQuaternion, 8 * delta)
+        this.root.dirty()
+      }
     }
   }
 
@@ -378,12 +388,12 @@ export class Entity {
       let moded
       const changed = {}
       if (props.position) {
-        this.positionLerp.push(props.position, true)
+        this.root.position.copy(props.position)
         changed.position = this.root.position.toArray()
         moved = true
       }
       if (props.quaternion) {
-        this.quaternionLerp.push(props.quaternion, true)
+        this.root.quaternion.copy(props.quaternion)
         changed.quaternion = this.root.quaternion.toArray()
         moved = true
       }
@@ -432,10 +442,10 @@ export class Entity {
     }
     if (props) {
       if (props.position) {
-        this.positionLerp.push(props.position)
+        this.networkPosition.fromArray(props.position)
       }
       if (props.quaternion) {
-        this.quaternionLerp.push(props.quaternion)
+        this.networkQuaternion.fromArray(props.quaternion)
       }
       if (props.mode) {
         this.mode = props.mode
