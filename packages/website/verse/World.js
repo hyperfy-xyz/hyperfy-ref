@@ -94,7 +94,8 @@ export class World extends EventEmitter {
 
   tick = time => {
     this.stats.begin()
-    const delta = (this.time ? time - this.time : 0) / 1000
+    time /= 1000
+    const delta = this.time ? time - this.time : 0
     this.time = time
     this.frame++
     this.update(delta)
