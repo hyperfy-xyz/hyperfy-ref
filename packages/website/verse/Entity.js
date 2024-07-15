@@ -174,7 +174,7 @@ export class Entity {
     }
     if (prevMode === 'moving') {
       this.world.entities.decActive(this)
-      const isMover = prevModeClientId !== this.world.network.client.id
+      const isMover = prevModeClientId === this.world.network.client.id
       if (!isMover) {
         // before rebuilding, snap to final network transforms for accuracy
         this.root.position.copy(this.networkPosition)
@@ -250,7 +250,7 @@ export class Entity {
     if (this.mode === 'moving') {
       const isMover = this.modeClientId === this.world.network.client.id
       if (!isMover) {
-        const smoothTime = MOVING_SEND_RATE * 2.5
+        const smoothTime = MOVING_SEND_RATE * 3
         smoothDamp(this.root.position, this.networkPosition, smoothTime, delta)
         this.root.quaternion.slerp(this.networkQuaternion, 8 * delta)
         this.root.dirty()
