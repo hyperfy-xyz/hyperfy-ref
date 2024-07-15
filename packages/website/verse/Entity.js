@@ -250,9 +250,13 @@ export class Entity {
     if (this.mode === 'moving') {
       const isMover = this.modeClientId === this.world.network.client.id
       if (!isMover) {
-        const smoothTime = MOVING_SEND_RATE * 3
-        smoothDamp(this.root.position, this.networkPosition, smoothTime, delta)
-        this.root.quaternion.slerp(this.networkQuaternion, 8 * delta)
+        smoothDamp(
+          this.root.position,
+          this.networkPosition,
+          MOVING_SEND_RATE * 3,
+          delta
+        )
+        this.root.quaternion.slerp(this.networkQuaternion, 5 * delta)
         this.root.dirty()
       }
     }
