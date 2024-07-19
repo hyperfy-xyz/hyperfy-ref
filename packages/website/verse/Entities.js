@@ -2,6 +2,13 @@ import { System } from './System'
 import { Entity } from './Entity'
 
 import { Events } from './extras/Events'
+import { Player } from './Player'
+import { Object } from './Object'
+
+const Types = {
+  player: Player,
+  object: Object,
+}
 
 export class Entities extends System {
   constructor(world) {
@@ -42,6 +49,7 @@ export class Entities extends System {
   }
 
   addEntity(data) {
+    const Entity = Types[data.type]
     const entity = new Entity(this.world, data)
     this.entities.set(entity.id, entity)
     return entity

@@ -4,8 +4,8 @@ const q1 = new THREE.Quaternion()
 const restRotationInverse = new THREE.Quaternion()
 const parentRestWorldRotation = new THREE.Quaternion()
 
-export function createEmoFactory(glb) {
-  console.time('emo-init')
+export function createEmoFactory(glb, url) {
+  // console.time('emo-init')
 
   const clip = glb.animations[0]
 
@@ -19,18 +19,26 @@ export function createEmoFactory(glb) {
   // scale and other positions are rejected.
   // NOTE: there is a risk that the first position track is not the root but
   // i haven't been able to find one so far.
-  let haveRoot = false
+  let haveRoot
 
   clip.tracks = clip.tracks.filter(track => {
     if (track instanceof THREE.VectorKeyframeTrack) {
-      if (!haveRoot && track.name.endsWith('.position')) {
+      const [name, type] = track.name.split('.')
+      if (type !== 'position') return
+      // we need both root and hip bones
+      if (name === 'Root') {
         haveRoot = true
+        return true
+      }
+      if (name === 'mixamorigHips') {
         return true
       }
       return false
     }
     return true
   })
+
+  if (!haveRoot) console.warn(`emote missing root bone: ${url}`)
 
   // fix new mixamo update normalized bones
   // see: https://github.com/pixiv/three-vrm/pull/1032/files
@@ -68,7 +76,8 @@ export function createEmoFactory(glb) {
 
   clip.optimize()
 
-  console.timeEnd('emo-init')
+  // console.timeEnd('emo-init')
+  // console.log(clip)
 
   return {
     create({ rootToHips, version, getBoneName }) {
@@ -79,8 +88,8 @@ export function createEmoFactory(glb) {
 
       clip.tracks.forEach(track => {
         const trackSplitted = track.name.split('.')
-        const mixamoRigName = trackSplitted[0]
-        const vrmBoneName = normalizedBoneNames[mixamoRigName]
+        const ogBoneName = trackSplitted[0]
+        const vrmBoneName = normalizedBoneNames[ogBoneName]
         // TODO: use vrm.bones[name] not getBoneNode
         const vrmNodeName = getBoneName(vrmBoneName)
 

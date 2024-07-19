@@ -11,7 +11,7 @@ const v2 = new THREE.Vector3()
 const DIST_CHECK_RATE = 1 // once every second
 const DIST_MIN_RATE = 1 / 5 // 3 times per second
 const DIST_MAX_RATE = 1 / 25 // 25 times per second
-const DIST_MIN = 10 // <= 10m = min rate
+const DIST_MIN = 15 // <= 15m = min rate
 const DIST_MAX = 30 // >= 30m = max rate
 
 const material = new THREE.MeshBasicMaterial()
@@ -235,7 +235,19 @@ function buildVRMFactory(glb, world) {
       }
     }
 
+    const bonesByName = {}
+    const applyBoneMatrixWorld = (name, matrix) => {
+      if (!bonesByName[name]) {
+        bonesByName[name] = skeleton.getBoneByName(name)
+      }
+      const bone = bonesByName[name]
+      matrix.multiplyMatrices(vrm.scene.matrixWorld, bone.matrixWorld)
+      // const bone = vrm.userData.vrm.humanoid._normalizedHumanBones.humanBones[name]?.node // prettier-ignore
+    }
+
     return {
+      height,
+      applyBoneMatrixWorld,
       setEmote,
       move(_matrix) {
         matrix.copy(_matrix)

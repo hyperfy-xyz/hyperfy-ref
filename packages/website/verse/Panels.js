@@ -58,6 +58,7 @@ export class Panels extends System {
 
   onEntityRemoved(entity) {
     if (this.panel?.entity === entity) {
+      console.log('panel', this.panel)
       this.panel.close()
     }
   }

@@ -121,22 +121,31 @@ export class Network extends System {
       script: '$avatar',
     }
     this.world.entities.upsertSchemaLocal(schema)
-    const avatar = {
-      id: this.makeId(),
-      schemaId: schema.id,
-      creator: this.client.user.id,
-      authority: client.id,
-      mode: 'active',
-      modeClientId: null,
-      // position: [num(-1, 1, 2), 0, 10],
-      // quaternion: new THREE.Quaternion()
-      //   .setFromEuler(new THREE.Euler(0, num(0, 270, 2) * DEG2RAD, 0, 'YXZ'))
-      //   .toArray(),
+    // const avatar = {
+    //   type: 'object',
+    //   id: this.makeId(),
+    //   schemaId: schema.id,
+    //   creator: this.client.user.id,
+    //   authority: client.id,
+    //   mode: 'active',
+    //   modeClientId: null,
+    //   // position: [num(-1, 1, 2), 0, 10],
+    //   // quaternion: new THREE.Quaternion()
+    //   //   .setFromEuler(new THREE.Euler(0, num(0, 270, 2) * DEG2RAD, 0, 'YXZ'))
+    //   //   .toArray(),
+    //   position: [0, 0, 0],
+    //   quaternion: [0, 0, 0, 1],
+    //   state: {},
+    // }
+    // this.avatar = this.world.entities.addEntityLocal(avatar)
+
+    const player = {
+      type: 'player',
+      clientId: this.client.id,
       position: [0, 0, 0],
       quaternion: [0, 0, 0, 1],
-      state: {},
     }
-    this.avatar = this.world.entities.addEntityLocal(avatar)
+    this.player = this.world.entities.addEntityLocal(player)
 
     // temp: bots
     let n = 0
@@ -154,6 +163,7 @@ export class Network extends System {
         }
         this.world.entities.upsertSchemaLocal(schema)
         const bot = {
+          type: 'object',
           id: this.makeId(),
           schemaId: schema.id,
           creator: this.client.user.id,

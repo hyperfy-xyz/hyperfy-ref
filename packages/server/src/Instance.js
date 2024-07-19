@@ -100,27 +100,18 @@ export class Instance {
     const entity = this.entities.get(id)
     if (!entity) return
     if (state) {
-      entity.state = {
-        ...entity.state,
-        ...state,
-      }
+      Object.assign(entity.state, state)
+      // entity.state = {
+      //   ...entity.state,
+      //   ...state,
+      // }
     }
     if (props) {
-      if (props.hasOwnProperty('mode')) {
-        entity.mode = props.mode
+      if (props.hasOwnProperty('state')) {
+        props.state = null // just being careful because this is weird af
+        // really we should combine these or put them in their own objects or something
       }
-      if (props.hasOwnProperty('modeClientId')) {
-        entity.modeClientId = props.modeClientId
-      }
-      if (props.hasOwnProperty('uploading')) {
-        entity.uploading = props.uploading
-      }
-      if (props.position) {
-        entity.position = props.position
-      }
-      if (props.quaternion) {
-        entity.quaternion = props.quaternion
-      }
+      Object.assign(entity, props)
     }
     this.broadcast(Events.ENTITY_UPDATED, data, sock.client)
   }
@@ -139,8 +130,13 @@ export class Instance {
     // remove clients avatar
     const toRemove = []
     this.entities.forEach(entity => {
-      const schema = this.schemas.get(entity.schemaId)
-      if (schema.type === 'avatar' && entity.authority === client.id) {
+      // if (entity.type === 'object') {
+      //   const schema = this.schemas.get(entity.schemaId)
+      //   if (schema.type === 'avatar' && entity.authority === client.id) {
+      //     toRemove.push(entity)
+      //   }
+      // }
+      if (entity.type === 'player' && entity.clientId === client.id) {
         toRemove.push(entity)
       }
     })

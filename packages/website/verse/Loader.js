@@ -138,7 +138,7 @@ export class Loader extends System {
 
   loadEMO(url) {
     return this.gltfLoader.loadAsync(url).then(glb => {
-      return createEmoFactory(glb)
+      return createEmoFactory(glb, url)
     })
   }
 

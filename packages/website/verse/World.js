@@ -11,6 +11,7 @@ import { Panels } from './Panels'
 import { Permissions } from './Permissions'
 import { Updater } from './Updater'
 import { Control } from './Control'
+import { Input } from './Input'
 import { Loader } from './Loader'
 import { Network } from './Network'
 import { Physics } from './Physics'
@@ -43,6 +44,7 @@ export class World extends EventEmitter {
     this.permissions = this.register(Permissions)
     this.updater = this.register(Updater)
     this.control = this.register(Control)
+    this.input = this.register(Input)
     this.loader = this.register(Loader)
     this.network = this.register(Network)
     this.physics = this.register(Physics)

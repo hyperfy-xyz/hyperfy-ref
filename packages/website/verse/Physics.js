@@ -40,7 +40,8 @@ export class Physics extends System {
 
   start() {
     // ground
-    const geometry = new PHYSX.PxBoxGeometry(1000 / 2, 1 / 2, 1000 / 2)
+    const size = 1000
+    const geometry = new PHYSX.PxBoxGeometry(size / 2, 1 / 2, size / 2)
     const material = this.physics.createMaterial(0.5, 0.5, 0.5)
     const flags = new PHYSX.PxShapeFlags(
       PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE |

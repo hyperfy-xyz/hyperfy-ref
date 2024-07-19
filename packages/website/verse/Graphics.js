@@ -66,6 +66,7 @@ export class Graphics extends System {
     // this.scene.matrixAutoUpdate = false
     // this.scene.matrixWorldAutoUpdate = false
     this.camera = new THREE.PerspectiveCamera(FOV, this.aspect, 0.1, 20000)
+    this.camera.rotation.reorder('YXZ')
     this.camera.layers.enableAll()
     this.renderer = new THREE.WebGLRenderer({
       powerPreference: 'high-performance',
@@ -147,6 +148,7 @@ export class Graphics extends System {
     this.composer.addPass(this.effectPass)
 
     this.cameraRig = new THREE.Object3D()
+    this.cameraRig.rotation.reorder('YXZ')
     this.cameraRig.add(this.camera)
     this.scene.add(this.cameraRig)
 
@@ -192,6 +194,17 @@ export class Graphics extends System {
     //   this.scene.add(mesh)
     // }
 
+    // block
+    // {
+    //   const mesh = new THREE.Mesh(
+    //     new THREE.BoxGeometry(30, 100, 30),
+    //     new THREE.MeshStandardMaterial({ color: 'white' })
+    //   )
+    //   mesh.position.y = 50
+    //   mesh.material.side = THREE.DoubleSide
+    //   this.world.graphics.scene.add(mesh)
+    // }
+
     // ground
     this.world.loader.loadGLBRaw('/static/ground.glb').then(glb => {
       const mesh = glb.scene.children[0]
@@ -202,9 +215,9 @@ export class Graphics extends System {
       mesh.receiveShadow = true
       mesh.matrixAutoUpdate = false
       mesh.matrixWorldAutoUpdate = false
-      // mesh.position.y -= 1 // temp
-      // mesh.matrixWorld.compose(mesh.position, mesh.quaternion, mesh.scale)
-      // mesh.matrix.copy(mesh.matrixWorld)
+      // mesh.scale.setScalar(40) // temp huge
+      mesh.updateMatrix()
+      mesh.matrixWorld.copy(mesh.matrix)
       this.scene.add(mesh)
       const sItem = {
         matrix: mesh.matrixWorld,
