@@ -120,7 +120,7 @@ function createAction(world) {
       mesh.position.setFromMatrixPosition(node.matrixWorld)
       mesh.quaternion.setFromRotationMatrix(world.graphics.camera.matrixWorld)
       world.graphics.scaleUI(mesh, heightPx, pxToMeters)
-      if (world.control.keys.e) {
+      if (world.input.down.KeyE) {
         if (node.progress === 0) {
           cancelled = false
           try {

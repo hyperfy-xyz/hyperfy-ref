@@ -1,7 +1,6 @@
 import * as THREE from 'three'
 import { createNoise2D, createNoise3D } from 'simplex-noise'
 
-
 import { System } from './System'
 
 import CustomShaderMaterial from './libs/three-custom-shader-material'
@@ -33,13 +32,18 @@ const gridSizeInner = new THREE.Vector3(
 )
 
 const neighbourDirections = [
-  [-1, 0], [1, 0], [0, -1], [0, 1],  // Orthogonal
-  [-1, -1], [1, 1], [-1, 1], [1, -1] // Diagonal
+  [-1, 0],
+  [1, 0],
+  [0, -1],
+  [0, 1], // Orthogonal
+  [-1, -1],
+  [1, 1],
+  [-1, 1],
+  [1, -1], // Diagonal
 ]
 
 // factor to convert chunk grid size in voxels to meters
 const scale = 2
-
 
 // TODO: have a utility size * scale vec3 for use instead of manually calculating everywhere
 
@@ -48,26 +52,35 @@ export class Terrain extends System {
     super(world)
     this.chunks = new Map()
     this.modifyRate = 0
+    this.editing = false
     this.seed(0.1)
   }
 
   start() {
-    const layer1Map = this.world.loader.texLoader.load('/static/terrain/Grass1.png')
+    const layer1Map = this.world.loader.texLoader.load(
+      '/static/terrain/Grass1.png'
+    )
     layer1Map.wrapS = THREE.RepeatWrapping
     layer1Map.wrapT = THREE.RepeatWrapping
     layer1Map.colorSpace = THREE.SRGBColorSpace
-    const layer2Map = this.world.loader.texLoader.load('/static/terrain/Sand3.png')
+    const layer2Map = this.world.loader.texLoader.load(
+      '/static/terrain/Sand3.png'
+    )
     layer2Map.wrapS = THREE.RepeatWrapping
     layer2Map.wrapT = THREE.RepeatWrapping
     layer2Map.colorSpace = THREE.SRGBColorSpace
-    const layer3Map = this.world.loader.texLoader.load('/static/terrain/Cliffs2_1.png')
+    const layer3Map = this.world.loader.texLoader.load(
+      '/static/terrain/Cliffs2_1.png'
+    )
     layer3Map.wrapS = THREE.RepeatWrapping
     layer3Map.wrapT = THREE.RepeatWrapping
     layer3Map.colorSpace = THREE.SRGBColorSpace
-    const noiseTexture = this.world.loader.texLoader.load('/static/terrain/noise.png')
+    const noiseTexture = this.world.loader.texLoader.load(
+      '/static/terrain/noise.png'
+    )
     // const noiseTexture = generateNoiseTexture()
-    noiseTexture.wrapS = THREE.RepeatWrapping;
-    noiseTexture.wrapT = THREE.RepeatWrapping;
+    noiseTexture.wrapS = THREE.RepeatWrapping
+    noiseTexture.wrapT = THREE.RepeatWrapping
     this.material = new CustomShaderMaterial({
       baseMaterial: THREE.MeshPhysicalMaterial,
       vertexShader: `
@@ -112,7 +125,7 @@ export class Terrain extends System {
       //     weight = pow(weight, vec3(4.0)); // bias towards the major axis
       //     weight = weight / (weight.x + weight.y + weight.z);
       //     return xProjection * weight.x + yProjection * weight.y + zProjection * weight.z;
-      //   }       
+      //   }
 
       //   void main() {
       //     vec4 result = vec4(0, 0, 0, 1.0);
@@ -225,7 +238,7 @@ export class Terrain extends System {
           csm_DiffuseColor *= result;
         }
       `,
-      
+
       // fragmentShader: `
       //   uniform sampler2D layer1Map;
       //   uniform float layer1Scale;
@@ -245,10 +258,8 @@ export class Terrain extends System {
       //   //   return texture2D(noiseTexture, p);
       //   // }
 
-        
-
       //   vec4 hash4(vec2 p) {
-      //       return fract(sin(vec4(1.0+dot(p,vec2(37.0,17.0)), 
+      //       return fract(sin(vec4(1.0+dot(p,vec2(37.0,17.0)),
       //                             2.0+dot(p,vec2(11.0,47.0)),
       //                             3.0+dot(p,vec2(41.0,29.0)),
       //                             4.0+dot(p,vec2(23.0,31.0))))*103.);
@@ -261,7 +272,7 @@ export class Terrain extends System {
       //     vec2 ddy = dFdy(uv);
       //     vec4 res = vec4(0.0);
       //     int sampleCnt = 0;
-          
+
       //     float w3 = (fuv.x+fuv.y) - 1.;
       //     vec2 iuv3 = iuv;
       //     if(w3 < 0.) {
@@ -277,13 +288,13 @@ export class Terrain extends System {
 
       //         vec4 ofa = getNoiseVec4(iuv + vec2(1.0,0.0));
       //         vec4 ofb = getNoiseVec4(iuv + vec2(0.0,1.0));
-              
+
       //         ofa.zw = sign(ofa.zw-0.5);
       //         ofb.zw = sign(ofb.zw-0.5);
-              
+
       //         vec2 uva = uv*ofa.zw + ofa.xy; vec2 ddxa = ddx*ofa.zw; vec2 ddya = ddy*ofa.zw;
       //         vec2 uvb = uv*ofb.zw + ofb.xy; vec2 ddxb = ddx*ofb.zw; vec2 ddyb = ddy*ofb.zw;
-              
+
       //         if(w12 >= 0.001) res += w12 * textureGrad(samp, uva, ddxa, ddya), sampleCnt++;
       //         if(w12 <= 0.999) res += (1.-w12) * textureGrad(samp, uvb, ddxb, ddyb), sampleCnt++;
       //     }
@@ -310,7 +321,7 @@ export class Terrain extends System {
       //     weight = pow(weight, vec3(4.0)); // bias towards the major axis
       //     weight = weight / (weight.x + weight.y + weight.z);
       //     return xProjection * weight.x + yProjection * weight.y + zProjection * weight.z;
-      //   }   
+      //   }
 
       //   void main() {
       //     vec4 result = vec4(0, 0, 0, 1.0);
@@ -338,7 +349,7 @@ export class Terrain extends System {
 
       //   // Hash function for generating per-tile transforms
       //   vec4 hash4(vec2 p) {
-      //       return fract(sin(vec4(1.0+dot(p,vec2(37.0,17.0)), 
+      //       return fract(sin(vec4(1.0+dot(p,vec2(37.0,17.0)),
       //                             2.0+dot(p,vec2(11.0,47.0)),
       //                             3.0+dot(p,vec2(41.0,29.0)),
       //                             4.0+dot(p,vec2(23.0,31.0))))*103.0);
@@ -373,8 +384,8 @@ export class Terrain extends System {
       //       // Fetch and blend
       //       vec2 b = smoothstep(0.25,0.75,fuv);
 
-      //       return mix(mix(textureGrad(samp, uva, ddxa, ddya), 
-      //                     textureGrad(samp, uvb, ddxb, ddyb), b.x), 
+      //       return mix(mix(textureGrad(samp, uva, ddxa, ddya),
+      //                     textureGrad(samp, uvb, ddxb, ddyb), b.x),
       //                 mix(textureGrad(samp, uvc, ddxc, ddyc),
       //                     textureGrad(samp, uvd, ddxd, ddyd), b.x), b.y);
       //   }
@@ -384,15 +395,15 @@ export class Terrain extends System {
       //       vec2 uv_x = position.yz * scale;
       //       vec2 uv_y = position.xz * scale;
       //       vec2 uv_z = position.xy * scale;
-            
+
       //       vec4 xProjection = textureNoTile(tex, uv_x);
       //       vec4 yProjection = textureNoTile(tex, uv_y);
       //       vec4 zProjection = textureNoTile(tex, uv_z);
-            
+
       //       vec3 weight = abs(normal);
       //       weight = pow(weight, vec3(4.0)); // bias towards the major axis
       //       weight = weight / (weight.x + weight.y + weight.z);
-            
+
       //       return xProjection * weight.x + yProjection * weight.y + zProjection * weight.z;
       //   }
 
@@ -403,7 +414,7 @@ export class Terrain extends System {
       //       result += vCol.b * textureTriplanarNoTile(layer3Map, layer3Scale, vNorm, vPos);
       //       csm_DiffuseColor *= result;
       //   }
-      // `,      
+      // `,
       uniforms: {
         layer1Map: { value: layer1Map },
         layer1Scale: { value: 0.4 },
@@ -411,7 +422,7 @@ export class Terrain extends System {
         layer2Scale: { value: 0.4 },
         layer3Map: { value: layer3Map },
         layer3Scale: { value: 0.1 },
-        noiseTexture: { value: noiseTexture }
+        noiseTexture: { value: noiseTexture },
       },
       roughness: 1,
       metallic: 0,
@@ -468,13 +479,27 @@ export class Terrain extends System {
   }
 
   update(delta) {
-    const control = this.world.control
-    const hit = control.hits[0]
-    if (hit?.chunk && control.terrain.editing) {
+    const input = this.world.input
+    if (input.pressed.KeyF) {
+      this.editing = !this.editing
+    }
+    if (this.editing && input.hits[0]?.chunk) {
+      const hit = input.hits[0]
       this.cursor.visible = true
       this.cursor.position.copy(hit.point)
-      this.cursor.scale.setScalar(control.terrain.radius)
-      if (control.pointer.down) {
+      const radius = 3 // todo: listen to wheel changes // was control.terrian.radius
+      // this was in old Control.onWheel(e)
+      // const TERRAIN_RADIUS_SPEED = 0.001
+      // const TERRAIN_RADIUS_MIN = 0.5
+      // const TERRAIN_RADIUS_MAX = 6
+      // this.terrain.radius += TERRAIN_RADIUS_SPEED * e.deltaY
+      // this.terrain.radius = clamp(
+      //   this.terrain.radius,
+      //   TERRAIN_RADIUS_MIN,
+      //   TERRAIN_RADIUS_MAX
+      // )
+      this.cursor.scale.setScalar(radius)
+      if (input.down.LMB) {
         this.modifyRate += delta
         if (this.modifyRate > MODIFY_RATE) {
           this.modifyRate = 0
@@ -484,12 +509,13 @@ export class Terrain extends System {
           //   .add(
           //     new THREE.Vector3().copy(hit.normal).multiplyScalar(0.6 * scale)
           //   )
+          const subtract = false // was rmb
           hit.chunk.modify(
             hit.point,
             hit.normal,
             // center,
-            Math.round(control.terrain.radius),
-            control.pointer.rmb,
+            Math.round(radius),
+            subtract,
             true
           )
         }
@@ -557,49 +583,52 @@ class Chunk {
     this.colors = new Float32Array(gridSize.x * gridSize.y * gridSize.z * 3)
   }
 
-  generate() {  
+  generate() {
     const noise2D = this.world.terrain.noise2D
     const noise3D = this.world.terrain.noise3D
-    const bounds = this.world.terrain.bounds;
-    const centerX = (bounds.min.x + bounds.max.x) / 2;
-    const centerZ = (bounds.min.z + bounds.max.z) / 2;
+    const bounds = this.world.terrain.bounds
+    const centerX = (bounds.min.x + bounds.max.x) / 2
+    const centerZ = (bounds.min.z + bounds.max.z) / 2
 
     function smoothstep(min, max, value) {
-      const x = Math.max(0, Math.min(1, (value - min) / (max - min)));
-      return x * x * (3 - 2 * x);
+      const x = Math.max(0, Math.min(1, (value - min) / (max - min)))
+      return x * x * (3 - 2 * x)
     }
 
     // === island surrounded by water ===
 
-    let idx = -1;
+    let idx = -1
     for (let z = 0; z < gridSize.z; z++) {
       for (let y = 0; y < gridSize.y; y++) {
         for (let x = 0; x < gridSize.x; x++) {
-          idx++;
+          idx++
           const w = v1.set(
             this.coords.x * gridSizeInner.x + x,
             this.coords.y * gridSizeInner.y + y,
             this.coords.z * gridSizeInner.z + z
-          );
+          )
 
           const radius = 70
           const seaLevel = 16
           const maxHeight = 24
 
-          const dx = w.x - centerX;
-          const dz = w.z - centerZ;
-          const distToCenter = Math.sqrt(dx * dx + dz * dz);
+          const dx = w.x - centerX
+          const dz = w.z - centerZ
+          const distToCenter = Math.sqrt(dx * dx + dz * dz)
 
-          const radialFalloff = Math.max(0, 1 - (distToCenter / radius));
+          const radialFalloff = Math.max(0, 1 - distToCenter / radius)
 
           // regular height
           const heightAmp = maxHeight - seaLevel
           const heightNoiseScale = 0.02
-          let heightNoise = noise2D(w.x * heightNoiseScale, w.z * heightNoiseScale)
+          let heightNoise = noise2D(
+            w.x * heightNoiseScale,
+            w.z * heightNoiseScale
+          )
           heightNoise = sinToAlpha(heightNoise)
 
           // const baseHeight = seaLevel + heightNoise * (maxHeight - seaLevel);
-          let height = seaLevel + (heightNoise * heightAmp) // + (hillNoise * hillAmp);
+          let height = seaLevel + heightNoise * heightAmp // + (hillNoise * hillAmp);
 
           height = height * radialFalloff
           // const islandHeight = baseHeight * radialFalloff;
@@ -614,9 +643,13 @@ class Chunk {
 
           // const height = (finalHeight - w.y)
 
-          const surfaceDistance = height - w.y;
+          const surfaceDistance = height - w.y
           const smoothStrength = 0.3
-          let density = smoothstep(smoothStrength * seaLevel, -smoothStrength * seaLevel, surfaceDistance);
+          let density = smoothstep(
+            smoothStrength * seaLevel,
+            -smoothStrength * seaLevel,
+            surfaceDistance
+          )
           density = alphaToSin(density)
 
           // const surfaceDistance = height - w.y;
@@ -654,13 +687,13 @@ class Chunk {
           if (density === 0) density = -0.001
 
           this.data[idx] = density
-          this.colors[idx * 3 + 0] = 1;
-          this.colors[idx * 3 + 1] = 0;
-          this.colors[idx * 3 + 2] = 0;
+          this.colors[idx * 3 + 0] = 1
+          this.colors[idx * 3 + 1] = 0
+          this.colors[idx * 3 + 2] = 0
           if (w.y < height - 3) {
-            this.colors[idx * 3 + 0] = 0;
-            this.colors[idx * 3 + 1] = 1;
-            this.colors[idx * 3 + 2] = 0;
+            this.colors[idx * 3 + 0] = 0
+            this.colors[idx * 3 + 1] = 1
+            this.colors[idx * 3 + 2] = 0
           }
         }
       }
@@ -727,7 +760,7 @@ class Chunk {
     //     }
     //   }
     // }
-    
+
     // === floating island v1 ===
     // recommended: radius=16 scale=1
 
@@ -790,12 +823,12 @@ class Chunk {
     //       const edgeNoiseScale = 0.03
     //       let edgeNoise = noise2D(w.x * edgeNoiseScale, w.z * edgeNoiseScale)
     //       edgeNoise = sinToAlpha(edgeNoise)
-          
+
     //       // modulate edge radius
     //       const edgeRadius = 80
     //       const edgeAmp = 10
     //       const modulatedEdgeRadius = edgeRadius + (edgeNoise - 0.5) * 2 * edgeAmp
-          
+
     //       // island edge + smoothing
     //       const edgeTransition = 5
     //       const edgeFactor = smoothstep(modulatedEdgeRadius - edgeTransition, modulatedEdgeRadius, distToCenter);
@@ -814,11 +847,11 @@ class Chunk {
     //         let pointNoise = noise2D(w.x * pointNoiseScale, w.z * pointNoiseScale)
     //         pointNoise = sinToAlpha(pointNoise)
     //         pointNoise = 1 - pointNoise
-            
+
     //         // const maxDistance = Math.sqrt(edgeRadius * edgeRadius) - 10;
     //         // const normalizedDistance = distToCenter / maxDistance;
     //         const normalizedDistance = distToCenter / modulatedEdgeRadius;
-            
+
     //         const underAmpMin = 1
     //         const underAmpMax = 60
     //         const underAmp = underAmpMax - (underAmpMax - underAmpMin) * normalizedDistance;
@@ -905,10 +938,9 @@ class Chunk {
     //       // const shape = 1 - remapNoise(shapeNoise, 0, 1)
 
     //       const shapeNoiseScale = 0.1; // Adjust this value to change the noise frequency
-    //       const shapeInfluence = 10; 
+    //       const shapeInfluence = 10;
     //       const shapeNoise = noise2D(w.x * shapeNoiseScale, w.z * shapeNoiseScale);
     //       const shape = remapNoise(shapeNoise, -shapeInfluence, shapeInfluence);
-
 
     //       if (distToCenter < islandRadius) {
 
@@ -942,9 +974,8 @@ class Chunk {
     //   }
     // }
 
-
     // const scale = 0.05
-    // const amplitude = 10; 
+    // const amplitude = 10;
     // const midLevel = 10;
     // const minLevel = 5;
     // const maxLevel = 15
@@ -958,13 +989,13 @@ class Chunk {
     //   const dx = x - centerX;
     //   const dz = z - centerZ;
     //   const distanceFromCenter = Math.sqrt(dx * dx + dz * dz);
-      
+
     //   // Normalize distance to be between 0 and 1
     //   const normalizedDistance = distanceFromCenter / maxRadius;
-      
+
     //   // Use noise to create an irregular edge
     //   const edgeNoise = noise(x * 0.01, z * 0.01, 0) * 0.3 + 0.7;
-      
+
     //   // Combine distance and noise
     //   return normalizedDistance < edgeNoise;
     // }
@@ -979,7 +1010,6 @@ class Chunk {
     //       const wZ = this.coords.z * (gridSize.z - gridBorder * 2) + z;
 
     //       const isLand = islandShape(wX, wZ);
-
 
     //       // TODO: swap this isEdge check to actually use noise and figure out if the XZ distance to center should be the edge of a randomly generated top down shape for the island
     //       // const isEdge = (wX < bounds.min.x + 10 || wX >= bounds.max.x - 10 || wZ < bounds.min.z + 10 || wZ >= bounds.max.z - 10)
@@ -1010,13 +1040,12 @@ class Chunk {
     //   }
     // }
 
-    
     // const noiseScale = 0.01;
     // const shapeNoiseScale = 0.02;
     // const heightScale = 5;
     // const baseHeight = 5;
     // const islandRadius = Math.min(this.world.terrain.bounds.max.x, this.world.terrain.bounds.max.z) * 0.7;
-    
+
     // const centerX = (this.world.terrain.bounds.max.x + this.world.terrain.bounds.min.x) / 2;
     // const centerZ = (this.world.terrain.bounds.max.z + this.world.terrain.bounds.min.z) / 2;
 
@@ -1076,8 +1105,8 @@ class Chunk {
     //       const wY = y;
     //       const wZ = this.coords.z * (gridSize.z - gridBorder * 2) + z;
 
-    //       const isInBuffer = wX < bounds.min.x + bufferSize || wX >= bounds.max.x - bufferSize || 
-    //                         //  wY < bounds.min.y + bufferSize || wY >= bounds.max.y - bufferSize || 
+    //       const isInBuffer = wX < bounds.min.x + bufferSize || wX >= bounds.max.x - bufferSize ||
+    //                         //  wY < bounds.min.y + bufferSize || wY >= bounds.max.y - bufferSize ||
     //                          wZ < bounds.min.z + bufferSize || wZ >= bounds.max.z - bufferSize
 
     //       if (isInBuffer) {
@@ -1087,7 +1116,6 @@ class Chunk {
     //         this.colors[idx * 2 + 1] = 1;
     //         continue
     //       }
-
 
     //       const noiseValue = noise(wX * noiseScale, wZ * noiseScale, 0);
     //       const isIsland = noiseValue > threshold;
@@ -1109,8 +1137,6 @@ class Chunk {
 
     // return
 
-
-
     // console.time('generate');
 
     // const noiseScale = 0.02;
@@ -1131,26 +1157,26 @@ class Chunk {
     //   let amplitude = 1;
     //   let frequency = 1;
     //   let maxValue = 0;
-    
+
     //   for (let i = 0; i < octaves; i++) {
     //     noiseValue += noise(
-    //       worldX * noiseScale * frequency, 
+    //       worldX * noiseScale * frequency,
     //       0,
     //       worldZ * noiseScale * frequency
     //     ) * amplitude;
-    
+
     //     maxValue += amplitude;
     //     amplitude *= persistence;
     //     frequency *= lacunarity;
     //   }
-    
+
     //   noiseValue /= maxValue;  // Normalize the noise value
-    
+
     //   // Apply smooth step function to create more gradual transitions
     //   const smoothedNoise = smoothStep(-1, 1, noiseValue);
-    
+
     //   const height = smoothedNoise * heightScale + baseHeight;
-    
+
     //   // Return a signed distance field value
     //   return y - height;
     // };
@@ -1162,7 +1188,7 @@ class Chunk {
     //       // Calculate world coordinates
     //       const worldX = this.coords.x * (gridSize.x - gridBorder * 2) + x;
     //       const worldZ = this.coords.z * (gridSize.z - gridBorder * 2) + z;
-          
+
     //       const idx = index++
 
     //       this.data[idx] = field(worldX, y, worldZ);
@@ -1198,9 +1224,7 @@ class Chunk {
 
     // console.timeEnd('generate');
 
-
     // =====
-
 
     // // console.time('generate')
 
@@ -1297,8 +1321,6 @@ class Chunk {
       return
     }
 
-    
-
     // manually constructing these arrays is way faster
     // see https://x.com/AshConnell/status/1806531542946304374
 
@@ -1322,8 +1344,6 @@ class Chunk {
       colors[i] = surface.colors[i]
     }
 
-    
-
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
     // geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3))
@@ -1332,7 +1352,7 @@ class Chunk {
     geometry.setAttribute('col', new THREE.BufferAttribute(colors, 3))
     // geometry.computeVertexNormals()
     geometry.computeBoundsTree()
-    
+
     console.timeEnd('chunk:geometry')
 
     // const normals = geometry.getAttribute('normal').array
@@ -1349,9 +1369,11 @@ class Chunk {
     const mesh = new THREE.Mesh(geometry, material)
     // mesh.scale.setScalar(scale)
     mesh.position.set(
-      this.coords.x * gridSize.x * scale - this.coords.x * (gridBorder*2) * scale, // xz overlap
+      this.coords.x * gridSize.x * scale -
+        this.coords.x * (gridBorder * 2) * scale, // xz overlap
       this.coords.y * gridSize.y * scale,
-      this.coords.z * gridSize.z * scale - this.coords.z * (gridBorder*2) * scale // xz overlap
+      this.coords.z * gridSize.z * scale -
+        this.coords.z * (gridBorder * 2) * scale // xz overlap
     )
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -1385,7 +1407,6 @@ class Chunk {
     this.collider = collider
     this.colliderFactory = colliderFactory
 
-
     // normals visual
     // {
     //   const geometry = new THREE.BufferGeometry();
@@ -1397,10 +1418,10 @@ class Chunk {
     //           vertices[i+1] + normals[i+1] * scale,
     //           vertices[i+2] + normals[i+2] * scale
     //       );
-    //   }  
+    //   }
     //   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    //   const material = new THREE.LineBasicMaterial({ 
-    //     // color: 'black' 
+    //   const material = new THREE.LineBasicMaterial({
+    //     // color: 'black'
     //     color: getRandomColorHex(),
     //   });
     //   const lines = new THREE.LineSegments(geometry, material);
@@ -1518,7 +1539,7 @@ class Chunk {
 
     const sign = subtract ? 1 : -1
     const radiusSquared = radius * radius
-    console.log('radius',radius)
+    console.log('radius', radius)
     for (
       // let z = 0; z < gridSize.z; z++
       let z = Math.max(0, center.z - radius);
@@ -1574,12 +1595,11 @@ class Chunk {
             // Apply the effect to the solidity value
             const idx = z * gridSize.y * gridSize.x + y * gridSize.x + x
             // if (x === center.x && y === center.y && z === center.z) {
-            //   console.log(`Modifying voxel at (${x}, ${y}, ${z}):`, 
+            //   console.log(`Modifying voxel at (${x}, ${y}, ${z}):`,
             // `Initial value: ${this.data[idx]}`,
             // `Effect: ${effect}`,
             // `Final value: ${this.data[idx] + effect}`);
             // }
-
 
             this.data[idx] += effect
             this.data[idx] = Math.min(1, Math.max(-1, this.data[idx] + effect))
@@ -1763,22 +1783,22 @@ class Chunk {
     //     center.y,
     //     center.z + dz * radius
     //   )
-      
+
     //   if (checkPoint.x < gridBorder || checkPoint.x > chunkSize - gridBorder ||
     //       checkPoint.z < gridBorder || checkPoint.z > chunkSize - gridBorder) {
-        
+
     //     const nCoords = v2.set(
     //       this.coords.x + dx,
     //       0,
     //       this.coords.z + dz
     //     )
-        
+
     //     const nChunk = terrain.getChunkByCoords(
     //       nCoords.x,
     //       nCoords.y,
     //       nCoords.z
     //     )
-        
+
     //     if (nChunk) {
     //       const nCenter = v3.copy(center).sub(
     //         nCoords.set(dx * chunkSize, 0, dz * chunkSize)
@@ -1787,7 +1807,7 @@ class Chunk {
     //     }
     //   }
     // }
-    // return   
+    // return
 
     // todo: this is checking all neighbours for now because the if checks are incorrect
 
@@ -1796,14 +1816,14 @@ class Chunk {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x - 1, 0, this.coords.z) // prettier-ignore
       nCenter.copy(center)
-      nCenter.x += gridSize.x - (gridBorder * 2)
+      nCenter.x += gridSize.x - gridBorder * 2
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
     // if (gridSize.x - center.x <= radius) {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x + 1, 0, this.coords.z) // prettier-ignore
       nCenter.copy(center)
-      nCenter.x = nCenter.x - gridSize.x + (gridBorder * 2)
+      nCenter.x = nCenter.x - gridSize.x + gridBorder * 2
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
 
@@ -1812,14 +1832,14 @@ class Chunk {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x, 0, this.coords.z - 1) // prettier-ignore
       nCenter.copy(center)
-      nCenter.z += gridSize.z - (gridBorder * 2)
+      nCenter.z += gridSize.z - gridBorder * 2
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
     // if (gridSize.z - center.z <= radius) {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x, 0, this.coords.z + 1) // prettier-ignore
       nCenter.copy(center)
-      nCenter.z = nCenter.z - gridSize.z + (gridBorder * 2)
+      nCenter.z = nCenter.z - gridSize.z + gridBorder * 2
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
 
@@ -1828,32 +1848,32 @@ class Chunk {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x - 1, 0, this.coords.z - 1) // prettier-ignore
       nCenter.copy(center)
-      nCenter.x += gridSize.x - (gridBorder * 2)
-      nCenter.z += gridSize.z - (gridBorder * 2)
+      nCenter.x += gridSize.x - gridBorder * 2
+      nCenter.z += gridSize.z - gridBorder * 2
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
     // if (gridSize.x - center.x < radius && gridSize.z - center.z <= radius) {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x + 1, 0, this.coords.z + 1) // prettier-ignore
       nCenter.copy(center)
-      nCenter.x = nCenter.x - gridSize.x + (gridBorder * 2)
-      nCenter.z = nCenter.z - gridSize.z + (gridBorder * 2)
+      nCenter.x = nCenter.x - gridSize.x + gridBorder * 2
+      nCenter.z = nCenter.z - gridSize.z + gridBorder * 2
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
     // if (center.x < radius && gridSize.x - center.z <= radius) {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x - 1, 0, this.coords.z + 1) // prettier-ignore
       nCenter.copy(center)
-      nCenter.x += gridSize.x - (gridBorder * 2)
-      nCenter.z = nCenter.z - gridSize.z + (gridBorder * 2)
+      nCenter.x += gridSize.x - gridBorder * 2
+      nCenter.z = nCenter.z - gridSize.z + gridBorder * 2
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
     // if (gridSize.x - center.x < radius && center.z <= radius) {
     if (true) {
       const nChunk = terrain.getChunkByCoords(this.coords.x + 1, 0, this.coords.z - 1) // prettier-ignore
       nCenter.copy(center)
-      nCenter.x = nCenter.x - gridSize.x + (gridBorder * 2)
-      nCenter.z += gridSize.z - (gridBorder * 2)
+      nCenter.x = nCenter.x - gridSize.x + gridBorder * 2
+      nCenter.z += gridSize.z - gridBorder * 2
       nChunk?.modifyGrid(nCenter, radius, subtract, false)
     }
   }
@@ -1943,16 +1963,12 @@ function normalToCardinal(normal) {
   }
 }
 
-
-
-
-
 function remap(value, min, max) {
-  return min + (max - min) * value;
+  return min + (max - min) * value
 }
 
 function remapNoise(value, min, max) {
-  return min + (max - min) * (value + 1) / 2;
+  return min + ((max - min) * (value + 1)) / 2
 }
 
 function alphaToSin(value) {
@@ -1992,78 +2008,84 @@ function sinToAlpha(value) {
 // }
 
 function generateNoiseTexture(width = 512, height = 512) {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
 
-  const imageData = ctx.createImageData(width, height);
-  const data = imageData.data;
+  const imageData = ctx.createImageData(width, height)
+  const data = imageData.data
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const i = (y * width + x) * 4;
-      
+      const i = (y * width + x) * 4
+
       // Generate tileable noise using smoothed noise function
-      const value = tileableNoise(x / width, y / height) * 255;
-      
-      data[i] = value;     // R
-      data[i + 1] = value; // G
-      data[i + 2] = value; // B
-      data[i + 3] = 255;   // A
+      const value = tileableNoise(x / width, y / height) * 255
+
+      data[i] = value // R
+      data[i + 1] = value // G
+      data[i + 2] = value // B
+      data[i + 3] = 255 // A
     }
   }
 
-  ctx.putImageData(imageData, 0, 0);
+  ctx.putImageData(imageData, 0, 0)
 
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
-  texture.magFilter = THREE.LinearFilter;
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.minFilter = THREE.LinearMipmapLinearFilter
+  texture.magFilter = THREE.LinearFilter
 
-  return texture;
+  return texture
 }
 
 function tileableNoise(x, y) {
-  const n = 8; // Number of intervals
-  const fx = Math.floor(x * n);
-  const fy = Math.floor(y * n);
-  const dx = x * n - fx;
-  const dy = y * n - fy;
-  
-  const rx0 = fx / n;
-  const rx1 = (fx + 1) / n;
-  const ry0 = fy / n;
-  const ry1 = (fy + 1) / n;
-  
-  const c00 = smoothNoise(rx0, ry0);
-  const c10 = smoothNoise(rx1, ry0);
-  const c01 = smoothNoise(rx0, ry1);
-  const c11 = smoothNoise(rx1, ry1);
-  
-  const nx0 = lerp(c00, c10, smoothStep(dx));
-  const nx1 = lerp(c01, c11, smoothStep(dx));
-  
-  return lerp(nx0, nx1, smoothStep(dy));
+  const n = 8 // Number of intervals
+  const fx = Math.floor(x * n)
+  const fy = Math.floor(y * n)
+  const dx = x * n - fx
+  const dy = y * n - fy
+
+  const rx0 = fx / n
+  const rx1 = (fx + 1) / n
+  const ry0 = fy / n
+  const ry1 = (fy + 1) / n
+
+  const c00 = smoothNoise(rx0, ry0)
+  const c10 = smoothNoise(rx1, ry0)
+  const c01 = smoothNoise(rx0, ry1)
+  const c11 = smoothNoise(rx1, ry1)
+
+  const nx0 = lerp(c00, c10, smoothStep(dx))
+  const nx1 = lerp(c01, c11, smoothStep(dx))
+
+  return lerp(nx0, nx1, smoothStep(dy))
 }
 
 function smoothNoise(x, y) {
-  const corners = (noise(x-1, y-1) + noise(x+1, y-1) + noise(x-1, y+1) + noise(x+1, y+1)) / 16;
-  const sides = (noise(x-1, y) + noise(x+1, y) + noise(x, y-1) + noise(x, y+1)) / 8;
-  const center = noise(x, y) / 4;
-  return corners + sides + center;
+  const corners =
+    (noise(x - 1, y - 1) +
+      noise(x + 1, y - 1) +
+      noise(x - 1, y + 1) +
+      noise(x + 1, y + 1)) /
+    16
+  const sides =
+    (noise(x - 1, y) + noise(x + 1, y) + noise(x, y - 1) + noise(x, y + 1)) / 8
+  const center = noise(x, y) / 4
+  return corners + sides + center
 }
 
 function noise(x, y) {
-  const n = x + y * 57;
-  return (Math.sin(n * 21942.21) * 43758.5453) % 1;
+  const n = x + y * 57
+  return (Math.sin(n * 21942.21) * 43758.5453) % 1
 }
 
 function lerp(a, b, t) {
-  return a + t * (b - a);
+  return a + t * (b - a)
 }
 
 function smoothStep(t) {
-  return t * t * (3 - 2 * t);
+  return t * t * (3 - 2 * t)
 }

@@ -30,7 +30,7 @@ export class Entities extends System {
     }
     if (existing) {
       this.entities.forEach(entity => {
-        if (entity.schema.id === schema.id) {
+        if (entity.schema?.id === schema.id) {
           entity.reload()
         }
       })
@@ -80,7 +80,7 @@ export class Entities extends System {
   countEntitysBySchema(id) {
     let n = 0
     this.entities.forEach(entity => {
-      if (entity.schema.id === id) n++
+      if (entity.schema?.id === id) n++
     })
     return n
   }
@@ -119,6 +119,7 @@ export class Entities extends System {
   lateUpdate(delta) {
     for (const entity of this.activeEntities) {
       entity.lateUpdate(delta)
+      entity.finalize()
     }
   }
 

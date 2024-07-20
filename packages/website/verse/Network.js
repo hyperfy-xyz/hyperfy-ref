@@ -141,6 +141,7 @@ export class Network extends System {
 
     const player = {
       type: 'player',
+      id: this.makeId(),
       clientId: this.client.id,
       position: [0, 0, 0],
       quaternion: [0, 0, 0, 1],
@@ -229,7 +230,9 @@ export class Network extends System {
   onEntityUpdated = data => {
     this.log('entity:updated', data)
     const entity = this.world.entities.getEntity(data.id)
-    entity?.applyNetworkChanges(data)
+    if (!entity) return
+    if (data.state) entity.applyNetworkState(data.state)
+    if (data.props) entity.applyNetworkProps(data.props)
   }
 
   onEntityRemoved = id => {

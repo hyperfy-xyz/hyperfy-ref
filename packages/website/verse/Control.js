@@ -84,13 +84,13 @@ export class Control extends System {
   }
 
   update(delta) {
-    if (!this.current) return
-    this.current.move.set(0, 0, 0)
-    if (this.keys.forward) this.current.move.z -= 1
-    if (this.keys.back) this.current.move.z += 1
-    if (this.keys.left) this.current.move.x -= 1
-    if (this.keys.right) this.current.move.x += 1
-    this.current.move.normalize() // prevent surfing
+    // if (!this.current) return
+    // this.current.move.set(0, 0, 0)
+    // if (this.keys.forward) this.current.move.z -= 1
+    // if (this.keys.back) this.current.move.z += 1
+    // if (this.keys.left) this.current.move.x -= 1
+    // if (this.keys.right) this.current.move.x += 1
+    // this.current.move.normalize() // prevent surfing
 
     // this.lastRay += delta
     // if (this.lastRay > RAY_RATE) {
@@ -111,6 +111,7 @@ export class Control extends System {
 
     this.hits = this.world.graphics.raycastViewport(this.pointer.coords)
 
+    console.log('this.moving', this.moving)
     if (this.moving && this.moving.entity.destroyed) {
       this.setMoving(null)
     }
@@ -120,17 +121,18 @@ export class Control extends System {
         // this.world.graphics.maskMoving
       )
       const [hit, entity] = this.resolveHit(hits)
+      console.log('moving', hit)
       if (hit) {
         this.moving.lastSend += delta
         const sync = this.moving.lastSend >= MOVE_SEND_RATE
         if (sync) this.moving.lastSend = 0
-        this.moving.entity.applyLocalChanges({
-          sync,
-          props: {
+        this.moving.entity.applyLocalProps(
+          {
             position: hit.point,
             // quaternion ???
           },
-        })
+          sync
+        )
       }
     }
   }
@@ -160,6 +162,7 @@ export class Control extends System {
       }
       this.world.entities.upsertSchemaLocal(schema)
       const entity = this.world.entities.addEntityLocal({
+        type: 'object',
         id: this.world.network.makeId(),
         schemaId: schema.id,
         creator: this.world.network.client.user.id,
@@ -173,11 +176,8 @@ export class Control extends System {
       })
       try {
         await this.world.loader.uploadAsset(file)
-        entity.applyLocalChanges({
-          sync: true,
-          props: {
-            uploading: null,
-          },
+        entity.applyLocalProps({
+          uploading: null,
         })
       } catch (err) {
         console.error('failed to upload', err)
@@ -343,14 +343,11 @@ export class Control extends System {
       this.setMoving(null)
     }
     if (this.moving && lmb) {
-      this.moving.entity.applyLocalChanges({
-        sync: true,
-        props: {
-          mode: 'active',
-          modeClientId: null,
-          position: this.moving.entity.root.position,
-          quaternion: this.moving.entity.root.quaternion,
-        },
+      this.moving.entity.applyLocalProps({
+        mode: 'active',
+        modeClientId: null,
+        position: this.moving.entity.root.position,
+        quaternion: this.moving.entity.root.quaternion,
       })
       this.setMoving(null)
       return
@@ -439,11 +436,8 @@ export class Control extends System {
       q1.setFromAxisAngle(UP, MOVE_ROTATE_SPEED * e.deltaY).multiply(
         this.moving.entity.root.quaternion
       )
-      this.moving.entity.applyLocalChanges({
-        sync: true,
-        props: {
-          quaternion: q1,
-        },
+      this.moving.entity.applyLocalProps({
+        quaternion: q1,
       })
       return
     }
@@ -737,12 +731,9 @@ export class Control extends System {
         visible: this.world.permissions.canMoveEntity(entity),
         disabled: entity.mode !== 'active' && entity.mode !== 'dead',
         execute: () => {
-          entity.applyLocalChanges({
-            sync: true,
-            props: {
-              mode: 'moving',
-              modeClientId: this.world.network.client.id,
-            },
+          entity.applyLocalProps({
+            mode: 'moving',
+            modeClientId: this.world.network.client.id,
           })
         },
       })
@@ -768,6 +759,7 @@ export class Control extends System {
             this.world.entities.upsertSchemaLocal(schema)
             // replace current instance with new one
             this.world.entities.addEntityLocal({
+              type: 'object',
               id: this.world.network.makeId(),
               schemaId: schema.id,
               creator: this.world.network.client.user.id, // ???
@@ -789,6 +781,7 @@ export class Control extends System {
         disabled: false,
         execute: () => {
           this.world.entities.addEntityLocal({
+            type: 'object',
             id: this.world.network.makeId(),
             schemaId: entity.schema.id,
             creator: this.world.network.client.user.id, // ???
@@ -812,6 +805,7 @@ export class Control extends System {
             e1.set(0, num(0, 360, 2) * DEG2RAD, 0)
             q1.setFromEuler(e1)
             this.world.entities.addEntityLocal({
+              type: 'object',
               id: this.world.network.makeId(),
               schemaId: entity.schema.id,
               creator: this.world.network.client.user.id, // ???
@@ -885,7 +879,7 @@ export class Control extends System {
     window.removeEventListener('pointermove', this.onPointerMove)
     this.viewport.removeEventListener('wheel', this.onWheel, { passive: false }) // prettier-ignore
     this.viewport.removeEventListener('contextmenu', this.onContextMenu)
-    this.dnd.destroy()
+    // this.dnd.destroy()
     this.controls = []
     this.current = null
     // while(this.controls.length) {

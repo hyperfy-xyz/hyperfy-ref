@@ -37,7 +37,6 @@ export class Player extends Entity {
     this.type === 'player'
     this.isPlayer = true
 
-    this.id = data.id
     this.clientId = data.clientId
 
     this.root = new THREE.Object3D()
@@ -156,8 +155,8 @@ export class Player extends Entity {
       this.looking = false
     }
 
-    // zoom camera if scrolling wheel
-    if (input.wheel) {
+    // zoom camera if scrolling wheel (and not moving an object)
+    if (input.wheel && !input.moving) {
       this.zoom -= input.wheel * ZOOM_SPEED * delta
       this.zoom = clamp(this.zoom, 4, 16)
     }

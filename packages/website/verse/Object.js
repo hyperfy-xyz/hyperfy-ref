@@ -32,21 +32,7 @@ export class Object extends Entity {
     })
     this.networkPosition = new THREE.Vector3().copy(this.root.position)
     this.networkQuaternion = new THREE.Quaternion().copy(this.root.quaternion)
-    this.state = data.state || {}
 
-    this.stateProxy = new Proxy(this.state, {
-      set: (target, key, value) => {
-        if (target[key] === value) return true
-        this.applyLocalChanges({
-          sync: true,
-          state: {
-            [key]: value,
-          },
-        })
-        return true
-      },
-    })
-    this.stateChanges = {}
     this.nodes = new Map()
     this.events = {}
     this.blueprint = null
@@ -227,7 +213,7 @@ export class Object extends Entity {
     }
     if (this.mode === 'moving') {
       if (modeClientId === this.world.network.client.id) {
-        this.world.control.setMoving(this)
+        this.world.input.setMoving(this)
       }
       this.world.entities.incActive(this)
       // activate (mount) nodes
@@ -289,7 +275,6 @@ export class Object extends Entity {
         this.kill()
       }
     }
-    this.stateChanges = {}
   }
 
   on(name, callback) {
@@ -339,20 +324,20 @@ export class Object extends Entity {
       isAuthority() {
         return entity.authority === world.network.client.id
       },
-      requestControl() {
-        world.control.request(entity)
-      },
-      getControl() {
-        return world.control.get(entity)
-      },
-      releaseControl() {
-        return world.control.release(entity)
-      },
+      // requestControl() {
+      //   world.control.request(entity)
+      // },
+      // getControl() {
+      //   return world.control.get(entity)
+      // },
+      // releaseControl() {
+      //   return world.control.release(entity)
+      // },
       getState() {
-        return entity.stateProxy
+        return entity.state
       },
       getStateChanges() {
-        return entity.stateChanges
+        return entity._stateChanges
       },
       ...this.root.getProxy(),
     }
@@ -374,101 +359,74 @@ export class Object extends Entity {
     return this.nextMsg.data
   }
 
-  applyLocalChanges({ sync, state, props }) {
-    if (state) {
-      const changed = {}
-      for (const key in state) {
-        const value = state[key]
-        if (this.state[key] !== value) {
-          this.state[key] = value
-          changed[key] = value
-        }
-      }
-      if (sync && !isEmpty(changed)) {
-        const data = this.getUpdate()
-        data.state = {
-          ...data.state,
-          ...changed,
-        }
+  applyLocalProps(props, sync = true) {
+    let moved
+    let moded
+    const changed = {}
+    if (props.position) {
+      this.root.position.copy(props.position)
+      changed.position = this.root.position.toArray()
+      moved = true
+    }
+    if (props.quaternion) {
+      this.root.quaternion.copy(props.quaternion)
+      changed.quaternion = this.root.quaternion.toArray()
+      moved = true
+    }
+    if (props.hasOwnProperty('mode')) {
+      if (this.mode !== props.mode) {
+        this.mode = props.mode
+        changed.mode = props.mode
+        moded = true
       }
     }
-    if (props) {
-      let moved
-      let moded
-      const changed = {}
-      if (props.position) {
-        this.root.position.copy(props.position)
-        changed.position = this.root.position.toArray()
-        moved = true
+    if (props.hasOwnProperty('modeClientId')) {
+      if (this.modeClientId !== props.modeClientId) {
+        this.modeClientId = props.modeClientId
+        changed.modeClientId = props.modeClientId
+        moded = true
       }
-      if (props.quaternion) {
-        this.root.quaternion.copy(props.quaternion)
-        changed.quaternion = this.root.quaternion.toArray()
-        moved = true
+    }
+    if (props.hasOwnProperty('uploading')) {
+      if (this.uploading !== props.uploading) {
+        this.uploading = props.uploading
+        changed.uploading = props.uploading
       }
-      if (props.hasOwnProperty('mode')) {
-        if (this.mode !== props.mode) {
-          this.mode = props.mode
-          changed.mode = props.mode
-          moded = true
-        }
-      }
-      if (props.hasOwnProperty('modeClientId')) {
-        if (this.modeClientId !== props.modeClientId) {
-          this.modeClientId = props.modeClientId
-          changed.modeClientId = props.modeClientId
-          moded = true
-        }
-      }
-      if (props.hasOwnProperty('uploading')) {
-        if (this.uploading !== props.uploading) {
-          this.uploading = props.uploading
-          changed.uploading = props.uploading
-        }
-      }
-      if (moved) {
-        this.root.dirty()
-      }
-      if (moded) {
-        this.checkMode()
-      }
-      if (sync && !isEmpty(changed)) {
-        const data = this.getUpdate()
-        data.props = {
-          ...data.props,
-          ...changed,
-        }
+    }
+    if (moved) {
+      this.root.dirty()
+    }
+    if (moded) {
+      this.checkMode()
+    }
+    if (sync && !isEmpty(changed)) {
+      const data = this.getUpdate()
+      data.props = {
+        ...data.props,
+        ...changed,
       }
     }
   }
 
-  applyNetworkChanges({ state, props }) {
-    if (state) {
-      for (const key in state) {
-        this.state[key] = state[key]
-        this.stateChanges[key] = state[key]
-      }
+  applyNetworkProps(props) {
+    if (props.position) {
+      this.networkPosition.fromArray(props.position)
     }
-    if (props) {
-      if (props.position) {
-        this.networkPosition.fromArray(props.position)
+    if (props.quaternion) {
+      this.networkQuaternion.fromArray(props.quaternion)
+    }
+    if (props.mode) {
+      this.mode = props.mode
+      this.modeClientId = props.modeClientId
+      this.checkMode()
+    }
+    if (props.hasOwnProperty('uploading')) {
+      if (props.uploading !== null) {
+        console.error('uploading should only ever be nulled')
       }
-      if (props.quaternion) {
-        this.networkQuaternion.fromArray(props.quaternion)
-      }
-      if (props.mode) {
-        this.mode = props.mode
-        this.modeClientId = props.modeClientId
-        this.checkMode()
-      }
-      if (props.hasOwnProperty('uploading')) {
-        if (props.uploading !== null) {
-          console.error('uploading should only ever be nulled')
-        }
-        if (this.uploading !== props.uploading) {
-          this.uploading = props.uploading
-          this.load()
-        }
+      if (this.uploading !== props.uploading) {
+        this.uploading = props.uploading
+        this.load()
       }
     }
   }
