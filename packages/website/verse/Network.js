@@ -145,6 +145,7 @@ export class Network extends System {
       clientId: this.client.id,
       position: [0, 0, 0],
       quaternion: [0, 0, 0, 1],
+      vars: {},
     }
     this.player = this.world.entities.addEntityLocal(player)
 
@@ -180,6 +181,7 @@ export class Network extends System {
           // position: [0, 0, 10],
           // quaternion: [0, 0, 0, 1],
           state: {},
+          vars: {},
         }
         this.world.entities.addEntityLocal(bot)
       }
@@ -233,6 +235,7 @@ export class Network extends System {
     if (!entity) return
     if (data.state) entity.applyNetworkState(data.state)
     if (data.props) entity.applyNetworkProps(data.props)
+    if (data.vars) entity.applyNetworkVars(data.vars)
   }
 
   onEntityRemoved = id => {

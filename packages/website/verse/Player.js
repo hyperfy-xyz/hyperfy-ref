@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { Vector3, Quaternion } from 'three'
 
 import { Entity } from './Entity'
 import { DEG2RAD } from './extras/general'
@@ -36,6 +37,25 @@ export class Player extends Entity {
     super(world, data)
     this.type === 'player'
     this.isPlayer = true
+
+    this.blah = this.createVar(0, 'blah')
+    this.blah.onChange = (oldValue, newValue) => {
+      console.log('blah', oldValue, newValue)
+    }
+
+    // const onTestChange = (oldValue, newValue) => {
+    //   console.log('onTestChange', oldValue, newValue)
+    // }
+    // this.addFoob(String, 'test',  'TEST-1', onTestChange, true) // prettier-ignore
+    // this.addFoob(
+    //   Vector3,
+    //   'vec3',
+    //   [0, 0, 0],
+    //   (oldValue, newValue) => {
+    //     console.log('vec3', oldValue, newValue)
+    //   },
+    //   true
+    // )
 
     this.clientId = data.clientId
 

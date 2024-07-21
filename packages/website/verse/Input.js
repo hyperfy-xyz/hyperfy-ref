@@ -159,6 +159,7 @@ export class Input extends System {
         position: [0, 0, 0], // hit.point.toArray(),
         quaternion: [0, 0, 0, 1],
         state: {},
+        vars: {},
       })
       try {
         await this.world.loader.uploadAsset(file)
@@ -546,6 +547,7 @@ export class Input extends System {
               position: entity.root.position.toArray(),
               quaternion: entity.root.quaternion.toArray(),
               state: entity.state,
+              vars: {},
             })
             this.world.entities.removeEntityLocal(entity.id)
           },
@@ -568,6 +570,7 @@ export class Input extends System {
             position: entity.root.position.toArray(),
             quaternion: entity.root.quaternion.toArray(),
             state: {},
+            vars: {},
           })
         },
       })
@@ -594,6 +597,7 @@ export class Input extends System {
               // position: [num(-100, 100, 3), num(0, 100, 3), num(-100, 100, 3)], // everywhere
               // quaternion: [0, 0, 0, 1],
               state: entity.state,
+              vars: {},
             })
           }
         },

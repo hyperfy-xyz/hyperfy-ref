@@ -96,9 +96,12 @@ export class Instance {
   }
 
   onEntityUpdated = (sock, data) => {
-    const { id, state, props } = data
+    const { id, vars, state, props } = data // TODO: state and props are replaced by vars
     const entity = this.entities.get(id)
     if (!entity) return
+    if (vars) {
+      Object.assign(entity.vars, vars)
+    }
     if (state) {
       Object.assign(entity.state, state)
       // entity.state = {

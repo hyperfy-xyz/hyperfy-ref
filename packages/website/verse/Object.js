@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { Vector3, Quaternion } from 'three'
 
 import { isEmpty } from 'lodash-es'
 
@@ -19,6 +20,22 @@ export class Object extends Entity {
     this.type === 'object'
     this.isObject = true
 
+    // to change this locally call this.foobs.position = xyz which will
+    // 1. call onChange(oldValue, newValue)
+    // 2. onChange will likely update the root node, eg this.root.position.copy(newValue)
+    // 3. will add the new value to the next packet to be sent to other clients
+    // other clients are also notified via onChange(oldValue, newValue)
+    // 1. will likely not do anything and instead on update() interpolate this.root.position
+    // :::
+    // this.schemaId = this.createVar(data.schemaId, this.onSchemaIdChange) // prettier-ignore
+    // this.creator = this.createVar(data.creator, this.onCreatorChange) // prettier-ignore
+    // this.authority = this.createVar(data.authority, this.onAuthorityChange) // prettier-ignore
+    // this.uploading = this.createVar(data.uploading, this.onUploadingChange) // prettier-ignore
+    // this.mode = this.createVar(data.mode, this.onModeChange) // prettier-ignore
+    // this.modeClientId = this.createVar(data.modeClientId, this.onModeClientIdChange) // prettier-ignore
+    // this.position = this.createVar(new Vector3().fromArray(data.position || [0, 0, 0]), this.onPositionChange) // prettier-ignore
+    // this.quaternion = this.createVar(new Quaternion().fromArray(data.quaternion || [0, 0, 0, 1]), this.onQuaternionChange) // prettier-ignore
+
     this.schema = this.world.entities.getSchema(data.schemaId)
     this.creator = data.creator
     this.authority = data.authority
@@ -33,12 +50,18 @@ export class Object extends Entity {
     this.networkPosition = new THREE.Vector3().copy(this.root.position)
     this.networkQuaternion = new THREE.Quaternion().copy(this.root.quaternion)
 
+    this.scriptVarIds = 0
+
     this.nodes = new Map()
     this.events = {}
     this.blueprint = null
     this.script = null
     this.loadNum = 0
     this.load()
+  }
+
+  onSchemaIDChange(oldValue, newValue) {
+    console.log('onSchemaIDChange', { oldValue, newValue })
   }
 
   isUploading() {
@@ -105,6 +128,11 @@ export class Object extends Entity {
     this.nodes.clear()
     // clear script events
     this.events = {}
+    // clear script vars
+    for (let i = 0; i < this.scriptVarIds; i++) {
+      this.destroyVar(`$${i}`)
+    }
+    this.scriptVarIds = 0
     // reconstruct
     if (this.isUploading()) {
       // show loading
@@ -338,6 +366,10 @@ export class Object extends Entity {
       },
       getStateChanges() {
         return entity._stateChanges
+      },
+      createVar(value, onChange) {
+        const id = `s${entity.scriptVarIds++}`
+        return entity.createVar(id, value, onChange)
       },
       ...this.root.getProxy(),
     }
