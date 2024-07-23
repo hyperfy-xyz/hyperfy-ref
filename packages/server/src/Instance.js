@@ -96,26 +96,10 @@ export class Instance {
   }
 
   onEntityUpdated = (sock, data) => {
-    const { id, vars, state, props } = data // TODO: state and props are replaced by vars
+    const { id } = data // TODO: state and props are replaced by vars
     const entity = this.entities.get(id)
     if (!entity) return
-    if (vars) {
-      Object.assign(entity.vars, vars)
-    }
-    if (state) {
-      Object.assign(entity.state, state)
-      // entity.state = {
-      //   ...entity.state,
-      //   ...state,
-      // }
-    }
-    if (props) {
-      if (props.hasOwnProperty('state')) {
-        props.state = null // just being careful because this is weird af
-        // really we should combine these or put them in their own objects or something
-      }
-      Object.assign(entity, props)
-    }
+    Object.assign(entity, data)
     this.broadcast(Events.ENTITY_UPDATED, data, sock.client)
   }
 
@@ -130,15 +114,9 @@ export class Instance {
       return // they never authed
     }
     this.clients.delete(client.id)
-    // remove clients avatar
+    // remove clients player
     const toRemove = []
     this.entities.forEach(entity => {
-      // if (entity.type === 'object') {
-      //   const schema = this.schemas.get(entity.schemaId)
-      //   if (schema.type === 'avatar' && entity.authority === client.id) {
-      //     toRemove.push(entity)
-      //   }
-      // }
       if (entity.type === 'player' && entity.clientId === client.id) {
         toRemove.push(entity)
       }
@@ -147,17 +125,15 @@ export class Instance {
       this.entities.delete(entity.id)
       this.broadcast(Events.ENTITY_REMOVED, entity.id)
     }
-    // if they were editing/moving an entity, reactivate it
+    // if they were editing/moving an object, reactivate it
     this.entities.forEach(entity => {
-      if (entity.modeClientId === client.id) {
+      if (entity.type === 'object' && entity.modeClientId === client.id) {
         entity.mode = 'active'
         entity.modeClientId = null
         this.broadcast(Events.ENTITY_UPDATED, {
           id: entity.id,
-          props: {
-            mode: entity.mode,
-            modeClientId: entity.modeClientId,
-          },
+          mode: entity.mode,
+          modeClientId: entity.modeClientId,
         })
       }
     })
@@ -226,6 +202,7 @@ class Client {
   }
 
   canMoveEntity(entity) {
+    if (entity.type !== 'object') return false
     const userId = this.user.id
     const worldPerms = this.instance.permissions
     const userPerms = this.permissions
@@ -245,6 +222,7 @@ class Client {
   }
 
   canEditEntity(entity) {
+    if (entity.type !== 'object') return false
     const userId = this.user.id
     const worldPerms = this.instance.permissions
     const userPerms = this.permissions
@@ -261,6 +239,7 @@ class Client {
   }
 
   canDestroyEntity(entity) {
+    if (entity.type !== 'object') return false
     const userId = this.user.id
     const worldPerms = this.instance.permissions
     const userPerms = this.permissions

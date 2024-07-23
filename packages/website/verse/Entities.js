@@ -119,7 +119,6 @@ export class Entities extends System {
   lateUpdate(delta) {
     for (const entity of this.activeEntities) {
       entity.lateUpdate(delta)
-      entity.finalize()
     }
   }
 

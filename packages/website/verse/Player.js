@@ -38,7 +38,7 @@ export class Player extends Entity {
     this.type === 'player'
     this.isPlayer = true
 
-    this.blah = this.createVar(0, 'blah')
+    this.blah = this.createNetworkProp('blah', 'Hello')
     this.blah.onChange = (oldValue, newValue) => {
       console.log('blah', oldValue, newValue)
     }
@@ -504,11 +504,11 @@ export class Player extends Entity {
   // }
 
   destroy() {
+    super.destroy()
     this.world.entities.decActive(this, true)
     this.world.graphics.scene.remove(this.vrm)
     this.controller.release()
     this.controller = null
-    this.destroyed = true
   }
 }
 

@@ -81,13 +81,14 @@ export class Input extends System {
         this.moving.lastSend += delta
         const sync = this.moving.lastSend >= MOVE_SEND_RATE
         if (sync) this.moving.lastSend = 0
-        this.moving.entity.applyLocalProps(
-          {
-            position: hit.point,
-            // quaternion ???
-          },
-          sync
-        )
+        this.moving.entity.position.value = hit.point
+        // this.moving.entity.applyLocalProps(
+        //   {
+        //     position: hit.point,
+        //     // quaternion ???
+        //   },
+        //   sync
+        // )
       }
     }
   }
@@ -102,7 +103,9 @@ export class Input extends System {
     for (const hit of hits) {
       if (hit.getEntity) {
         const entity = hit.getEntity()
-        if (entity?.mode === 'moving') continue
+        if (entity?.type === 'object' && entity.mode.value === 'moving') {
+          continue
+        }
         arr1[0] = hit
         arr1[1] = entity
         return arr1
@@ -163,9 +166,10 @@ export class Input extends System {
       })
       try {
         await this.world.loader.uploadAsset(file)
-        entity.applyLocalProps({
-          uploading: null,
-        })
+        entity.uploading.value = null
+        // entity.applyLocalProps({
+        //   uploading: null,
+        // })
       } catch (err) {
         console.error('failed to upload', err)
         this.world.entities.removeEntityLocal(entity.id)
@@ -283,12 +287,11 @@ export class Input extends System {
     if (!this.down.LMB && lmb) {
       if (this.moving) {
         // TODO: there's still problems with this trigger player attacks somehow
-        this.moving.entity.applyLocalProps({
-          mode: 'active',
-          modeClientId: null,
-          position: this.moving.entity.root.position,
-          quaternion: this.moving.entity.root.quaternion,
-        })
+        const entity = this.moving.entity
+        entity.mode.value = 'active'
+        entity.modeClientId.value = null
+        entity.position.value = entity.root.position
+        entity.quaternion.value = entity.root.quaternion
         this.setMoving(null)
       } else {
         this.down.LMB = true
@@ -325,9 +328,10 @@ export class Input extends System {
       q1.setFromAxisAngle(UP, MOVE_ROTATE_SPEED * e.deltaY).multiply(
         this.moving.entity.root.quaternion
       )
-      this.moving.entity.applyLocalProps({
-        quaternion: q1,
-      })
+      this.moving.entity.quaternion.value = q1
+      // this.moving.entity.applyLocalProps({
+      //   quaternion: q1,
+      // })
     } else {
       this.wheel += e.deltaY
     }
@@ -395,232 +399,239 @@ export class Input extends System {
         },
       })
     }
-    const hitVoid = !hit
-    const hitWorld = hit && !entity
-    const hitSelf = entity === this.world.network.player
-    const hitAvatar = !hitSelf && entity?.type === 'player'
-    const hitPrototype = entity?.schema.type === 'prototype'
-    // const hitItem = entity?.schema.type === 'item'
-    console.log('hit', hit, entity)
-    if (hitVoid) {
-      return
-    }
-    if (hitWorld) {
-      return
-    }
-    if (hitSelf) {
-      add({
-        label: 'Profile',
-        icon: UserIcon,
-        visible: true,
-        disabled: false,
-        execute: () => {
-          this.world.panels.inspect(entity)
-        },
-      })
-      add({
-        label: 'Emotes',
-        icon: SmileIcon,
-        visible: true,
-        disabled: false,
-        execute: () => {
-          console.log('TODO')
-        },
-      })
-      add({
-        label: 'Enable Mic',
-        icon: MicIcon,
-        visible: true,
-        disabled: false,
-        execute: () => {
-          console.log('TODO')
-        },
-      })
-    }
-    if (hitAvatar) {
-      add({
-        label: 'Profile',
-        icon: UserIcon,
-        visible: true,
-        disabled: false,
-        execute: () => {
-          this.world.panels.inspect(entity)
-        },
-      })
-      add({
-        label: 'Trade',
-        icon: ArrowRightLeftIcon,
-        visible: true,
-        disabled: false,
-        execute: () => {
-          console.log('TODO')
-        },
-      })
-      add({
-        label: 'Permissions',
-        icon: ShieldPlusIcon,
-        visible: true,
-        disabled: false,
-        execute: () => {
-          console.log('TODO')
-        },
-      })
-      add({
-        label: 'Mute',
-        icon: MicOffIcon,
-        visible: true,
-        disabled: false,
-        execute: () => {
-          console.log('TODO')
-        },
-      })
-      add({
-        label: 'Kick',
-        icon: AxeIcon,
-        visible: true,
-        disabled: false,
-        execute: () => {
-          console.log('TODO')
-        },
-      })
-      add({
-        label: 'Ban',
-        icon: BanIcon,
-        visible: true,
-        disabled: false,
-        execute: () => {
-          console.log('TODO')
-        },
-      })
-    }
-    if (hitPrototype) {
-      add({
-        label: 'Inspect',
-        icon: EyeIcon,
-        visible: true,
-        disabled: false,
-        execute: () => {
-          this.world.panels.inspect(entity)
-        },
-      })
-      add({
-        label: 'Move',
-        icon: HandIcon,
-        visible: this.world.permissions.canMoveEntity(entity),
-        disabled: entity.mode !== 'active' && entity.mode !== 'dead',
-        execute: () => {
-          entity.applyLocalProps({
-            mode: 'moving',
-            modeClientId: this.world.network.client.id,
-          })
-        },
-      })
-      add({
-        label: 'Edit',
-        icon: PencilRulerIcon,
-        visible: this.world.permissions.canEditEntity(entity),
-        disabled: entity.mode !== 'active' && entity.mode !== 'dead',
-        execute: () => {
-          this.world.panels.edit(entity)
-        },
-      })
-      if (this.world.entities.countEntitysBySchema(entity.schema.id) > 1) {
-        add({
-          label: 'Unlink',
-          icon: UnlinkIcon,
-          visible: this.world.permissions.canEditEntity(entity), // ???
-          disabled: false,
-          execute: () => {
-            // duplicate schema
-            const schema = cloneDeep(entity.schema)
-            schema.id = this.world.network.makeId()
-            this.world.entities.upsertSchemaLocal(schema)
-            // replace current instance with new one
-            this.world.entities.addEntityLocal({
-              type: 'object',
-              id: this.world.network.makeId(),
-              schemaId: schema.id,
-              creator: this.world.network.client.user.id, // ???
-              authority: this.world.network.client.id,
-              mode: 'active',
-              modeClientId: null,
-              position: entity.root.position.toArray(),
-              quaternion: entity.root.quaternion.toArray(),
-              state: entity.state,
-              vars: {},
-            })
-            this.world.entities.removeEntityLocal(entity.id)
-          },
-        })
-      }
-      add({
-        label: 'Duplicate',
-        icon: CopyIcon,
-        visible: this.world.permissions.canEditEntity(entity),
-        disabled: false,
-        execute: () => {
-          this.world.entities.addEntityLocal({
-            type: 'object',
-            id: this.world.network.makeId(),
-            schemaId: entity.schema.id,
-            creator: this.world.network.client.user.id, // ???
-            authority: this.world.network.client.id,
-            mode: 'moving',
-            modeClientId: this.world.network.client.id,
-            position: entity.root.position.toArray(),
-            quaternion: entity.root.quaternion.toArray(),
-            state: {},
-            vars: {},
-          })
-        },
-      })
-      add({
-        label: 'Bomb',
-        icon: BombIcon,
-        visible: true,
-        disabled: false,
-        execute: () => {
-          if (!window.bomb) window.bomb = 1000
-          for (let i = 0; i < window.bomb; i++) {
-            e1.set(0, num(0, 360, 2) * DEG2RAD, 0)
-            q1.setFromEuler(e1)
-            this.world.entities.addEntityLocal({
-              type: 'object',
-              id: this.world.network.makeId(),
-              schemaId: entity.schema.id,
-              creator: this.world.network.client.user.id, // ???
-              authority: this.world.network.client.id,
-              mode: 'active',
-              modeClientId: null,
-              position: [num(-200, 200, 3), 0, num(-200, 200, 3)], // ground
-              quaternion: q1.toArray(),
-              // position: [num(-100, 100, 3), num(0, 100, 3), num(-100, 100, 3)], // everywhere
-              // quaternion: [0, 0, 0, 1],
-              state: entity.state,
-              vars: {},
-            })
-          }
-        },
-      })
-      add({
-        label: 'Destroy',
-        icon: Trash2Icon,
-        visible: this.world.permissions.canDestroyEntity(entity),
-        disabled: false,
-        execute: () => {
-          this.world.entities.removeEntityLocal(entity.id)
-        },
-      })
-      // add({
-      //   label: 'Buy',
-      //   icon: GiftIcon,
-      //   visible: true,
-      //   disabled: false,
-      //   execute: () => {
-      //     // this.world.entities.removeEntityLocal(entity.id)
-      //   },
-      // })
-    }
+    // hit void
+    if (!hit) return
+    // hit world
+    if (hit && !entity) return
+    // hit entity
+    console.log('entity', entity)
+    entity.getActions(add)
+    // const hitVoid = !hit
+    // const hitWorld = hit && !entity
+    // const hitSelf = entity === this.world.network.player
+    // const hitAvatar = !hitSelf && entity?.type === 'player'
+    // const hitPrototype = entity?.schema.type === 'prototype'
+    // // const hitItem = entity?.schema.type === 'item'
+    // console.log('hit', hit, entity)
+    // if (hitVoid) {
+    //   return
+    // }
+    // if (hitWorld) {
+    //   return
+    // }
+    // if (hitSelf) {
+    //   add({
+    //     label: 'Profile',
+    //     icon: UserIcon,
+    //     visible: true,
+    //     disabled: false,
+    //     execute: () => {
+    //       this.world.panels.inspect(entity)
+    //     },
+    //   })
+    //   add({
+    //     label: 'Emotes',
+    //     icon: SmileIcon,
+    //     visible: true,
+    //     disabled: false,
+    //     execute: () => {
+    //       console.log('TODO')
+    //     },
+    //   })
+    //   add({
+    //     label: 'Enable Mic',
+    //     icon: MicIcon,
+    //     visible: true,
+    //     disabled: false,
+    //     execute: () => {
+    //       console.log('TODO')
+    //     },
+    //   })
+    // }
+    // if (hitAvatar) {
+    //   add({
+    //     label: 'Profile',
+    //     icon: UserIcon,
+    //     visible: true,
+    //     disabled: false,
+    //     execute: () => {
+    //       this.world.panels.inspect(entity)
+    //     },
+    //   })
+    //   add({
+    //     label: 'Trade',
+    //     icon: ArrowRightLeftIcon,
+    //     visible: true,
+    //     disabled: false,
+    //     execute: () => {
+    //       console.log('TODO')
+    //     },
+    //   })
+    //   add({
+    //     label: 'Permissions',
+    //     icon: ShieldPlusIcon,
+    //     visible: true,
+    //     disabled: false,
+    //     execute: () => {
+    //       console.log('TODO')
+    //     },
+    //   })
+    //   add({
+    //     label: 'Mute',
+    //     icon: MicOffIcon,
+    //     visible: true,
+    //     disabled: false,
+    //     execute: () => {
+    //       console.log('TODO')
+    //     },
+    //   })
+    //   add({
+    //     label: 'Kick',
+    //     icon: AxeIcon,
+    //     visible: true,
+    //     disabled: false,
+    //     execute: () => {
+    //       console.log('TODO')
+    //     },
+    //   })
+    //   add({
+    //     label: 'Ban',
+    //     icon: BanIcon,
+    //     visible: true,
+    //     disabled: false,
+    //     execute: () => {
+    //       console.log('TODO')
+    //     },
+    //   })
+    // }
+    // if (hitPrototype) {
+    //   add({
+    //     label: 'Inspect',
+    //     icon: EyeIcon,
+    //     visible: true,
+    //     disabled: false,
+    //     execute: () => {
+    //       this.world.panels.inspect(entity)
+    //     },
+    //   })
+    //   add({
+    //     label: 'Move',
+    //     icon: HandIcon,
+    //     visible: this.world.permissions.canMoveEntity(entity),
+    //     disabled: entity.mode !== 'active' && entity.mode !== 'dead',
+    //     execute: () => {
+    //       entity.applyLocalProps({
+    //         mode: 'moving',
+    //         modeClientId: this.world.network.client.id,
+    //       })
+    //     },
+    //   })
+    //   add({
+    //     label: 'Edit',
+    //     icon: PencilRulerIcon,
+    //     visible: this.world.permissions.canEditEntity(entity),
+    //     disabled: entity.mode !== 'active' && entity.mode !== 'dead',
+    //     execute: () => {
+    //       this.world.panels.edit(entity)
+    //     },
+    //   })
+    //   if (this.world.entities.countEntitysBySchema(entity.schema.id) > 1) {
+    //     add({
+    //       label: 'Unlink',
+    //       icon: UnlinkIcon,
+    //       visible: this.world.permissions.canEditEntity(entity), // ???
+    //       disabled: false,
+    //       execute: () => {
+    //         // duplicate schema
+    //         const schema = cloneDeep(entity.schema)
+    //         schema.id = this.world.network.makeId()
+    //         this.world.entities.upsertSchemaLocal(schema)
+    //         // replace current instance with new one
+    //         this.world.entities.addEntityLocal({
+    //           type: 'object',
+    //           id: this.world.network.makeId(),
+    //           schemaId: schema.id,
+    //           creator: this.world.network.client.user.id, // ???
+    //           authority: this.world.network.client.id,
+    //           mode: 'active',
+    //           modeClientId: null,
+    //           position: entity.root.position.toArray(),
+    //           quaternion: entity.root.quaternion.toArray(),
+    //           state: entity.state,
+    //           vars: {},
+    //         })
+    //         this.world.entities.removeEntityLocal(entity.id)
+    //       },
+    //     })
+    //   }
+    //   add({
+    //     label: 'Duplicate',
+    //     icon: CopyIcon,
+    //     visible: this.world.permissions.canEditEntity(entity),
+    //     disabled: false,
+    //     execute: () => {
+    //       this.world.entities.addEntityLocal({
+    //         type: 'object',
+    //         id: this.world.network.makeId(),
+    //         schemaId: entity.schema.id,
+    //         creator: this.world.network.client.user.id, // ???
+    //         authority: this.world.network.client.id,
+    //         mode: 'moving',
+    //         modeClientId: this.world.network.client.id,
+    //         position: entity.root.position.toArray(),
+    //         quaternion: entity.root.quaternion.toArray(),
+    //         state: {},
+    //         vars: {},
+    //       })
+    //     },
+    //   })
+    //   add({
+    //     label: 'Bomb',
+    //     icon: BombIcon,
+    //     visible: true,
+    //     disabled: false,
+    //     execute: () => {
+    //       if (!window.bomb) window.bomb = 1000
+    //       for (let i = 0; i < window.bomb; i++) {
+    //         e1.set(0, num(0, 360, 2) * DEG2RAD, 0)
+    //         q1.setFromEuler(e1)
+    //         this.world.entities.addEntityLocal({
+    //           type: 'object',
+    //           id: this.world.network.makeId(),
+    //           schemaId: entity.schema.id,
+    //           creator: this.world.network.client.user.id, // ???
+    //           authority: this.world.network.client.id,
+    //           mode: 'active',
+    //           modeClientId: null,
+    //           position: [num(-200, 200, 3), 0, num(-200, 200, 3)], // ground
+    //           quaternion: q1.toArray(),
+    //           // position: [num(-100, 100, 3), num(0, 100, 3), num(-100, 100, 3)], // everywhere
+    //           // quaternion: [0, 0, 0, 1],
+    //           state: entity.state,
+    //           vars: {},
+    //         })
+    //       }
+    //     },
+    //   })
+    //   add({
+    //     label: 'Destroy',
+    //     icon: Trash2Icon,
+    //     visible: this.world.permissions.canDestroyEntity(entity),
+    //     disabled: false,
+    //     execute: () => {
+    //       this.world.entities.removeEntityLocal(entity.id)
+    //     },
+    //   })
+    //   // add({
+    //   //   label: 'Buy',
+    //   //   icon: GiftIcon,
+    //   //   visible: true,
+    //   //   disabled: false,
+    //   //   execute: () => {
+    //   //     // this.world.entities.removeEntityLocal(entity.id)
+    //   //   },
+    //   // })
+    // }
     const hasVisibleActions = actions.find(action => action.visible)
     if (hasVisibleActions) {
       this.context = {

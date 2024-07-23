@@ -11,46 +11,55 @@ import { Events } from './extras/Events'
 import { smoothDamp } from './extras/smoothDamp'
 
 import { Entity } from './Entity'
+import {
+  BombIcon,
+  CopyIcon,
+  EyeIcon,
+  HandIcon,
+  PencilRulerIcon,
+  Trash2Icon,
+  UnlinkIcon,
+} from 'lucide-react'
+import { DEG2RAD } from './extras/general'
+import { num } from './extras/num'
 
 const MOVING_SEND_RATE = 1 / 5
 
+const e1 = new THREE.Euler()
+const q1 = new THREE.Quaternion()
+
+const defaultPosition = [0, 0, 0]
+const defaultQuaternion = [0, 0, 0, 1]
+
 export class Object extends Entity {
-  constructor(world, data) {
-    super(world, data)
-    this.type === 'object'
-    this.isObject = true
+  constructor(world, props) {
+    super(world, props)
 
-    // to change this locally call this.foobs.position = xyz which will
-    // 1. call onChange(oldValue, newValue)
-    // 2. onChange will likely update the root node, eg this.root.position.copy(newValue)
-    // 3. will add the new value to the next packet to be sent to other clients
-    // other clients are also notified via onChange(oldValue, newValue)
-    // 1. will likely not do anything and instead on update() interpolate this.root.position
-    // :::
-    // this.schemaId = this.createVar(data.schemaId, this.onSchemaIdChange) // prettier-ignore
-    // this.creator = this.createVar(data.creator, this.onCreatorChange) // prettier-ignore
-    // this.authority = this.createVar(data.authority, this.onAuthorityChange) // prettier-ignore
-    // this.uploading = this.createVar(data.uploading, this.onUploadingChange) // prettier-ignore
-    // this.mode = this.createVar(data.mode, this.onModeChange) // prettier-ignore
-    // this.modeClientId = this.createVar(data.modeClientId, this.onModeClientIdChange) // prettier-ignore
-    // this.position = this.createVar(new Vector3().fromArray(data.position || [0, 0, 0]), this.onPositionChange) // prettier-ignore
-    // this.quaternion = this.createVar(new Quaternion().fromArray(data.quaternion || [0, 0, 0, 1]), this.onQuaternionChange) // prettier-ignore
+    this.creator = props.creator
 
-    this.schema = this.world.entities.getSchema(data.schemaId)
-    this.creator = data.creator
-    this.authority = data.authority
-    this.uploading = data.uploading
-    this.mode = data.mode
-    this.modeClientId = data.modeClientId // when mode=moving|editing
+    this.schema = this.world.entities.getSchema(props.schemaId)
+
+    this.authority = this.createNetworkProp('authority', props.authority)
+    this.uploading = this.createNetworkProp('uploading', props.uploading)
+    this.uploading.onChange = this.onUploadingChange.bind(this)
+    this.mode = this.createNetworkProp('mode', props.mode)
+    this.mode.onChange = this.onModeChange.bind(this)
+    this.modeClientId = this.createNetworkProp('modeClientId', props.modeClientId) // prettier-ignore
+    this.modeClientId.onChange = this.onModeClientIdChange.bind(this)
+    this.position = this.createNetworkProp('position', new Vector3().fromArray(props.position || defaultPosition)) // prettier-ignore
+    this.position.onChange = this.onPositionChange.bind(this)
+    this.quaternion = this.createNetworkProp('quaternion', new Quaternion().fromArray(props.quaternion || defaultQuaternion)) // prettier-ignore
+    this.quaternion.onChange = this.onQuaternionChange.bind(this)
+
     this.root = new Nodes.group({
       name: '$root',
-      position: data.position,
-      quaternion: data.quaternion,
     })
-    this.networkPosition = new THREE.Vector3().copy(this.root.position)
-    this.networkQuaternion = new THREE.Quaternion().copy(this.root.quaternion)
+    this.root.position.copy(this.position.value)
+    this.root.quaternion.copy(this.quaternion.value)
 
     this.scriptVarIds = 0
+
+    this.modeChanged = 0
 
     this.nodes = new Map()
     this.events = {}
@@ -58,18 +67,51 @@ export class Object extends Entity {
     this.script = null
     this.loadNum = 0
     this.load()
+
+    console.log(this)
   }
 
-  onSchemaIDChange(oldValue, newValue) {
-    console.log('onSchemaIDChange', { oldValue, newValue })
+  onUploadingChange(newValue, oldValue) {
+    console.log('onUploadingChange', newValue)
+    this.load()
+  }
+
+  onModeChange(newValue, oldValue) {
+    console.log('onModeChange', newValue)
+    this.modeChanged++
+    this.world.entities.incActive(this)
+  }
+
+  onModeClientIdChange(newValue, oldValue) {
+    console.log('onModeClientIdChange', newValue)
+    this.modeChanged++
+    this.world.entities.incActive(this)
+  }
+
+  onPositionChange(newValue, oldValue) {
+    // if (this.isAuthority()) {
+    //   this.root.position.copy(newValue)
+    //   this.root.dirty()
+    // } else {
+    //   this.networkPosition.copy(newValue)
+    // }
+  }
+
+  onQuaternionChange(newValue, oldValue) {
+    // console.log('onQuaternionChange', newValue)
+    // this.networkQuaternion.copy(newValue)
+  }
+
+  isAuthority() {
+    return this.authority.value === this.world.network.client.id
   }
 
   isUploading() {
-    if (!this.uploading) return false
+    if (!this.uploading.value) return false
     if (this.world.loader.has(this.schema.model)) {
       return false // we already have this locally lets go!
     }
-    return this.uploading !== this.world.network.client.id
+    return this.uploading.value !== this.world.network.client.id
   }
 
   async load() {
@@ -129,9 +171,9 @@ export class Object extends Entity {
     // clear script events
     this.events = {}
     // clear script vars
-    for (let i = 0; i < this.scriptVarIds; i++) {
-      this.destroyVar(`$${i}`)
-    }
+    // for (let i = 0; i < this.scriptVarIds; i++) {
+    //   this.destroyVar(`$${i}`)
+    // }
     this.scriptVarIds = 0
     // reconstruct
     if (this.isUploading()) {
@@ -182,8 +224,8 @@ export class Object extends Entity {
   checkMode(forceRespawn) {
     const prevMode = this.prevMode
     const prevModeClientId = this.prevModeClientId
-    const mode = this.mode
-    const modeClientId = this.modeClientId
+    const mode = this.mode.value
+    const modeClientId = this.modeClientId.value
     if (prevMode === mode && !forceRespawn) return
     // cleanup previous
     if (prevMode === 'active') {
@@ -196,8 +238,8 @@ export class Object extends Entity {
       const isMover = prevModeClientId === this.world.network.client.id
       if (!isMover) {
         // before rebuilding, snap to final network transforms for accuracy
-        this.root.position.copy(this.networkPosition)
-        this.root.quaternion.copy(this.networkQuaternion)
+        this.root.position.copy(this.position.value)
+        this.root.quaternion.copy(this.quaternion.value)
       }
     }
     // rebuild
@@ -205,7 +247,7 @@ export class Object extends Entity {
     // console.log('entity', this)
     // console.log('stats', this.getStats())
     // configure new
-    if (this.mode === 'active') {
+    if (mode === 'active') {
       // instantiate script
       if (this.script) {
         try {
@@ -239,7 +281,7 @@ export class Object extends Entity {
         this.world.entities.incActive(this)
       }
     }
-    if (this.mode === 'moving') {
+    if (mode === 'moving') {
       if (modeClientId === this.world.network.client.id) {
         this.world.input.setMoving(this)
       }
@@ -247,17 +289,25 @@ export class Object extends Entity {
       // activate (mount) nodes
       this.root.activate()
     }
-    this.nodes.forEach(node => node.setMode(this.mode))
-    this.prevMode = this.mode
-    this.prevModeClientId = this.modeClientId
+    this.nodes.forEach(node => node.setMode(mode))
+    this.prevMode = mode
+    this.prevModeClientId = modeClientId
   }
 
   update(delta) {
+    console.log('update')
+    if (this.modeChanged) {
+      while (this.modeChanged > 0) {
+        this.world.entities.decActive(this)
+        this.modeChanged--
+      }
+      this.checkMode()
+    }
     // only called when
     // - it has scripts
     // - its being moved
     // also applies to fixed/late update
-    if (this.mode === 'active') {
+    if (this.mode.value === 'active') {
       try {
         this.emit('update', delta)
       } catch (err) {
@@ -266,23 +316,27 @@ export class Object extends Entity {
         this.kill()
       }
     }
-    if (this.mode === 'moving') {
-      const isMover = this.modeClientId === this.world.network.client.id
-      if (!isMover) {
+    if (this.mode.value === 'moving') {
+      const isMover = this.modeClientId.value === this.world.network.client.id
+      if (isMover) {
+        this.root.position.copy(this.position.value)
+        this.root.quaternion.copy(this.quaternion.value)
+        this.root.dirty()
+      } else {
         smoothDamp(
           this.root.position,
-          this.networkPosition,
+          this.position.value,
           MOVING_SEND_RATE * 3,
           delta
         )
-        this.root.quaternion.slerp(this.networkQuaternion, 5 * delta)
+        this.root.quaternion.slerp(this.quaternion.value, 5 * delta)
         this.root.dirty()
       }
     }
   }
 
   fixedUpdate(delta) {
-    if (this.mode === 'active') {
+    if (this.mode.value === 'active') {
       try {
         this.emit('fixedUpdate', delta)
       } catch (err) {
@@ -294,7 +348,7 @@ export class Object extends Entity {
   }
 
   lateUpdate(delta) {
-    if (this.mode === 'active') {
+    if (this.mode.value === 'active') {
       try {
         this.emit('lateUpdate', delta)
       } catch (err) {
@@ -350,7 +404,7 @@ export class Object extends Entity {
         return node.getProxy()
       },
       isAuthority() {
-        return entity.authority === world.network.client.id
+        return entity.authority.value === world.network.client.id
       },
       // requestControl() {
       //   world.control.request(entity)
@@ -367,9 +421,9 @@ export class Object extends Entity {
       getStateChanges() {
         return entity._stateChanges
       },
-      createVar(value, onChange) {
-        const id = `s${entity.scriptVarIds++}`
-        return entity.createVar(id, value, onChange)
+      createNetworkProp(value, onChange) {
+        const key = `__${entity.scriptVarIds++}`
+        return entity.createNetworkProp(key, value, onChange)
       },
       ...this.root.getProxy(),
     }
@@ -391,77 +445,77 @@ export class Object extends Entity {
     return this.nextMsg.data
   }
 
-  applyLocalProps(props, sync = true) {
-    let moved
-    let moded
-    const changed = {}
-    if (props.position) {
-      this.root.position.copy(props.position)
-      changed.position = this.root.position.toArray()
-      moved = true
-    }
-    if (props.quaternion) {
-      this.root.quaternion.copy(props.quaternion)
-      changed.quaternion = this.root.quaternion.toArray()
-      moved = true
-    }
-    if (props.hasOwnProperty('mode')) {
-      if (this.mode !== props.mode) {
-        this.mode = props.mode
-        changed.mode = props.mode
-        moded = true
-      }
-    }
-    if (props.hasOwnProperty('modeClientId')) {
-      if (this.modeClientId !== props.modeClientId) {
-        this.modeClientId = props.modeClientId
-        changed.modeClientId = props.modeClientId
-        moded = true
-      }
-    }
-    if (props.hasOwnProperty('uploading')) {
-      if (this.uploading !== props.uploading) {
-        this.uploading = props.uploading
-        changed.uploading = props.uploading
-      }
-    }
-    if (moved) {
-      this.root.dirty()
-    }
-    if (moded) {
-      this.checkMode()
-    }
-    if (sync && !isEmpty(changed)) {
-      const data = this.getUpdate()
-      data.props = {
-        ...data.props,
-        ...changed,
-      }
-    }
-  }
+  // applyLocalProps(props, sync = true) {
+  //   let moved
+  //   let moded
+  //   const changed = {}
+  //   if (props.position) {
+  //     this.root.position.copy(props.position)
+  //     changed.position = this.root.position.toArray()
+  //     moved = true
+  //   }
+  //   if (props.quaternion) {
+  //     this.root.quaternion.copy(props.quaternion)
+  //     changed.quaternion = this.root.quaternion.toArray()
+  //     moved = true
+  //   }
+  //   if (props.hasOwnProperty('mode')) {
+  //     if (this.mode !== props.mode) {
+  //       this.mode = props.mode
+  //       changed.mode = props.mode
+  //       moded = true
+  //     }
+  //   }
+  //   if (props.hasOwnProperty('modeClientId')) {
+  //     if (this.modeClientId !== props.modeClientId) {
+  //       this.modeClientId = props.modeClientId
+  //       changed.modeClientId = props.modeClientId
+  //       moded = true
+  //     }
+  //   }
+  //   if (props.hasOwnProperty('uploading')) {
+  //     if (this.uploading !== props.uploading) {
+  //       this.uploading = props.uploading
+  //       changed.uploading = props.uploading
+  //     }
+  //   }
+  //   if (moved) {
+  //     this.root.dirty()
+  //   }
+  //   if (moded) {
+  //     this.checkMode()
+  //   }
+  //   if (sync && !isEmpty(changed)) {
+  //     const data = this.getUpdate()
+  //     data.props = {
+  //       ...data.props,
+  //       ...changed,
+  //     }
+  //   }
+  // }
 
-  applyNetworkProps(props) {
-    if (props.position) {
-      this.networkPosition.fromArray(props.position)
-    }
-    if (props.quaternion) {
-      this.networkQuaternion.fromArray(props.quaternion)
-    }
-    if (props.mode) {
-      this.mode = props.mode
-      this.modeClientId = props.modeClientId
-      this.checkMode()
-    }
-    if (props.hasOwnProperty('uploading')) {
-      if (props.uploading !== null) {
-        console.error('uploading should only ever be nulled')
-      }
-      if (this.uploading !== props.uploading) {
-        this.uploading = props.uploading
-        this.load()
-      }
-    }
-  }
+  // applyNetworkProps(props) {
+  //   if (props.position) {
+  //     this.networkPosition.fromArray(props.position)
+  //   }
+  //   if (props.quaternion) {
+  //     this.networkQuaternion.fromArray(props.quaternion)
+  //   }
+  //   if (props.mode) {
+  //     this.mode = props.mode
+  //     this.modeClientId = props.modeClientId
+  //     this.checkMode()
+  //   }
+  //   if (props.hasOwnProperty('uploading')) {
+  //     if (props.uploading !== null) {
+  //       console.error('uploading should only ever be nulled')
+  //     }
+  //     if (this.uploading !== props.uploading) {
+  //       this.uploading = props.uploading
+  //       this.load()
+  //     }
+  //   }
+  // }
 
   getStats() {
     let triangles = 0
@@ -476,13 +530,142 @@ export class Object extends Entity {
     }
   }
 
+  getActions(add) {
+    const self = this
+    const world = this.world
+    add({
+      label: 'Inspect',
+      icon: EyeIcon,
+      visible: true,
+      disabled: false,
+      execute: () => {
+        world.panels.inspect(this)
+      },
+    })
+    add({
+      label: 'Move',
+      icon: HandIcon,
+      visible: world.permissions.canMoveEntity(self),
+      disabled: self.mode.value !== 'active' && self.mode.value !== 'dead',
+      execute: () => {
+        self.mode.value = 'moving'
+        self.modeClientId.value = world.network.client.id
+      },
+    })
+    add({
+      label: 'Edit',
+      icon: PencilRulerIcon,
+      visible: world.permissions.canEditEntity(self),
+      disabled: self.mode.value !== 'active' && self.mode.value !== 'dead',
+      execute: () => {
+        world.panels.edit(self)
+      },
+    })
+    if (world.entities.countEntitysBySchema(self.schema.id) > 1) {
+      add({
+        label: 'Unlink',
+        icon: UnlinkIcon,
+        visible: world.permissions.canEditEntity(self), // ???
+        disabled: false,
+        execute: () => {
+          // duplicate schema
+          const schema = cloneDeep(self.schema)
+          schema.id = world.network.makeId()
+          world.entities.upsertSchemaLocal(schema)
+          // replace current instance with new one
+          world.entities.addEntityLocal({
+            type: 'object',
+            id: world.network.makeId(),
+            schemaId: schema.id,
+            creator: world.network.client.user.id, // ???
+            authority: world.network.client.id,
+            mode: 'active',
+            modeClientId: null,
+            position: self.root.position.toArray(),
+            quaternion: self.root.quaternion.toArray(),
+            state: self.state,
+            vars: {},
+          })
+          world.entities.removeEntityLocal(self.id)
+        },
+      })
+    }
+    add({
+      label: 'Duplicate',
+      icon: CopyIcon,
+      visible: world.permissions.canEditEntity(self),
+      disabled: false,
+      execute: () => {
+        world.entities.addEntityLocal({
+          type: 'object',
+          id: world.network.makeId(),
+          schemaId: self.schema.id,
+          creator: world.network.client.user.id, // ???
+          authority: world.network.client.id,
+          mode: 'moving',
+          modeClientId: world.network.client.id,
+          position: self.root.position.toArray(),
+          quaternion: self.root.quaternion.toArray(),
+          state: {},
+          vars: {},
+        })
+      },
+    })
+    add({
+      label: 'Bomb',
+      icon: BombIcon,
+      visible: true,
+      disabled: false,
+      execute: () => {
+        if (!window.bomb) window.bomb = 1000
+        for (let i = 0; i < window.bomb; i++) {
+          e1.set(0, num(0, 360, 2) * DEG2RAD, 0)
+          q1.setFromEuler(e1)
+          world.entities.addEntityLocal({
+            type: 'object',
+            id: world.network.makeId(),
+            schemaId: self.schema.id,
+            creator: world.network.client.user.id, // ???
+            authority: world.network.client.id,
+            mode: 'active',
+            modeClientId: null,
+            position: [num(-200, 200, 3), 0, num(-200, 200, 3)], // ground
+            quaternion: q1.toArray(),
+            // position: [num(-100, 100, 3), num(0, 100, 3), num(-100, 100, 3)], // everywhere
+            // quaternion: [0, 0, 0, 1],
+            state: self.state,
+            vars: {},
+          })
+        }
+      },
+    })
+    add({
+      label: 'Destroy',
+      icon: Trash2Icon,
+      visible: world.permissions.canDestroyEntity(self),
+      disabled: false,
+      execute: () => {
+        world.entities.removeEntityLocal(self.id)
+      },
+    })
+    // add({
+    //   label: 'Buy',
+    //   icon: GiftIcon,
+    //   visible: true,
+    //   disabled: false,
+    //   execute: () => {
+    //     // this.world.entities.removeEntityLocal(entity.id)
+    //   },
+    // })
+  }
+
   destroy() {
+    super.destroy()
     this.world.entities.decActive(this, true)
     this.nodes.forEach(node => {
       if (node.mounted) {
         node.unmount()
       }
     })
-    this.destroyed = true
   }
 }

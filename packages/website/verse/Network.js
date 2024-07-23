@@ -19,7 +19,7 @@ export class Network extends System {
     this.permissions = null
     this.clients = new Map()
     this.client = null
-    this.sendQueue = []
+    this.entityQueue = new Set()
     this.lastSendTime = 0
     this.status = 'connecting'
   }
@@ -43,21 +43,20 @@ export class Network extends System {
     this.world.on('auth-change', this.updateClient)
   }
 
+  queueEntity(entity) {
+    this.entityQueue.add(entity)
+  }
+
   update(delta) {
     this.sock.flush()
     this.lastSendTime += delta
     if (this.lastSendTime >= SEND_RATE) {
-      while (this.sendQueue.length) {
-        const msg = this.sendQueue.shift()
-        this.send(msg.event, msg.data)
-        msg.sent = true // used to notify
+      for (const entity of this.entityQueue) {
+        entity.sendNetworkUpdate()
       }
+      this.entityQueue.clear()
       this.lastSendTime = 0
     }
-  }
-
-  sendLater(msg) {
-    this.sendQueue.push(msg)
   }
 
   makeId() {
@@ -233,9 +232,7 @@ export class Network extends System {
     this.log('entity:updated', data)
     const entity = this.world.entities.getEntity(data.id)
     if (!entity) return
-    if (data.state) entity.applyNetworkState(data.state)
-    if (data.props) entity.applyNetworkProps(data.props)
-    if (data.vars) entity.applyNetworkVars(data.vars)
+    entity.receiveNetworkUpdate(data)
   }
 
   onEntityRemoved = id => {
