@@ -2,6 +2,7 @@ import EventEmitter from 'eventemitter3'
 
 import { Spatial } from './Spatial'
 import { Terrain } from './Terrain'
+import { HeightTerrain } from './HeightTerrain'
 import { Wind } from './Wind'
 import { Actions } from './Actions'
 import { Models } from './Models'
@@ -34,6 +35,7 @@ export class World extends EventEmitter {
 
     this.spatial = this.register(Spatial)
     // this.terrain = this.register(Terrain)
+    this.terrain = this.register(HeightTerrain)
     this.wind = this.register(Wind)
     this.actions = this.register(Actions)
     this.models = this.register(Models)

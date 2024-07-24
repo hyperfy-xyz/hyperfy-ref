@@ -19,7 +19,8 @@ const FIXED_TIMESTEP = 1 / 60
 
 const ZOOM_SPEED = 2
 const LOOK_SPEED = 0.1
-const MOVE_SPEED = 8
+// const MOVE_SPEED = 8
+const MOVE_SPEED = 300 // debug
 
 const v1 = new THREE.Vector3()
 const e1 = new THREE.Euler(0, 0, 0, 'YXZ')
@@ -267,10 +268,10 @@ export class Player extends Entity {
       }
     }
 
-    // if we're grounded, set fixed gravity
+    // if we're grounded, dig into the ground (for when going down slopes)
     // if we're not grounded, continally apply gravity
     if (this.isGrounded) {
-      this.velocity.y = -this.gravity * delta
+      this.velocity.y = -20
     } else {
       this.velocity.y -= this.gravity * delta
     }
@@ -279,6 +280,11 @@ export class Player extends Entity {
     if (this.isGrounded && input.down.Space && !this.action) {
       this.velocity.y = Math.sqrt(2 * this.gravity * this.jumpHeight)
       this.isJumping = true
+    }
+
+    // HACK: temp flying
+    if (input.down.Space) {
+      this.velocity.y += 1
     }
 
     // apply emote
