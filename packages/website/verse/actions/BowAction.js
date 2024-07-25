@@ -15,7 +15,7 @@ export class BowAction extends Action {
     this.complete = false
   }
 
-  check(input, isMoving) {
+  check(input, avatar) {
     // TODO: rename LMB -> MouseLeft/LeftMouse
     if (input.pressed.LMB) {
       this.emote = 'avatar@bow-aim.glb'
@@ -27,7 +27,7 @@ export class BowAction extends Action {
     return false
   }
 
-  update(delta, input) {
+  update(delta, input, avatar) {
     if (!this.fired && !input.down.LMB) {
       this.fired = true
     }

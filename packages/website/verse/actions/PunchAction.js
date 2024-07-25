@@ -15,7 +15,7 @@ export class PunchAction extends Action {
     this.complete = false
   }
 
-  check(input, isMoving) {
+  check(input, avatar) {
     // TODO: rename LMB -> MouseLeft/LeftMouse
     if (input.pressed.LMB) {
       this.elapsed = 0
@@ -25,7 +25,7 @@ export class PunchAction extends Action {
     return false
   }
 
-  update(delta) {
+  update(delta, input, avatar) {
     this.elapsed += delta
     if (this.elapsed > this.duration) {
       this.complete = true

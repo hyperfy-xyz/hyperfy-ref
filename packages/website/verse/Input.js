@@ -139,6 +139,7 @@ export class Input extends System {
     console.log(event, file, ext, url)
 
     if (file && ['glb', 'vox'].includes(ext)) {
+      const [hit] = this.resolveHit(this.hits)
       const hash = await hashFile(file)
       const url = `${process.env.PUBLIC_ASSETS_URL}/${hash}`
       this.world.loader.set(url, ext, file)
@@ -159,7 +160,7 @@ export class Input extends System {
         uploading: this.world.network.client.id,
         mode: 'moving',
         modeClientId: this.world.network.client.id,
-        position: [0, 0, 0], // hit.point.toArray(),
+        position: hit.point.toArray(),
         quaternion: [0, 0, 0, 1],
         state: {},
         vars: {},

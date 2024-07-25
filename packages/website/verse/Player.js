@@ -19,9 +19,9 @@ const FIXED_TIMESTEP = 1 / 60
 
 const ZOOM_SPEED = 2
 const LOOK_SPEED = 0.1
-// const MOVE_SPEED = 8
+const MOVE_SPEED = 8
 // const MOVE_SPEED = 50
-const MOVE_SPEED = 300 // debug
+// const MOVE_SPEED = 300 // debug
 
 const v1 = new THREE.Vector3()
 const e1 = new THREE.Euler(0, 0, 0, 'YXZ')
@@ -200,11 +200,11 @@ export class Player extends Entity {
 
     // if not performing an action, check if we should start one
     if (!this.action) {
-      if (this.item?.action?.check(input, this.isMoving, this)) {
+      if (this.item?.action?.check(input, this)) {
         this.action = this.item.action
       } else {
         for (const action of this.actions) {
-          if (action.check(input, this.isMoving, this)) {
+          if (action.check(input, this)) {
             this.action = action
             break
           }
@@ -284,9 +284,9 @@ export class Player extends Entity {
     }
 
     // HACK: temp flying
-    if (input.down.Space) {
-      this.velocity.y += 1
-    }
+    // if (input.down.Space) {
+    //   this.velocity.y += 1
+    // }
 
     // apply emote
     if (this.action) {

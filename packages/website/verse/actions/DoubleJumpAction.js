@@ -11,15 +11,20 @@ export class DoubleJumpAction extends Action {
     this.lockOn = false
     this.duration = 0.4
     this.elapsed = 0
-    this.complete = false
+    this.consumed = false
     this.started = false
+    this.complete = false
   }
 
-  check(input, isMoving, avatar) {
-    if (avatar.isJumping && input.pressed.Space) {
+  check(input, avatar) {
+    if (avatar.isGrounded && this.consumed) {
+      this.consumed = false
+    }
+    if (avatar.isJumping && input.pressed.Space && !this.consumed) {
       this.elapsed = 0
-      this.complete = false
+      this.consumed = true
       this.started = false
+      this.complete = false
       return true
     }
     return false
