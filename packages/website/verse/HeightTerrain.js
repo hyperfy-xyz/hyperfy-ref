@@ -78,6 +78,9 @@ export class HeightTerrain extends System {
   }
 
   check() {
+    // only rebuild after queue is empty
+    if (this.buildQueue.length) return
+
     // check if our location changed (coords of the chunk we are on)
     const position = this.world.graphics.cameraRig.position
     const x = Math.floor(position.x / this.scale)
@@ -88,9 +91,6 @@ export class HeightTerrain extends System {
     }
     this.prevLocation.copy(this.currLocation)
     this.currLocation.copy(currLocation)
-
-    // location changed so clear the build queue
-    this.buildQueue.length = 0
 
     // console.log('prev', this.prevLocation)
     // console.log('curr', this.currLocation)
@@ -199,10 +199,16 @@ class Chunk {
         // const w = v1.set(this.coords.x * (res - 1) + x, 0, this.coords.z * (res - 1) + z) // prettier-ignore
 
         // surface
-        const surfaceAmp = 20
+        const surfaceAmp = 50
         const surfaceNoiseScale = 0.002
         let surfaceNoise = noise2D(w.x * surfaceNoiseScale, w.z * surfaceNoiseScale) // prettier-ignore
         surfaceNoise = sinToAlpha(surfaceNoise)
+
+        // surface detail
+        const surfaceDetailAmp = 10
+        const surfaceDetailNoiseScale = 0.01
+        let surfaceDetailNoise = noise2D(w.x * surfaceDetailNoiseScale, w.z * surfaceDetailNoiseScale) // prettier-ignore
+        surfaceDetailNoise = sinToAlpha(surfaceDetailNoise)
 
         // hill zones
         const hillZoneNoiseScale = 0.002
@@ -211,17 +217,31 @@ class Chunk {
 
         // hills
         const hillAmp = 80
-        const hillNoiseScale = 0.02
+        const hillNoiseScale = 0.005
         let hillNoise = noise2D(w.x * hillNoiseScale, w.z * hillNoiseScale)
         hillNoise = sinToAlpha(hillNoise)
 
+        // hill detail
+        const hillDetailAmp = 10
+        const hillDetailNoiseScale = 0.04
+        let hillDetailNoise = noise2D(
+          w.x * hillDetailNoiseScale,
+          w.z * hillDetailNoiseScale
+        )
+        hillDetailNoise = sinToAlpha(hillDetailNoise)
+
         // modulate hills inside their zones
-        const hillThreshold = 0.7
+        const hillThreshold = 0.4
         // 0 to 1 inside threshold
         const hillIntensity = Math.max(0, (hillZoneNoise - hillThreshold) / (1 - hillThreshold)) // prettier-ignore
         hillNoise *= hillIntensity
+        hillDetailNoise *= hillIntensity
 
-        let height = surfaceNoise * surfaceAmp + hillNoise * hillAmp
+        let height =
+          surfaceNoise * surfaceAmp +
+          surfaceDetailNoise * surfaceDetailAmp +
+          hillNoise * hillAmp +
+          hillDetailNoise * hillDetailAmp
 
         this.data[idx] = height
       }
@@ -309,10 +329,57 @@ class Chunk {
         }
 
         vertices.push(x * vertScale, height, z * vertScale)
-        normals.push(0, 1, 0)
         uvs.push(dataX / (fullScale - 1), dataZ / (fullScale - 1))
+
+        normals.push(0, 1, 0)
       }
     }
+
+    // create normals
+    // const normals = new Float32Array(vertices.length)
+    // const getHeight = (x, z) => {
+    //   if (x >= 0 && x < res && z >= 0 && z < res) {
+    //     return vertices[(z * res + x) * 3 + 1]
+    //   }
+    //   // Get height from neighboring chunk if available
+    //   const chunkX = this.coords.x + Math.floor(x / res)
+    //   const chunkZ = this.coords.z + Math.floor(z / res)
+    //   const nChunk = this.world.terrain.chunks.get(`${chunkX},${chunkZ}`)
+    //   if (nChunk && nChunk.data) {
+    //     const localX = ((x % res) + res) % res
+    //     const localZ = ((z % res) + res) % res
+    //     return nChunk.data[localZ * fullRes + localX]
+    //   }
+    //   // Fallback: extrapolate from the edge of the current chunk
+    //   const clampedX = Math.max(0, Math.min(res - 1, x))
+    //   const clampedZ = Math.max(0, Math.min(res - 1, z))
+    //   return vertices[(clampedZ * res + clampedX) * 3 + 1]
+    // }
+
+    // for (let z = 0; z < res; z++) {
+    //   for (let x = 0; x < res; x++) {
+    //     const hL = getHeight(x - 1, z)
+    //     const hR = getHeight(x + 1, z)
+    //     const hD = getHeight(x, z - 1)
+    //     const hU = getHeight(x, z + 1)
+
+    //     // Calculate the actual world-space distances
+    //     const dx = 2 * vertScale
+    //     const dz = 2 * vertScale
+
+    //     // Calculate the normal using central differences
+    //     const nx = (hL - hR) / dx
+    //     const nz = (hD - hU) / dz
+    //     const ny = 1 // Assuming a primarily vertical normal
+
+    //     const normal = new THREE.Vector3(nx, ny, nz).normalize()
+
+    //     const idx = (z * res + x) * 3
+    //     normals[idx] = normal.x
+    //     normals[idx + 1] = normal.y
+    //     normals[idx + 2] = normal.z
+    //   }
+    // }
 
     // create faces (indices)
     const indices = []
@@ -339,11 +406,11 @@ class Chunk {
     let material = this.terrain.material
 
     // debug material
-    material = new THREE.MeshStandardMaterial({
-      color: debugColorsByLod[this.lod],
-      // color: getRandomColorHex(),
-      // wireframe: true,
-    })
+    // material = new THREE.MeshStandardMaterial({
+    //   color: debugColorsByLod[this.lod],
+    //   // color: getRandomColorHex(),
+    //   // wireframe: true,
+    // })
 
     // mesh
     this.mesh = new THREE.Mesh(geometry, material)

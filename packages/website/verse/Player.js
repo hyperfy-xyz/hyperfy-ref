@@ -20,6 +20,7 @@ const FIXED_TIMESTEP = 1 / 60
 const ZOOM_SPEED = 2
 const LOOK_SPEED = 0.1
 // const MOVE_SPEED = 8
+// const MOVE_SPEED = 50
 const MOVE_SPEED = 300 // debug
 
 const v1 = new THREE.Vector3()
@@ -363,6 +364,13 @@ export class Player extends Entity {
 
   updateRemote(delta) {
     // ...
+  }
+
+  teleport(x, y, z) {
+    this.root.position.set(x, y, z)
+    this.root.updateMatrix()
+    this.vrm.move(this.root.matrix)
+    this.controller.setFootPosition(this.root.position.toPxExtVec3())
   }
 
   async setItem(item) {
