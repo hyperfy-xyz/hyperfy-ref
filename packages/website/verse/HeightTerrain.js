@@ -8,12 +8,12 @@ import { getRandomColorHex } from './extras/utils'
 const v1 = new THREE.Vector3()
 
 const debugColorsByLod = {
-  1: 'red',
-  2: 'orange',
-  4: 'yellow',
-  8: 'blue',
-  16: 'green',
-  32: 'white',
+  0: 'red',
+  1: 'orange',
+  2: 'yellow',
+  3: 'blue',
+  4: 'green',
+  5: 'white',
 }
 
 export class HeightTerrain extends System {
@@ -27,7 +27,7 @@ export class HeightTerrain extends System {
     this.scale = 128 // chunk size in meters
     this.res = 32 + 1 // vertices per chunk axis (x and z)
 
-    this.viewDistance = 10 // number of chunks in each direction
+    this.viewDistance = 15 // number of chunks in each direction
 
     this.prevLocation = new THREE.Vector3(0, 0, 0)
     this.currLocation = new THREE.Vector3(0, 0, 0)
@@ -35,7 +35,7 @@ export class HeightTerrain extends System {
     this.checkRate = 1 / 2
     this.checkTime = 0
 
-    this.queue = []
+    this.buildQueue = []
   }
 
   async start() {
@@ -57,14 +57,15 @@ export class HeightTerrain extends System {
       for (let z = -this.viewDistance; z <= this.viewDistance; z++) {
         const chunk = new Chunk(this.world, x, z)
         this.chunks.set(chunk.id, chunk)
-        chunk.build()
       }
     }
+    // build them
+    this.chunks.forEach(chunk => chunk.build())
   }
 
   update(delta) {
     for (let i = 0; i < 20; i++) {
-      const chunk = this.dequeue()
+      const chunk = this.dequeueBuild()
       if (!chunk) break
       chunk.build()
     }
@@ -88,15 +89,13 @@ export class HeightTerrain extends System {
     this.prevLocation.copy(this.currLocation)
     this.currLocation.copy(currLocation)
 
+    // location changed so clear the build queue
+    this.buildQueue.length = 0
+
     // console.log('prev', this.prevLocation)
     // console.log('curr', this.currLocation)
 
-    // console.time('checkLODs')
-
-    let unbuilt = 0
-    let rebuilt = 0
-    let built = 0
-    let created = 0
+    // console.time('check')
 
     // unbuild chunks outside view distance
     for (let x = -this.viewDistance; x <= this.viewDistance; x++) {
@@ -109,13 +108,13 @@ export class HeightTerrain extends System {
         const dist = chunk.distanceTo(this.currLocation)
         if (dist > this.viewDistance) {
           chunk.unbuild()
-          this.removeFromQueue(chunk)
         }
       }
     }
 
-    // create any missing chunks inside view distance
-    // update lods levels (rebuild is in another pass below)
+    // update lod levels inside view distance
+    // create any missing chunks
+    // and queue them up for a build
     for (let x = -this.viewDistance; x <= this.viewDistance; x++) {
       for (let z = -this.viewDistance; z <= this.viewDistance; z++) {
         const chunkX = this.currLocation.x + x
@@ -123,42 +122,26 @@ export class HeightTerrain extends System {
         const id = `${chunkX},${chunkZ}`
         let chunk = this.chunks.get(id)
         if (chunk) {
-          chunk.check()
+          chunk.checkLOD()
         } else {
           chunk = new Chunk(this.world, chunkX, chunkZ)
           this.chunks.set(chunk.id, chunk)
         }
+        this.enqueueBuild(chunk)
       }
     }
 
-    // build or rebuild if needed
-    for (let x = -this.viewDistance; x <= this.viewDistance; x++) {
-      for (let z = -this.viewDistance; z <= this.viewDistance; z++) {
-        const chunkX = this.currLocation.x + x
-        const chunkZ = this.currLocation.z + z
-        const id = `${chunkX},${chunkZ}`
-        const chunk = this.chunks.get(id)
-        this.enqueue(chunk) // queue to .build()
-      }
-    }
-
-    // console.timeEnd('checkLODs')
+    // console.timeEnd('check')
   }
 
-  enqueue(chunk) {
-    const idx = this.queue.indexOf(chunk)
+  enqueueBuild(chunk) {
+    const idx = this.buildQueue.indexOf(chunk)
     if (idx !== -1) return
-    this.queue.push(chunk)
+    this.buildQueue.push(chunk)
   }
 
-  dequeue() {
-    return this.queue.pop()
-  }
-
-  removeFromQueue(chunk) {
-    const idx = this.queue.indexOf(chunk)
-    if (idx === -1) return
-    this.queue.splice(idx, 1)
+  dequeueBuild() {
+    return this.buildQueue.pop()
   }
 
   getChunkByWorldPosition(position) {
@@ -190,23 +173,14 @@ class Chunk {
     this.terrain = world.terrain
     this.id = `${x},${z}`
     this.coords = new THREE.Vector3(x, 0, z)
-    this.data = new Float32Array(this.terrain.res * this.terrain.res)
+    this.data = null
     this.lod = this.calculateLOD()
-    this.needsGenerate = true
-    this.needsBuild = true
-  }
-
-  check() {
-    const lod = this.calculateLOD()
-    if (this.lod !== lod) {
-      this.lod = lod
-      this.needsBuild = true
-    }
   }
 
   generate() {
     // console.time('generate')
-    this.needsGenerate = false
+
+    this.data = new Float32Array(this.terrain.res * this.terrain.res)
 
     const res = this.terrain.res
     const scale = this.terrain.scale
@@ -257,25 +231,16 @@ class Chunk {
   }
 
   build() {
-    if (!this.needsBuild) return
-    if (this.needsGenerate) this.generate()
+    if (!this.data) this.generate()
     this.unbuild()
-    this.needsBuild = false
 
-    const res = this.terrain.res
-    const scale = this.terrain.scale
+    const fullRes = this.terrain.res
+    const fullScale = this.terrain.scale
 
     const lod = this.lod
-    const lodRes = (this.terrain.res - 1) / lod + 1
-    const lodScale = scale // this.terrain.scale * lod
-    const vertScale = lodScale / (lodRes - 1)
-
-    // console.log('res', res)
-    // console.log('scale', scale)
-    // console.log('lod', lod)
-    // console.log('lodRes', lodRes)
-    // console.log('lodScale', lodScale)
-    // console.log('vertScale', vertScale)
+    const divisor = Math.pow(2, lod) // 2^LOD
+    const res = (this.terrain.res - 1) / divisor + 1
+    const vertScale = fullScale / (res - 1)
 
     const geometry = new THREE.BufferGeometry()
 
@@ -283,26 +248,80 @@ class Chunk {
     const vertices = []
     const normals = []
     const uvs = []
-    for (let z = 0; z < lodRes; z++) {
-      for (let x = 0; x < lodRes; x++) {
-        const dataX = x * lod
-        const dataZ = z * lod
-        const idx = dataZ * res + dataX
-        const height = this.data[idx]
+    for (let z = 0; z < res; z++) {
+      for (let x = 0; x < res; x++) {
+        const dataX = x * divisor
+        const dataZ = z * divisor
+        const idx = dataZ * fullRes + dataX
+        let height = this.data[idx]
+
+        // when neighbours transition to lower resolution
+        // we need to adjust the transititory vertices to be the average
+        // which makes them seamless.
+        if (x === 0) {
+          const nChunkId = `${this.coords.x - 1},${this.coords.z}`
+          const nChunk = this.world.terrain.chunks.get(nChunkId)
+          if (nChunk && nChunk.lod > this.lod) {
+            const fract = z % 2
+            if (fract !== 0) {
+              const h1 = this.data[(dataZ - divisor) * fullRes + dataX]
+              const h2 = this.data[(dataZ + divisor) * fullRes + dataX]
+              height = (h1 + h2) / 2
+            }
+          }
+        }
+        if (x === res - 1) {
+          const nChunkId = `${this.coords.x + 1},${this.coords.z}`
+          const nChunk = this.world.terrain.chunks.get(nChunkId)
+          if (nChunk && nChunk.lod > this.lod) {
+            const fract = z % 2
+            if (fract !== 0) {
+              // height += 10
+              const h1 = this.data[(dataZ - divisor) * fullRes + dataX]
+              const h2 = this.data[(dataZ + divisor) * fullRes + dataX]
+              height = (h1 + h2) / 2
+            }
+          }
+        }
+        if (z === 0) {
+          const nChunkId = `${this.coords.x},${this.coords.z - 1}`
+          const nChunk = this.world.terrain.chunks.get(nChunkId)
+          if (nChunk && nChunk.lod > this.lod) {
+            const fract = x % 2
+            if (fract !== 0) {
+              const h1 = this.data[dataZ * fullRes + (dataX - divisor)]
+              const h2 = this.data[dataZ * fullRes + (dataX + divisor)]
+              height = (h1 + h2) / 2
+            }
+          }
+        }
+        if (z === res - 1) {
+          const nChunkId = `${this.coords.x},${this.coords.z + 1}`
+          const nChunk = this.world.terrain.chunks.get(nChunkId)
+          if (nChunk && nChunk.lod > this.lod) {
+            const fract = x % 2
+            if (fract !== 0) {
+              const h1 = this.data[dataZ * fullRes + (dataX - divisor)]
+              const h2 = this.data[dataZ * fullRes + (dataX + divisor)]
+              height = (h1 + h2) / 2
+            }
+          }
+        }
+
         vertices.push(x * vertScale, height, z * vertScale)
         normals.push(0, 1, 0)
-        uvs.push(dataX / (scale - 1), dataZ / (scale - 1))
+        uvs.push(dataX / (fullScale - 1), dataZ / (fullScale - 1))
       }
     }
 
     // create faces (indices)
     const indices = []
-    for (let z = 0; z < lodRes - 1; z++) {
-      for (let x = 0; x < lodRes - 1; x++) {
-        const a = z * lodRes + x
-        const b = z * lodRes + x + 1
-        const c = (z + 1) * lodRes + x
-        const d = (z + 1) * lodRes + x + 1
+    for (let z = 0; z < res - 1; z++) {
+      for (let x = 0; x < res - 1; x++) {
+        const a = z * res + x
+        const b = z * res + x + 1
+        const c = (z + 1) * res + x
+        const d = (z + 1) * res + x + 1
         indices.push(a, c, b)
         indices.push(b, c, d)
       }
@@ -320,16 +339,16 @@ class Chunk {
     let material = this.terrain.material
 
     // debug material
-    // material = new THREE.MeshStandardMaterial({
-    //   // color: debugColorsByLod[this.lod],
-    //   color: getRandomColorHex(),
-    //   wireframe: true,
-    // })
+    material = new THREE.MeshStandardMaterial({
+      color: debugColorsByLod[this.lod],
+      // color: getRandomColorHex(),
+      // wireframe: true,
+    })
 
     // mesh
     this.mesh = new THREE.Mesh(geometry, material)
-    this.mesh.position.x = this.coords.x * scale
-    this.mesh.position.z = this.coords.z * scale
+    this.mesh.position.x = this.coords.x * fullScale
+    this.mesh.position.z = this.coords.z * fullScale
     this.mesh.castShadow = true
     this.mesh.receiveShadow = true
     this.mesh.matrixAutoUpdate = false
@@ -389,21 +408,21 @@ class Chunk {
 
   calculateLOD() {
     const distance = this.distanceTo(this.world.terrain.currLocation)
-    if (distance <= 1) return 1 // current and 8 neighbours
-    if (distance <= 2) return 2
-    if (distance <= 3) return 4
-    if (distance <= 4) return 8
-    if (distance <= 5) return 16
-    return 32
+    if (distance <= 1) return 0 // current and 8 neighbours
+    if (distance <= 4) return 1
+    if (distance <= 8) return 2
+    if (distance <= 16) return 3
+    if (distance <= 32) return 4
+    return 5
   }
 
   checkLOD() {
     const lod = this.calculateLOD()
     if (this.lod !== lod) {
       this.lod = lod
-      this.build()
       return true
     }
+    return false
   }
 }
 
