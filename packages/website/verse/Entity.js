@@ -15,6 +15,9 @@ export class Entity {
     this.id = props.id
     this.type = props.type
 
+    // if set, server destroys when owner leaves
+    this.ownerId = props.ownerId
+
     this.destroyed = false
   }
 
@@ -166,105 +169,3 @@ function createQuaternionNetworkProp(entity, key, value, onChange) {
   }
   return prop
 }
-
-// const createPrimitiveVar = (entity, id, initialValue, onChange) => {
-//   let dead
-//   let value = initialValue
-//   const box = {
-//     onChange,
-//     get value() {
-//       return value
-//     },
-//     set value(newValue) {
-//       const changed = value !== newValue
-//       if (!changed) return
-//       const oldValue = value
-//       value = newValue
-//       box.onChange?.(oldValue, newValue)
-//       const update = entity.getUpdate()
-//       if (!update.vars) update.vars = {}
-//       update.vars[id] = newValue
-//     },
-//   }
-//   return {
-//     box,
-//     applyNetworkValue(newValue) {
-//       if (dead) return
-//       const oldValue = value
-//       value = newValue
-//       box.onChange?.(oldValue, value)
-//     },
-//     destroy() {
-//       dead = true
-//     },
-//   }
-// }
-
-// const createVector3Var = (entity, id, initialValue, onChange) => {
-//   let dead
-//   let value = initialValue
-//   const box = {
-//     onChange,
-//     get value() {
-//       return value
-//     },
-//     set value(newValue) {
-//       const changed = value !== newValue
-//       if (!changed) return
-//       const oldValue = v1.copy(value)
-//       value.copy(newValue)
-//       box.onChange?.(oldValue, newValue)
-//       const update = entity.getUpdate()
-//       if (!update.vars) update.vars = {}
-//       if (!update.vars[id]) update.vars[id] = []
-//       newValue.toArray(update.vars[id])
-//     },
-//   }
-//   return {
-//     box,
-//     applyNetworkValue(newValue) {
-//       if (dead) return
-//       const oldValue = v1.copy(value)
-//       value.fromArray(newValue)
-//       box.onChange?.(oldValue, value)
-//     },
-//     destroy() {
-//       dead = true
-//     },
-//   }
-// }
-
-// const createQuaternionVar = (entity, id, initialValue, onChange) => {
-//   let dead
-//   let value = initialValue
-//   const box = {
-//     onChange,
-//     get value() {
-//       return value
-//     },
-//     set value(newValue) {
-//       if (dead) return
-//       const changed = value !== newValue
-//       if (!changed) return
-//       const oldValue = q1.copy(value)
-//       value.copy(newValue)
-//       box.onChange?.(oldValue, newValue)
-//       const update = entity.getUpdate()
-//       if (!update.vars) update.vars = {}
-//       if (!update.vars[id]) update.vars[id] = []
-//       newValue.toArray(update.vars[id])
-//     },
-//   }
-//   return {
-//     box,
-//     applyNetworkValue(newValue) {
-//       if (dead) return
-//       const oldValue = q1.copy(value)
-//       value.fromArray(newValue)
-//       box.onChange?.(oldValue, value)
-//     },
-//     destroy() {
-//       dead = true
-//     },
-//   }
-// }

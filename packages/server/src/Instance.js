@@ -117,7 +117,7 @@ export class Instance {
     // remove clients player
     const toRemove = []
     this.entities.forEach(entity => {
-      if (entity.type === 'player' && entity.clientId === client.id) {
+      if (entity.ownerId === client.id) {
         toRemove.push(entity)
       }
     })

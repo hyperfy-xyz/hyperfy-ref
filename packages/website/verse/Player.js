@@ -59,8 +59,6 @@ export class Player extends Entity {
     //   true
     // )
 
-    this.clientId = data.clientId
-
     this.root = new THREE.Object3D()
     this.root.position.fromArray(data.position)
     this.root.quaternion.fromArray(data.quaternion)
@@ -147,7 +145,7 @@ export class Player extends Entity {
   }
 
   isOwner() {
-    return this.clientId === this.world.network.client.id
+    return this.ownerId === this.world.network.client.id
   }
 
   update(delta) {
@@ -520,7 +518,7 @@ export class Player extends Entity {
   destroy() {
     super.destroy()
     this.world.entities.decActive(this, true)
-    this.world.graphics.scene.remove(this.vrm)
+    this.vrm?.destroy()
     this.controller.release()
     this.controller = null
   }

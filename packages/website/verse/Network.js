@@ -141,7 +141,7 @@ export class Network extends System {
     const player = {
       type: 'player',
       id: this.makeId(),
-      clientId: this.client.id,
+      ownerId: this.client.id, // destroy when client leaves
       position: [0, 0, 0],
       quaternion: [0, 0, 0, 1],
       vars: {},
