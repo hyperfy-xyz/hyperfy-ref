@@ -23,7 +23,7 @@
     "lucide-react": "^0.331.0",
     "mathjs": "^9.4.4",
     "moment": "^2.30.1",
-    "n8ao": "^1.8.2",
+    "n8ao": "^1.8.3",
     "object-hash": "^3.0.0",
     "physx-js-webidl": "^2.3.1",
     "postprocessing": "^6.35.5",
@@ -31,7 +31,7 @@
     "react-dom": "canary",
     "ses": "^1.4.1",
     "simplex-noise": "^4.0.1",
-    "three": "0.166.0",
+    "three": "0.167.0",
     "three-mesh-bvh": "^0.7.4",
     "viem": "^2.9.23"
   },

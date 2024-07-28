@@ -6292,13 +6292,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"n8ao@npm:^1.8.2":
-  version: 1.8.2
-  resolution: "n8ao@npm:1.8.2"
+"n8ao@npm:^1.8.3":
+  version: 1.8.3
+  resolution: "n8ao@npm:1.8.3"
   peerDependencies:
     postprocessing: ">=6.30.0"
     three: ">=0.137"
-  checksum: 10c0/5e107b455e78334a5b5f53983df3eb70844c495f312b13a8b7d5c38eb78b17b1aeed6df60b248571487c4a1922583f71d78e0080491bdcc16774164246a7e661
+  checksum: 10c0/bbac60c8d61779f22888fc34e1dbf472fcbd7c7d887220c79d080081e363afa07fe24c3b80192795cc9e9cde34087071626b117baef9e59ef64911e1d567b6cd
   languageName: node
   linkType: hard
 
@@ -8020,7 +8020,7 @@ __metadata:
     lucide-react: "npm:^0.331.0"
     mathjs: "npm:^9.4.4"
     moment: "npm:^2.30.1"
-    n8ao: "npm:^1.8.2"
+    n8ao: "npm:^1.8.3"
     object-hash: "npm:^3.0.0"
     physx-js-webidl: "npm:^2.3.1"
     postprocessing: "npm:^6.35.5"
@@ -8028,7 +8028,7 @@ __metadata:
     react-dom: "npm:canary"
     ses: "npm:^1.4.1"
     simplex-noise: "npm:^4.0.1"
-    three: "npm:0.166.0"
+    three: "npm:0.167.0"
     three-mesh-bvh: "npm:^0.7.4"
     viem: "npm:^2.9.23"
   languageName: unknown
@@ -8173,10 +8173,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"three@npm:0.166.0":
-  version: 0.166.0
-  resolution: "three@npm:0.166.0"
-  checksum: 10c0/02c50d1c7c51c6a4ca2b29bc43086b49def4c2fd2a406abedb333c091b2e14be31cca98db2f629f19b796c5728e710a26c2bc3e139b770e6963d2c082b0b1d0f
+"three@npm:0.167.0":
+  version: 0.167.0
+  resolution: "three@npm:0.167.0"
+  checksum: 10c0/2e6f3afb1b3430444a1212e1de27f0c43f9ae095506617f1852f2159026b74ffb174ff79ad9a5a3b66d01800aee0e31b7c2d029f7e83d0e2722404a33323ec5b
   languageName: node
   linkType: hard
 
