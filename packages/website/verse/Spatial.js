@@ -14,7 +14,7 @@ export class Spatial extends System {
     this.octree = new LooseOctree({
       scene: this.world.graphics.scene,
       center: new THREE.Vector3(0, 0, 0),
-      size: 2000,
+      size: 1000,
     })
     this.lastPrune = 0
   }

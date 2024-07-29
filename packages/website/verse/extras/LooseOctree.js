@@ -7,8 +7,6 @@ const _m1 = new THREE.Matrix4()
 const _intersects = []
 const _mesh = new THREE.Mesh()
 
-let ids = 0
-
 export class LooseOctree {
   constructor({ scene, center, size }) {
     this.scene = scene
@@ -22,7 +20,17 @@ export class LooseOctree {
     if (!item.sphere) item.sphere = new THREE.Sphere()
     if (!item.geometry.boundingSphere) item.geometry.computeBoundingSphere()
     item.sphere.copy(item.geometry.boundingSphere).applyMatrix4(item.matrix)
-    return this.root.insert(item)
+
+    let added = this.root.insert(item)
+
+    if (!added) {
+      while (!this.root.canContain(item)) {
+        this.expand()
+      }
+      added = this.root.insert(item)
+    }
+
+    return added
   }
 
   move(item) {
@@ -39,18 +47,64 @@ export class LooseOctree {
     // if it doesn't fit, re-insert it into its new node
     const prevNode = item._node
     this.remove(item)
-    const added = this.root.insert(item)
+    const added = this.insert(item)
     if (!added) {
       console.error(
         'octree item moved but was not re-added. did it move outside octree bounds?'
       )
     }
-    // check if we can collapse the old node
+    // check if we can collapse the previous node
     prevNode.checkCollapse()
   }
 
   remove(item) {
     item._node.remove(item)
+  }
+
+  expand() {
+    console.log('expand')
+    const oldRoot = this.root
+    const newSize = oldRoot.size * 2
+
+    // Calculate new center
+    // Move in the direction of the octant that contains the old root
+    const newCenter = new THREE.Vector3(
+      oldRoot.center.x +
+        (oldRoot.center.x >= 0 ? oldRoot.size / 2 : -oldRoot.size / 2),
+      oldRoot.center.y +
+        (oldRoot.center.y >= 0 ? oldRoot.size / 2 : -oldRoot.size / 2),
+      oldRoot.center.z +
+        (oldRoot.center.z >= 0 ? oldRoot.size / 2 : -oldRoot.size / 2)
+    )
+
+    this.root = new LooseOctreeNode(this, null, newCenter, newSize, 0)
+    this.root.subdivide()
+
+    // Determine which octant the old root belongs in
+    const xIndex = oldRoot.center.x < newCenter.x ? 0 : 1
+    const yIndex = oldRoot.center.y < newCenter.y ? 0 : 1
+    const zIndex = oldRoot.center.z < newCenter.z ? 0 : 1
+    const childIndex = xIndex + yIndex * 2 + zIndex * 4
+
+    console.log('childIdx', childIndex)
+
+    // Place the old root directly in the appropriate child slot
+    this.root.children[childIndex] = oldRoot
+    oldRoot.parent = this.root
+    oldRoot.depth++
+
+    // Update depths for all nodes
+    this.updateDepths(this.root, 0)
+  }
+
+  updateDepths(node, depth) {
+    node.depth = depth
+    if (this.totalDepth < depth) {
+      this.totalDepth = depth
+    }
+    for (const child of node.children) {
+      this.updateDepths(child, depth + 1)
+    }
   }
 
   raycast(raycaster, intersects = []) {
@@ -91,7 +145,6 @@ export class LooseOctree {
 
 class LooseOctreeNode {
   constructor(octree, parent, center, size, depth) {
-    this.id = ++ids
     this.octree = octree
     this.parent = parent
     this.center = center
