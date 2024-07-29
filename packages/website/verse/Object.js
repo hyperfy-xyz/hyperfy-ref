@@ -68,7 +68,7 @@ export class Object extends Entity {
     this.loadNum = 0
     this.load()
 
-    console.log(this)
+    // console.log(this)
   }
 
   onUploadingChange(newValue, oldValue) {
@@ -295,7 +295,7 @@ export class Object extends Entity {
   }
 
   update(delta) {
-    console.log('update')
+    // console.log('update')
     if (this.modeChanged) {
       while (this.modeChanged > 0) {
         this.world.entities.decActive(this)

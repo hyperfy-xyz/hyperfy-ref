@@ -7,11 +7,12 @@ const _m1 = new THREE.Matrix4()
 const _intersects = []
 const _mesh = new THREE.Mesh()
 
+let ids = 0
+
 export class LooseOctree {
-  constructor({ scene, debug, center, size }) {
+  constructor({ scene, center, size }) {
     this.scene = scene
-    this.debug = debug
-    this.root = new LooseOctreeNode(this, center, size, 0)
+    this.root = new LooseOctreeNode(this, null, center, size, 0)
     this.helper = null
     this.totalDepth = 0
     this.totalNodes = 0
@@ -29,14 +30,23 @@ export class LooseOctree {
       // console.error('octree item move called but there is no _node')
       return
     }
-    // TODO: we can do some magic to only re-insert if it goes outside its current node
+    // update bounding sphere
+    item.sphere.copy(item.geometry.boundingSphere).applyMatrix4(item.matrix)
+    // if it still fits inside its current node that's cool
+    if (item._node.canContain(item)) {
+      return
+    }
+    // if it doesn't fit, re-insert it into its new node
+    const prevNode = item._node
     this.remove(item)
-    const added = this.insert(item)
+    const added = this.root.insert(item)
     if (!added) {
       console.error(
         'octree item moved but was not re-added. did it move outside octree bounds?'
       )
     }
+    // check if we can collapse the old node
+    prevNode.checkCollapse()
   }
 
   remove(item) {
@@ -80,8 +90,10 @@ export class LooseOctree {
 }
 
 class LooseOctreeNode {
-  constructor(octree, center, size, depth) {
+  constructor(octree, parent, center, size, depth) {
+    this.id = ++ids
     this.octree = octree
+    this.parent = parent
     this.center = center
     this.size = size
     this.depth = depth
@@ -94,6 +106,7 @@ class LooseOctreeNode {
       new THREE.Vector3(center.x + size * 2, center.y + size * 2, center.z + size * 2) // prettier-ignore
     )
     this.items = []
+    this.count = 0
     this.children = []
     this.mountHelper()
     if (octree.totalDepth < depth) {
@@ -103,15 +116,13 @@ class LooseOctreeNode {
   }
 
   insert(item) {
-    if (this.size < item.sphere.radius) {
-      return false
-    }
-    if (!this.inner.containsPoint(item.sphere.center)) {
+    if (!this.canContain(item)) {
       return false
     }
     if (this.size / 2 < item.sphere.radius) {
       this.items.push(item)
       item._node = this
+      this.inc(1)
       return true
     }
     if (!this.children.length) {
@@ -133,6 +144,50 @@ class LooseOctreeNode {
     const idx = this.items.indexOf(item)
     this.items.splice(idx, 1)
     item._node = null
+    this.dec(1)
+  }
+
+  inc(amount) {
+    let node = this
+    while (node) {
+      node.count += amount
+      node = node.parent
+    }
+  }
+
+  dec(amount) {
+    let node = this
+    while (node) {
+      node.count -= amount
+      node = node.parent
+    }
+  }
+
+  canContain(item) {
+    return (
+      this.size >= item.sphere.radius &&
+      this.inner.containsPoint(item.sphere.center)
+    )
+  }
+
+  checkCollapse() {
+    // a node can collapse if it has children to collapse AND has no items in any descendants
+    let match
+    let node = this
+    while (node) {
+      if (node.count) break
+      if (node.children.length) match = node
+      node = node.parent
+    }
+    match?.collapse()
+  }
+
+  collapse() {
+    for (const child of this.children) {
+      child.collapse()
+      child.destroy()
+    }
+    this.children = []
   }
 
   subdivide() {
@@ -148,6 +203,7 @@ class LooseOctreeNode {
           )
           const child = new LooseOctreeNode(
             this.octree,
+            this,
             center,
             halfSize,
             this.depth + 1
@@ -246,6 +302,11 @@ class LooseOctreeNode {
   unmountHelper() {
     this.octree.helper?.remove(this)
   }
+
+  destroy() {
+    this.unmountHelper()
+    this.octree.totalNodes--
+  }
 }
 
 function sortAscending(a, b) {
@@ -315,6 +376,7 @@ function createHelper(octree) {
     iMatrix.needsUpdate = true
     node._helperItem = { idx, matrix }
     items.push(node._helperItem)
+    // console.log('add', items.length)
   }
   function remove(node) {
     const item = node._helperItem
@@ -328,6 +390,19 @@ function createHelper(octree) {
       items.pop()
       mesh.geometry.instanceCount--
     } else {
+      if (!last) {
+        console.log(
+          'wtf',
+          item,
+          items.indexOf(item),
+          last,
+          items.length,
+          // items[items.length - 1]
+          mesh.geometry.instanceCount,
+          items
+        )
+        throw new Error('wtf')
+      }
       iMatrix.set(last.matrix.elements, item.idx * 16)
       last.idx = item.idx
       items[item.idx] = last
