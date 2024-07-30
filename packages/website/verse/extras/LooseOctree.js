@@ -11,10 +11,8 @@ const _mesh = new THREE.Mesh()
 export class LooseOctree {
   constructor({ scene, center, size }) {
     this.scene = scene
-    this.root = new LooseOctreeNode(this, null, center, size, 0)
+    this.root = new LooseOctreeNode(this, null, center, size)
     this.helper = null
-    this.totalDepth = 0
-    this.totalNodes = 0
   }
 
   insert(item) {
@@ -74,7 +72,7 @@ export class LooseOctree {
       prevRoot.center.y + prevRoot.size,
       prevRoot.center.z + prevRoot.size
     )
-    const first = new LooseOctreeNode(this, null, center, size, 0)
+    const first = new LooseOctreeNode(this, null, center, size)
     first.subdivide()
     first.children[0].destroy()
     first.children[0] = prevRoot
@@ -89,25 +87,13 @@ export class LooseOctree {
       prevRoot.center.y - prevRoot.size,
       prevRoot.center.z - prevRoot.size
     )
-    const second = new LooseOctreeNode(this, null, center, size, 0)
+    const second = new LooseOctreeNode(this, null, center, size)
     second.subdivide()
     second.children[7].destroy()
     second.children[7] = prevRoot
     prevRoot.parent = second
     this.root = second
     this.root.count = prevRoot.count
-
-    this.updateDepths(this.root, 0)
-  }
-
-  updateDepths(node, depth) {
-    node.depth = depth
-    if (this.totalDepth < depth) {
-      this.totalDepth = depth
-    }
-    for (const child of node.children) {
-      this.updateDepths(child, depth + 1)
-    }
   }
 
   raycast(raycaster, intersects = []) {
@@ -145,15 +131,22 @@ export class LooseOctree {
       this.helper = null
     }
   }
+
+  getDepth() {
+    return this.root.getDepth()
+  }
+
+  getCount() {
+    return this.root.getCount()
+  }
 }
 
 class LooseOctreeNode {
-  constructor(octree, parent, center, size, depth) {
+  constructor(octree, parent, center, size) {
     this.octree = octree
     this.parent = parent
     this.center = center
     this.size = size
-    this.depth = depth
     this.inner = new THREE.Box3(
       new THREE.Vector3(center.x - size, center.y - size, center.z - size),
       new THREE.Vector3(center.x + size, center.y + size, center.z + size)
@@ -166,10 +159,6 @@ class LooseOctreeNode {
     this.count = 0
     this.children = []
     this.mountHelper()
-    if (octree.totalDepth < depth) {
-      octree.totalDepth = depth
-    }
-    octree.totalNodes++
   }
 
   insert(item) {
@@ -258,13 +247,7 @@ class LooseOctreeNode {
             this.center.y + halfSize * (2 * y - 1),
             this.center.z + halfSize * (2 * z - 1)
           )
-          const child = new LooseOctreeNode(
-            this.octree,
-            this,
-            center,
-            halfSize,
-            this.depth + 1
-          )
+          const child = new LooseOctreeNode(this.octree, this, center, halfSize)
           this.children.push(child)
         }
       }
@@ -352,6 +335,21 @@ class LooseOctreeNode {
   //   return empty
   // }
 
+  getDepth() {
+    if (this.children.length === 0) {
+      return 1
+    }
+    return 1 + Math.max(...this.children.map(child => child.getDepth()))
+  }
+
+  getCount() {
+    let count = 1
+    for (const child of this.children) {
+      count += child.getCount()
+    }
+    return count
+  }
+
   mountHelper() {
     this.octree.helper?.insert(this)
   }
@@ -362,7 +360,6 @@ class LooseOctreeNode {
 
   destroy() {
     this.unmountHelper()
-    this.octree.totalNodes--
   }
 }
 
