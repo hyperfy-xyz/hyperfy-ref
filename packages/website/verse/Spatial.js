@@ -14,16 +14,14 @@ export class Spatial extends System {
     this.octree = new LooseOctree({
       scene: this.world.graphics.scene,
       center: new THREE.Vector3(0, 0, 0),
-      size: 1000,
+      size: 10,
     })
     this.lastPrune = 0
   }
 
   update(delta) {
-    // this.lastPrune += delta
-    // if (this.lastPrune > PRUNE_RATE) {
-    //   this.lastPrune = 0
-    //   this.octree.prune()
-    // }
+    if (this.world.input.pressed.KeyP) {
+      this.octree.toggleHelper()
+    }
   }
 }

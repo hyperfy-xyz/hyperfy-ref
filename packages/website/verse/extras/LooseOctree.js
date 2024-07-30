@@ -1,3 +1,4 @@
+import { isBoolean } from 'lodash-es'
 import * as THREE from 'three'
 
 const _v1 = new THREE.Vector3()
@@ -20,16 +21,13 @@ export class LooseOctree {
     if (!item.sphere) item.sphere = new THREE.Sphere()
     if (!item.geometry.boundingSphere) item.geometry.computeBoundingSphere()
     item.sphere.copy(item.geometry.boundingSphere).applyMatrix4(item.matrix)
-
     let added = this.root.insert(item)
-
     if (!added) {
       while (!this.root.canContain(item)) {
         this.expand()
       }
       added = this.root.insert(item)
     }
-
     return added
   }
 
@@ -63,37 +61,42 @@ export class LooseOctree {
 
   expand() {
     console.log('expand')
-    const oldRoot = this.root
-    const newSize = oldRoot.size * 2
+    // when we expand we do it twice so that it expands in both directions.
+    // first goes positive, second goes back negative
+    let prevRoot
+    let size
+    let center
 
-    // Calculate new center
-    // Move in the direction of the octant that contains the old root
-    const newCenter = new THREE.Vector3(
-      oldRoot.center.x +
-        (oldRoot.center.x >= 0 ? oldRoot.size / 2 : -oldRoot.size / 2),
-      oldRoot.center.y +
-        (oldRoot.center.y >= 0 ? oldRoot.size / 2 : -oldRoot.size / 2),
-      oldRoot.center.z +
-        (oldRoot.center.z >= 0 ? oldRoot.size / 2 : -oldRoot.size / 2)
+    prevRoot = this.root
+    size = prevRoot.size * 2
+    center = new THREE.Vector3(
+      prevRoot.center.x + prevRoot.size,
+      prevRoot.center.y + prevRoot.size,
+      prevRoot.center.z + prevRoot.size
     )
+    const first = new LooseOctreeNode(this, null, center, size, 0)
+    first.subdivide()
+    first.children[0].destroy()
+    first.children[0] = prevRoot
+    prevRoot.parent = first
+    this.root = first
+    this.root.count = prevRoot.count
 
-    this.root = new LooseOctreeNode(this, null, newCenter, newSize, 0)
-    this.root.subdivide()
+    prevRoot = this.root
+    size = prevRoot.size * 2
+    center = new THREE.Vector3(
+      prevRoot.center.x - prevRoot.size,
+      prevRoot.center.y - prevRoot.size,
+      prevRoot.center.z - prevRoot.size
+    )
+    const second = new LooseOctreeNode(this, null, center, size, 0)
+    second.subdivide()
+    second.children[7].destroy()
+    second.children[7] = prevRoot
+    prevRoot.parent = second
+    this.root = second
+    this.root.count = prevRoot.count
 
-    // Determine which octant the old root belongs in
-    const xIndex = oldRoot.center.x < newCenter.x ? 0 : 1
-    const yIndex = oldRoot.center.y < newCenter.y ? 0 : 1
-    const zIndex = oldRoot.center.z < newCenter.z ? 0 : 1
-    const childIndex = xIndex + yIndex * 2 + zIndex * 4
-
-    console.log('childIdx', childIndex)
-
-    // Place the old root directly in the appropriate child slot
-    this.root.children[childIndex] = oldRoot
-    oldRoot.parent = this.root
-    oldRoot.depth++
-
-    // Update depths for all nodes
     this.updateDepths(this.root, 0)
   }
 
@@ -123,15 +126,16 @@ export class LooseOctree {
   //   return intersects
   // }
 
-  prune() {
-    console.time('prune')
-    this.pruneCount = 0
-    this.root.prune()
-    console.timeEnd('prune')
-    console.log('pruned:', this.pruneCount)
-  }
+  // prune() {
+  //   console.time('prune')
+  //   this.pruneCount = 0
+  //   this.root.prune()
+  //   console.timeEnd('prune')
+  //   console.log('pruned:', this.pruneCount)
+  // }
 
-  setHelper(enabled) {
+  toggleHelper(enabled) {
+    enabled = isBoolean(enabled) ? enabled : !this.helper
     if (enabled && !this.helper) {
       this.helper = createHelper(this)
       this.helper.init()
@@ -330,23 +334,23 @@ class LooseOctreeNode {
   //   return intersects
   // }
 
-  prune() {
-    let empty = true
-    for (const child of this.children) {
-      const canPrune = !child.items.length && child.prune()
-      if (!canPrune) {
-        empty = false
-      }
-    }
-    if (empty) {
-      for (const child of this.children) {
-        this.octree.helper?.remove(child)
-      }
-      this.children.length = 0
-      this.octree.pruneCount++
-    }
-    return empty
-  }
+  // prune() {
+  //   let empty = true
+  //   for (const child of this.children) {
+  //     const canPrune = !child.items.length && child.prune()
+  //     if (!canPrune) {
+  //       empty = false
+  //     }
+  //   }
+  //   if (empty) {
+  //     for (const child of this.children) {
+  //       this.octree.helper?.remove(child)
+  //     }
+  //     this.children.length = 0
+  //     this.octree.pruneCount++
+  //   }
+  //   return empty
+  // }
 
   mountHelper() {
     this.octree.helper?.insert(this)
