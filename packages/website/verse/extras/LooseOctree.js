@@ -381,7 +381,7 @@ function createHelper(octree) {
   const edges = new THREE.EdgesGeometry(boxes)
   const geometry = new THREE.InstancedBufferGeometry().copy(edges)
   const iMatrix = new THREE.InstancedBufferAttribute(
-    new Float32Array(100000 * 16),
+    new Float32Array(1000000 * 16),
     16
   )
   iMatrix.setUsage(THREE.DynamicDrawUsage)
