@@ -8,6 +8,8 @@ const _m1 = new THREE.Matrix4()
 const _intersects = []
 const _mesh = new THREE.Mesh()
 
+// https://anteru.net/blog/2008/loose-octrees/
+
 export class LooseOctree {
   constructor({ scene, center, size }) {
     this.scene = scene
