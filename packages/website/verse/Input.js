@@ -73,7 +73,7 @@ export class Input extends System {
   }
 
   update(delta) {
-    this.hits = this.world.graphics.raycastViewport(this.pointer)
+    this.updateHits()
 
     if (this.moving) {
       const [hit, entity] = this.resolveHit(this.hits)
@@ -96,6 +96,10 @@ export class Input extends System {
   lateUpdate() {
     this.pressed = {}
     this.wheel = 0
+  }
+
+  updateHits() {
+    this.hits = this.world.graphics.raycastViewport(this.pointer)
   }
 
   resolveHit(hits) {
@@ -125,7 +129,7 @@ export class Input extends System {
       this.viewport.style.cursor = 'grabbing'
     } else {
       this.moving = null
-      this.viewport.style.cursor = 'grab'
+      this.viewport.style.cursor = null // 'grab'
     }
   }
 
@@ -139,7 +143,9 @@ export class Input extends System {
     console.log(event, file, ext, url)
 
     if (file && ['glb', 'vox'].includes(ext)) {
+      this.updateHits()
       const [hit] = this.resolveHit(this.hits)
+      if (!hit) return console.warn('no hit, no place to drop dnd')
       const hash = await hashFile(file)
       const url = `${process.env.PUBLIC_ASSETS_URL}/${hash}`
       this.world.loader.set(url, ext, file)
