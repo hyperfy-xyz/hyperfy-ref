@@ -19,6 +19,8 @@ import { NetworkedQuaternion } from './extras/NetworkedQuaternion'
 const UP = new THREE.Vector3(0, 1, 0)
 const FORWARD = new THREE.Vector3(0, 0, -1)
 
+const CAPSULE_RADIUS = 0.3
+
 const FIXED_TIMESTEP = 1 / 60
 
 const ZOOM_SPEED = 2
@@ -127,24 +129,22 @@ export class Player extends Entity {
   }
 
   async init() {
-    const height = 1
-    const radius = 0.4
-
-    // vrm
-    await this.loadVRM()
-
     // controller
     const desc = new PHYSX.PxCapsuleControllerDesc()
-    desc.height = height
-    desc.radius = radius
+    desc.height = 1
+    desc.radius = CAPSULE_RADIUS
     desc.climbingMode = PHYSX.PxCapsuleClimbingModeEnum.eCONSTRAINED
     desc.slopeLimit = Math.cos(60 * DEG2RAD) // 60 degrees
     desc.material = this.world.physics.defaultMaterial
     desc.contactOffset = 0.1 // PhysX default = 0.1
     desc.stepOffset = 0.5 // PhysX default = 0.5m
     this.controller = this.world.physics.controllerManager.createController(desc) // prettier-ignore
+    console.log('ctr', this.controller)
     PHYSX.destroy(desc)
     this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
+
+    // vrm
+    await this.loadVRM()
 
     // camera
     this.world.graphics.cameraRig.position.y = this.vrm.height
@@ -167,6 +167,21 @@ export class Player extends Entity {
     if (this.destroyed) return // stop if the player has been destroyed
     if (this.vrm) this.vrm.destroy()
     this.vrm = vrm.factory(this.ghost.matrix, null)
+    this.controller.resize(this.vrm.height - CAPSULE_RADIUS * 2)
+
+    // debug capsule
+    // {
+    //   const radius = CAPSULE_RADIUS
+    //   const height = this.vrm.height - radius * 2
+    //   const fullHeight = radius + height + radius
+    //   const geometry = new THREE.CapsuleGeometry(radius, height)
+    //   geometry.translate(0, fullHeight / 2, 0)
+    //   if (this.foo) {
+    //     this.world.graphics.scene.remove(this.foo)
+    //   }
+    //   this.foo = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial())
+    //   this.world.graphics.scene.add(this.foo)
+    // }
   }
 
   isOwner() {
@@ -409,6 +424,7 @@ export class Player extends Entity {
     )
     this.ghost.updateMatrix()
     this.vrm.move(this.ghost.matrix)
+    this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
     // emote
     this.vrm.setEmote(this.emote.value)
     // item attachment
