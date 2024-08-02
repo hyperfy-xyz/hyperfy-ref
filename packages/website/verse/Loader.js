@@ -21,6 +21,7 @@ THREE.Cache.enabled = true
 export class Loader extends System {
   constructor(world) {
     super(world)
+    this.cache = new Map() // key -> value
     this.results = new Map() // url -> promise
     this.voxLoader = new VOXLoader()
     this.gltfLoader = new GLTFLoader()
@@ -40,125 +41,114 @@ export class Loader extends System {
     this.gltfLoader.setDRACOLoader(this.dracoLoader)
   }
 
-  has(url) {
-    return this.results.has(url)
-  }
-
-  set(url, type, file) {
-    if (!type) {
-      type = url.split('.').pop()
+  async loadScript(url) {
+    const key = `script/${url}`
+    if (this.cache.has(key)) {
+      return this.cache.get(key)
     }
-    const localUrl = URL.createObjectURL(file)
-    if (type === 'js') {
-      const promise = this.loadJS(localUrl)
-      this.results.set(url, promise)
-    }
-    if (type === 'glb') {
-      const promise = this.loadGLB(localUrl)
-      this.results.set(url, promise)
-    }
-    if (type === 'vrm') {
-      const promise = this.loadVRM(localUrl)
-      this.results.set(url, promise)
-    }
-    if (type === 'emo') {
-      const promise = this.loadEMO(localUrl)
-      this.results.set(url, promise)
-    }
-    if (type === 'vox') {
-      const promise = this.loadVOX(localUrl)
-      this.results.set(url, promise)
-    }
-    if (type === 'hdr') {
-      const promise = this.loadHDR(localUrl)
-      this.results.set(url, promise)
-    }
-  }
-
-  load(url, type) {
-    if (this.results.get(url)) {
-      return this.results.get(url)
-    }
-    if (!type) {
-      type = url.split('.').pop()
-    }
-    if (type === 'js') {
-      const promise = this.loadJS(url)
-      this.results.set(url, promise)
-      return promise
-    }
-    if (type === 'glb') {
-      const promise = this.loadGLB(url)
-      this.results.set(url, promise)
-      return promise
-    }
-    if (type === 'vrm') {
-      // TODO: loader.load should just cache and return factories for everything like this
-      // and if they need nodes, DIY
-      const promise = this.loadVRM(url)
-      this.results.set(url, promise)
-      return promise
-    }
-    if (type === 'emo') {
-      const promise = this.loadEMO(url)
-      this.results.set(url, promise)
-      return promise
-    }
-    if (type === 'vox') {
-      const promise = this.loadVOX(url)
-      this.results.set(url, promise)
-      return promise
-    }
-    if (type === 'hdr') {
-      const promise = this.loadHDR(url)
-      this.results.set(url, promise)
-      return promise
-    }
-  }
-
-  async loadJS(url) {
     const resp = await fetch(url)
     const code = await resp.text()
-    return this.world.scripts.resolve(code)
+    const script = this.world.scripts.evaluate(code)
+    this.cache.set(key, script)
+    return script
   }
 
-  loadGLB(url) {
-    return this.gltfLoader.loadAsync(url).then(glb => {
-      return glbToNodes(glb, world)
-    })
+  async loadHDR(url) {
+    const key = `hdr/${url}`
+    if (this.cache.has(key)) {
+      return this.cache.get(key)
+    }
+    const texture = await this.rgbeLoader.loadAsync(url)
+    this.cache.set(key, texture)
+    return texture
   }
 
-  loadGLBRaw(url) {
-    // hmmm
-    return this.gltfLoader.loadAsync(url)
+  async loadTexture(url) {
+    const key = `texture/${url}`
+    if (this.cache.has(key)) {
+      const texture = this.cache.get(key)
+      return texture.clone()
+    }
+    const texture = await this.texLoader.loadAsync(url)
+    this.cache.set(key, texture)
+    return texture
+  }
+
+  async loadEmote(url) {
+    const key = `emote/${url}`
+    if (this.cache.has(key)) {
+      return this.cache.get(key)
+    }
+    const glb = await this.gltfLoader.loadAsync(url)
+    const factory = createEmoFactory(glb, url)
+    this.cache.set(key, factory)
+    return factory
   }
 
   loadVRM(url) {
-    return this.gltfLoader.loadAsync(url).then(glb => {
-      return createVRMFactory(glb, this.world)
-      // return vrmToNodes(glb, world)
+    const key = `vrm/${url}`
+    if (this.cache.has(key)) {
+      return this.cache.get(key)
+    }
+    const promise = this.gltfLoader.loadAsync(url).then(glb => {
+      const factory = createVRMFactory(glb, this.world)
+      const node = vrmToNodes(factory)
+      return { node, factory }
     })
+    this.cache.set(key, promise)
+    return promise
   }
 
-  loadEMO(url) {
-    return this.gltfLoader.loadAsync(url).then(glb => {
-      return createEmoFactory(glb, url)
+  setVRM(url, file) {
+    const localUrl = URL.createObjectURL(file)
+    const key = `vrm/${url}`
+    const promise = this.gltfLoader.loadAsync(localUrl).then(glb => {
+      const factory = createVRMFactory(glb, this.world)
+      const node = vrmToNodes(factory)
+      return { node, factory }
     })
+    this.cache.set(key, promise)
+    return promise
   }
 
-  loadVOX(url) {
-    return this.voxLoader.loadAsync(url).then(vox => {
-      return voxToNodes(vox, world)
+  hasVRM(url) {
+    const key = `vrm/${url}`
+    return this.cache.has(key)
+  }
+
+  loadGLB(url) {
+    const key = `glb/${url}`
+    if (this.cache.has(key)) {
+      return this.cache.get(key)
+    }
+    const promise = this.gltfLoader.loadAsync(url).then(raw => {
+      const node = glbToNodes(raw, this.world)
+      return { raw, node }
     })
+    this.cache.set(key, promise)
+    return promise
   }
 
-  loadHDR(url) {
-    return this.rgbeLoader.loadAsync(url)
+  setGLB(url, file) {
+    const localUrl = URL.createObjectURL(file)
+    const key = `glb/${url}`
+    const promise = this.gltfLoader.loadAsync(localUrl).then(raw => {
+      const node = glbToNodes(raw, this.world)
+      return { raw, node }
+    })
+    this.cache.set(key, promise)
   }
 
-  loadTEX(url) {
-    return this.texLoader.loadAsync(url)
+  hasGLB(url) {
+    const key = `glb/${url}`
+    return this.cache.has(key)
   }
+
+  // loadVOX(url) {
+  //   return this.voxLoader.loadAsync(url).then(vox => {
+  //     return voxToNodes(vox, world)
+  //   })
+  // }
 
   async uploadAsset(file) {
     const form = new FormData()

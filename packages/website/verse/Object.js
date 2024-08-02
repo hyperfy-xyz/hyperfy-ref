@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { DEG2RAD } from './extras/general'
 import { num } from './extras/num'
+import { glbToNodes } from './extras/glbToNodes'
 
 const MOVING_SEND_RATE = 1 / 5
 
@@ -108,7 +109,16 @@ export class Object extends Entity {
 
   isUploading() {
     if (!this.uploading.value) return false
-    if (this.world.loader.has(this.schema.model)) {
+    if (
+      this.schema.modelType === 'glb' &&
+      this.world.loader.hasGLB(this.schema.model)
+    ) {
+      return false // we already have this locally lets go!
+    }
+    if (
+      this.schema.modelType === 'vrm' &&
+      this.world.loader.hasVRM(this.schema.model)
+    ) {
       return false // we already have this locally lets go!
     }
     return this.uploading.value !== this.world.network.client.id
@@ -120,14 +130,23 @@ export class Object extends Entity {
         this.blueprint = null
         this.script = null
         const promises = []
-        {
+        if (this.schema.modelType === 'glb') {
           promises.push(
-            this.world.loader.load(this.schema.model, this.schema.modelType)
+            this.world.loader.loadGLB(this.schema.model).then(glb => {
+              return glb.node
+            })
+          )
+        }
+        if (this.schema.modelType === 'vrm') {
+          promises.push(
+            this.world.loader.loadVRM(this.schema.model).then(vrm => {
+              return vrm.node
+            })
           )
         }
         if (this.schema.script) {
           const url = `${process.env.PUBLIC_API_URL}/scripts/${this.schema.script}`
-          promises.push(this.world.loader.load(url, 'js'))
+          promises.push(this.world.loader.loadScript(url))
         }
         const num = ++this.loadNum
         const [blueprint, script] = await Promise.all(promises)
@@ -318,6 +337,7 @@ export class Object extends Entity {
     }
     if (this.mode.value === 'moving') {
       const isMover = this.modeClientId.value === this.world.network.client.id
+      console.log(isMover)
       if (isMover) {
         this.root.position.copy(this.position.value)
         this.root.quaternion.copy(this.quaternion.value)

@@ -169,7 +169,7 @@ export class Graphics extends System {
   start() {
     // hdr
     {
-      this.world.loader.load('/static/day2.hdr').then(texture => {
+      this.world.loader.loadHDR('/static/day2.hdr').then(texture => {
         // texture.colorSpace = THREE.NoColorSpace
         // texture.colorSpace = THREE.SRGBColorSpace
         // texture.colorSpace = THREE.LinearSRGBColorSpace
@@ -207,8 +207,8 @@ export class Graphics extends System {
     // }
 
     // ground
-    this.world.loader.loadGLBRaw('/static/ground.glb').then(glb => {
-      const mesh = glb.scene.children[0]
+    this.world.loader.loadGLB('/static/ground.glb').then(glb => {
+      const mesh = glb.raw.scene.children[0]
       mesh.geometry.computeBoundsTree() // three-mesh-bvh
       // mesh.geometry.computeBoundingBox()
       mesh.material.shadowSide = THREE.BackSide // fix csm shadow banding
@@ -231,28 +231,28 @@ export class Graphics extends System {
     })
 
     // sky
-    // const skyUrl = '/static/day2-2k.jpg'
-    // // const skyUrl = '/static/sky/Linekotsi_Sky02_DaySky_02.png'
-    // // const skyUrl = '/static/above-day-a.png'
-    // // const skyUrl = '/static/above-day-b.png'
-    // this.world.loader.loadTEX(skyUrl).then(texture => {
-    //   texture.minFilter = texture.magFilter = THREE.LinearFilter
-    //   texture.mapping = THREE.EquirectangularReflectionMapping
-    //   // texture.encoding = Encoding[this.encoding]
-    //   texture.colorSpace = THREE.SRGBColorSpace
+    const skyUrl = '/static/day2-2k.jpg'
+    // const skyUrl = '/static/sky/Linekotsi_Sky02_DaySky_02.png'
+    // const skyUrl = '/static/above-day-a.png'
+    // const skyUrl = '/static/above-day-b.png'
+    this.world.loader.loadTexture(skyUrl).then(texture => {
+      texture.minFilter = texture.magFilter = THREE.LinearFilter
+      texture.mapping = THREE.EquirectangularReflectionMapping
+      // texture.encoding = Encoding[this.encoding]
+      texture.colorSpace = THREE.SRGBColorSpace
 
-    //   const geometry = new THREE.SphereGeometry(1000, 60, 40)
-    //   const material = new THREE.MeshBasicMaterial({ side: THREE.BackSide })
-    //   const mesh = new THREE.Mesh(geometry, material)
-    //   mesh.geometry.computeBoundsTree()
-    //   mesh.material.map = texture
-    //   mesh.material.needsUpdate = true
-    //   mesh.material.fog = false
-    //   mesh.material.toneMapped = false
-    //   mesh.matrixAutoUpdate = false
-    //   mesh.matrixWorldAutoUpdate = false
-    //   this.scene.add(mesh)
-    // })
+      const geometry = new THREE.SphereGeometry(1000, 60, 40)
+      const material = new THREE.MeshBasicMaterial({ side: THREE.BackSide })
+      const mesh = new THREE.Mesh(geometry, material)
+      mesh.geometry.computeBoundsTree()
+      mesh.material.map = texture
+      mesh.material.needsUpdate = true
+      mesh.material.fog = false
+      mesh.material.toneMapped = false
+      mesh.matrixAutoUpdate = false
+      mesh.matrixWorldAutoUpdate = false
+      this.scene.add(mesh)
+    })
   }
 
   mount(viewport) {

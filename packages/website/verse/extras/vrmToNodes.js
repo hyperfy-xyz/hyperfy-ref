@@ -1,7 +1,7 @@
 import * as Nodes from '../nodes'
 import { createVRMFactory } from './createVRMFactory'
 
-export function vrmToNodes(glb, world) {
+export function vrmToNodes(factory) {
   const nodes = new Map()
   function createNode(data) {
     if (nodes.has(data.name)) {
@@ -20,7 +20,7 @@ export function vrmToNodes(glb, world) {
   const vrm = createNode({
     type: 'vrm',
     name: 'vrm',
-    factory: createVRMFactory(glb, world),
+    factory,
   })
   root.add(vrm)
   return root

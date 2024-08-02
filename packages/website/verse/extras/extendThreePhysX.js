@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { Vector3Enhanced } from './Vector3Enhanced'
 
 export function extendThreePhysX() {
   if (!PHYSX) throw new Error('PHYSX not initialised')
@@ -17,6 +18,7 @@ export function extendThreePhysX() {
     this.z = pxVec3.z
     return this
   }
+  Vector3Enhanced.prototype.fromPxVec3 = THREE.Vector3.prototype.fromPxVec3
 
   THREE.Vector3.prototype.toPxVec3 = function (pxVec3 = _pxVec3) {
     pxVec3.x = this.x
@@ -24,6 +26,7 @@ export function extendThreePhysX() {
     pxVec3.z = this.z
     return pxVec3
   }
+  Vector3Enhanced.prototype.toPxVec3 = THREE.Vector3.prototype.toPxVec3
 
   THREE.Vector3.prototype.toPxExtVec3 = function (pxExtVec3 = _pxExtVec3) {
     pxExtVec3.x = this.x
@@ -31,12 +34,14 @@ export function extendThreePhysX() {
     pxExtVec3.z = this.z
     return pxExtVec3
   }
+  Vector3Enhanced.prototype.toPxExtVec3 = THREE.Vector3.prototype.toPxExtVec3
 
   THREE.Vector3.prototype.toPxTransform = function (pxTransform) {
     pxTransform.p.x = this.x
     pxTransform.p.y = this.y
     pxTransform.p.z = this.z
   }
+  Vector3Enhanced.prototype.toPxTransform = THREE.Vector3.prototype.toPxTransform // prettier-ignore
 
   THREE.Quaternion.prototype.toPxTransform = function (pxTransform) {
     pxTransform.q.x = this.x

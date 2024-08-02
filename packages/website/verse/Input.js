@@ -148,7 +148,7 @@ export class Input extends System {
       if (!hit) return console.warn('no hit, no place to drop dnd')
       const hash = await hashFile(file)
       const url = `${process.env.PUBLIC_ASSETS_URL}/${hash}`
-      this.world.loader.set(url, ext, file)
+      this.world.loader.setGLB(url, file)
       const schema = {
         id: this.world.network.makeId(),
         type: 'prototype',
@@ -184,7 +184,7 @@ export class Input extends System {
       // hash
       const hash = await hashFile(file)
       const url = `${process.env.PUBLIC_ASSETS_URL}/${hash}`
-      this.world.loader.set(url, 'vrm', file)
+      this.world.loader.setVRM(url, file)
       console.error('TODO: vrm dialog to verify, preview and upload')
       try {
         await this.world.loader.uploadAsset(file)
@@ -192,10 +192,12 @@ export class Input extends System {
         console.error('Could not upload VRM: ', err)
         return
       }
-      const entity = this.world.network.avatar
-      entity.schema.model = url
-      entity.schema.modelType = 'vrm'
-      this.world.entities.upsertSchemaLocal(entity.schema)
+      const player = this.world.network.player
+      player.vrmUrl.value = url
+      // const entity = this.world.network.avatar
+      // entity.schema.model = url
+      // entity.schema.modelType = 'vrm'
+      // this.world.entities.upsertSchemaLocal(entity.schema)
     }
   }
 

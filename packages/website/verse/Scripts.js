@@ -37,14 +37,18 @@ export class Scripts extends System {
     this.raw = new Map() // id -> String
   }
 
-  resolve(code) {
-    let script = this.scripts.get(code)
-    if (!script) {
-      script = this.compartment.evaluate(code)
-      this.scripts.set(code, script)
-    }
-    return script
+  evaluate(code) {
+    return this.compartment.evaluate(code)
   }
+
+  // resolve(code) {
+  //   let script = this.scripts.get(code)
+  //   if (!script) {
+  //     script = this.compartment.evaluate(code)
+  //     this.scripts.set(code, script)
+  //   }
+  //   return script
+  // }
 
   async fetchRaw(id) {
     if (this.raw.has(id)) {

@@ -39,6 +39,7 @@ const emotes = {
 
 const defaults = {
   position: [0, 0, 0],
+  vrmUrl: `${process.env.PUBLIC_ASSETS_URL}/wizard_255.vrm`,
 }
 
 export class Player extends Entity {
@@ -52,6 +53,8 @@ export class Player extends Entity {
     this.emote = this.createNetworkProp('emote', emotes.idle) // prettier-ignore
     this.itemIdx = this.createNetworkProp('itemIdx', null) // prettier-ignore
     this.itemIdx.onChange = this.onItemIdxChange.bind(this)
+    this.vrmUrl = this.createNetworkProp('vrmUrl', props.vrmUrl || defaults.vrmUrl) // prettier-ignore
+    this.vrmUrl.onChange = this.loadVRM.bind(this)
 
     this.root = new THREE.Object3D()
     this.root.position.copy(this.position.value)
@@ -100,6 +103,8 @@ export class Player extends Entity {
       },
     ]
 
+    this.vrmN = 0
+
     this.init()
   }
 
@@ -108,10 +113,7 @@ export class Player extends Entity {
     const radius = 0.4
 
     // vrm
-    const vrmFactory = await this.world.loader.load(`${process.env.PUBLIC_ASSETS_URL}/wizard_255.vrm`, 'vrm') // prettier-ignore
-    this.vrm = vrmFactory(this.root.matrix, null)
-
-    // todo: check player wasn't destroyed or another vrm loaded
+    await this.loadVRM()
 
     // controller
     const desc = new PHYSX.PxCapsuleControllerDesc()
@@ -135,6 +137,15 @@ export class Player extends Entity {
     // this.world.graphics.scene.add(this.vrm)
     this.world.entities.incActive(this)
     this.world.network.onCameraReady?.()
+  }
+
+  async loadVRM() {
+    const n = ++this.vrmN
+    const vrm = await this.world.loader.loadVRM(this.vrmUrl.value) // prettier-ignore
+    if (this.vrmN !== n) return // stop if vrm url changed again while this one was loading
+    if (this.destroyed) return // stop if the player has been destroyed
+    if (this.vrm) this.vrm.destroy()
+    this.vrm = vrm.factory(this.root.matrix, null)
   }
 
   onItemIdxChange(idx) {
@@ -406,8 +417,8 @@ export class Player extends Entity {
     if (item.modelUrl) {
       // load it if we haven't yet
       if (!item.model) {
-        const glb = await this.world.loader.loadGLBRaw(item.modelUrl)
-        item.model = glb.scene
+        const glb = await this.world.loader.loadGLB(item.modelUrl)
+        item.model = glb.raw.scene
         item.model.matrixAutoUpdate = false
         item.model.matrixWorldAutoUpdate = false
       }

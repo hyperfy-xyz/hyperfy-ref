@@ -194,7 +194,7 @@ export function createVRMFactory(glb, world) {
         emotes[id] = emote
         currentEmote = emote
         const url = `${process.env.PUBLIC_ASSETS_URL}/${id}`
-        world.loader.load(url, 'emo').then(emo => {
+        world.loader.loadEmote(url).then(emo => {
           const clip = emo.create({
             rootToHips,
             version,
