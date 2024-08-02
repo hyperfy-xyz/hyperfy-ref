@@ -7,8 +7,6 @@ import { DEG2RAD } from './extras/general'
 import { num } from './extras/num'
 import { Events } from './extras/Events'
 
-const SEND_RATE = 1 / 5 // 5Hz (5 times per second)
-
 let ids = 0
 
 export class Network extends System {
@@ -20,6 +18,7 @@ export class Network extends System {
     this.clients = new Map()
     this.client = null
     this.entityQueue = new Set()
+    this.sendRate = 1 / 8 // 8hz (8 times per second)
     this.lastSendTime = 0
     this.status = 'connecting'
   }
@@ -50,7 +49,7 @@ export class Network extends System {
   update(delta) {
     this.sock.flush()
     this.lastSendTime += delta
-    if (this.lastSendTime >= SEND_RATE) {
+    if (this.lastSendTime >= this.sendRate) {
       for (const entity of this.entityQueue) {
         entity.sendNetworkUpdate()
       }
@@ -229,7 +228,14 @@ export class Network extends System {
     // this.log('entity:updated', data)
     const entity = this.world.entities.getEntity(data.id)
     if (!entity) return
+
     entity.receiveNetworkUpdate(data)
+
+    // DEBUG: artifical lag
+    // const lag = num(0, 100, 0) // 300-500ms
+    // setTimeout(() => {
+    //   entity.receiveNetworkUpdate(data)
+    // }, lag)
   }
 
   onEntityRemoved = id => {

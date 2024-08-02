@@ -12,6 +12,9 @@ import { BowAction } from './actions/BowAction'
 import { DoubleJumpAction } from './actions/DoubleJumpAction'
 import { PunchAction } from './actions/PunchAction'
 import { smoothDamp } from './extras/smoothDamp'
+import { Vector3Enhanced } from './extras/Vector3Enhanced'
+import { NetworkedVector3 } from './extras/NetworkedVector3'
+import { NetworkedQuaternion } from './extras/NetworkedQuaternion'
 
 const UP = new THREE.Vector3(0, 1, 0)
 const FORWARD = new THREE.Vector3(0, 0, -1)
@@ -23,6 +26,8 @@ const LOOK_SPEED = 0.1
 const MOVE_SPEED = 8
 // const MOVE_SPEED = 50
 // const MOVE_SPEED = 300 // debug
+const MIN_ZOOM = 4
+const MAX_ZOOM = 100 // 16
 
 // const MOVING_SEND_RATE = 1 / 5
 
@@ -40,21 +45,27 @@ const emotes = {
 const defaults = {
   position: [0, 0, 0],
   vrmUrl: `${process.env.PUBLIC_ASSETS_URL}/wizard_255.vrm`,
+  teleportN: 0,
 }
 
 export class Player extends Entity {
   constructor(world, props) {
     super(world, props)
 
-    const position = new THREE.Vector3().fromArray(props.position || defaults.position) // prettier-ignore
-    this.position = this.createNetworkProp('position', position) // prettier-ignore
-    const quaternion = new THREE.Quaternion().fromArray(props.quaternion || defaults.quaternion) // prettier-ignore
-    this.quaternion = this.createNetworkProp('quaternion', quaternion) // prettier-ignore
+    this.position = this.createNetworkProp(
+      'position',
+      new Vector3Enhanced().fromArray(props.position || defaults.position)
+    )
+    this.quaternion = this.createNetworkProp(
+      'quaternion',
+      new THREE.Quaternion().fromArray(props.quaternion || defaults.quaternion)
+    )
     this.emote = this.createNetworkProp('emote', emotes.idle) // prettier-ignore
     this.itemIdx = this.createNetworkProp('itemIdx', null) // prettier-ignore
-    this.itemIdx.onChange = this.onItemIdxChange.bind(this)
+    this.itemIdx.onChange = idx => this.setItem(idx)
     this.vrmUrl = this.createNetworkProp('vrmUrl', props.vrmUrl || defaults.vrmUrl) // prettier-ignore
-    this.vrmUrl.onChange = this.loadVRM.bind(this)
+    this.vrmUrl.onChange = () => this.loadVRM(this)
+    this.teleportN = this.createNetworkProp('teleportN', props.teleportN || defaults.teleportN) // prettier-ignore
 
     // ghost is just a container that controllers/vrms follow
     this.ghost = new THREE.Object3D()
@@ -75,6 +86,15 @@ export class Player extends Entity {
     this.lookStart = new THREE.Vector2()
     this.lookDelta = new THREE.Vector2()
     this.looking = false
+
+    this.networkPosition = new NetworkedVector3(
+      this.ghost.position,
+      this.world.network.sendRate
+    )
+    this.networkQuaternion = new NetworkedQuaternion(
+      this.ghost.quaternion,
+      this.world.network.sendRate
+    )
 
     this.actions = [new DodgeAction(), new DoubleJumpAction()]
 
@@ -134,7 +154,10 @@ export class Player extends Entity {
     // start
     // this.world.graphics.scene.add(this.vrm)
     this.world.entities.incActive(this)
-    this.world.network.onCameraReady?.()
+
+    if (this.isOwner()) {
+      this.world.network.onCameraReady?.()
+    }
   }
 
   async loadVRM() {
@@ -144,10 +167,6 @@ export class Player extends Entity {
     if (this.destroyed) return // stop if the player has been destroyed
     if (this.vrm) this.vrm.destroy()
     this.vrm = vrm.factory(this.ghost.matrix, null)
-  }
-
-  onItemIdxChange(idx) {
-    this.setItem(idx)
   }
 
   isOwner() {
@@ -166,6 +185,7 @@ export class Player extends Entity {
     const input = this.world.input
     const rig = this.world.graphics.cameraRig
     const camera = this.world.graphics.camera
+    const ghost = this.ghost
 
     // rotate camera if dragging
     if (input.down.RMB) {
@@ -184,10 +204,10 @@ export class Player extends Entity {
     // zoom camera if scrolling wheel (and not moving an object)
     if (input.wheel && !input.moving) {
       this.zoom -= input.wheel * ZOOM_SPEED * delta
-      this.zoom = clamp(this.zoom, 4, 100 /*16*/)
+      this.zoom = clamp(this.zoom, MIN_ZOOM, MAX_ZOOM)
     }
     v1.set(0, 0, this.zoom)
-    camera.position.lerp(v1, 0.1)
+    camera.position.lerp(v1, 6 * delta)
 
     // switch items (if not performing an action)
     if (!this.action) {
@@ -274,7 +294,7 @@ export class Player extends Entity {
     }
 
     // if we're grounded, dig into the ground (for when going down slopes)
-    // if we're not grounded, continally apply gravity
+    // if we're not grounded, continually apply gravity
     if (this.isGrounded) {
       this.velocity.y = -20
     } else {
@@ -341,22 +361,22 @@ export class Player extends Entity {
 
     // read back controller position and apply to ghost & vrm
     const pos = this.controller.getFootPosition()
-    this.ghost.position.copy(pos)
-    this.ghost.updateMatrix()
-    this.vrm.move(this.ghost.matrix)
+    ghost.position.copy(pos)
+    ghost.updateMatrix()
+    this.vrm.move(ghost.matrix)
 
     // make camera follow our final position horizontally
     // and vertically at our vrm model height
     rig.position.set(
-      this.ghost.position.x,
-      this.ghost.position.y + this.vrm.height,
-      this.ghost.position.z
+      ghost.position.x,
+      ghost.position.y + this.vrm.height,
+      ghost.position.z
     )
 
     // if we're moving continually rotate ourselves toward the direction we are moving
     if (this.isMoving || this.action) {
       const alpha = 1 - Math.pow(0.00000001, delta)
-      this.ghost.quaternion.slerp(this.targetQuaternion, alpha)
+      ghost.quaternion.slerp(this.targetQuaternion, alpha)
     }
 
     // clear the action when its complete
@@ -371,20 +391,22 @@ export class Player extends Entity {
     }
 
     // network
-    this.position.value.copy(this.ghost.position)
-    this.quaternion.value.copy(this.ghost.quaternion)
+    this.position.value.copy(ghost.position)
+    this.quaternion.value.copy(ghost.quaternion)
   }
 
   updateRemote(delta) {
     // move
-    // smoothDamp(
-    //   this.ghost.position,
-    //   this.position.value,
-    //   MOVING_SEND_RATE * 3,
-    //   delta
-    // )
-    this.ghost.position.lerp(this.position.value, 7 * delta)
-    this.ghost.quaternion.slerp(this.quaternion.value, 7 * delta)
+    this.networkPosition.update(
+      this.position.value,
+      this.teleportN.value,
+      delta
+    )
+    this.networkQuaternion.update(
+      this.quaternion.value,
+      this.teleportN.value,
+      delta
+    )
     this.ghost.updateMatrix()
     this.vrm.move(this.ghost.matrix)
     // emote
@@ -401,6 +423,7 @@ export class Player extends Entity {
     this.ghost.updateMatrix()
     this.vrm.move(this.ghost.matrix)
     this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
+    this.teleportN.value++
   }
 
   async setItem(idx) {
@@ -435,105 +458,6 @@ export class Player extends Entity {
   lateUpdate(delta) {
     // ...
   }
-
-  // applyLocalChanges({ sync, state, props }) {
-  //   if (state) {
-  //     const changed = {}
-  //     for (const key in state) {
-  //       const value = state[key]
-  //       if (this.state[key] !== value) {
-  //         this.state[key] = value
-  //         changed[key] = value
-  //       }
-  //     }
-  //     if (sync && !isEmpty(changed)) {
-  //       const data = this.getUpdate()
-  //       data.state = {
-  //         ...data.state,
-  //         ...changed,
-  //       }
-  //     }
-  //   }
-  //   if (props) {
-  //     let moved
-  //     let moded
-  //     const changed = {}
-  //     if (props.position) {
-  //       this.root.position.copy(props.position)
-  //       changed.position = this.root.position.toArray()
-  //       moved = true
-  //     }
-  //     if (props.quaternion) {
-  //       this.root.quaternion.copy(props.quaternion)
-  //       changed.quaternion = this.root.quaternion.toArray()
-  //       moved = true
-  //     }
-  //     if (props.hasOwnProperty('mode')) {
-  //       if (this.mode !== props.mode) {
-  //         this.mode = props.mode
-  //         changed.mode = props.mode
-  //         moded = true
-  //       }
-  //     }
-  //     if (props.hasOwnProperty('modeClientId')) {
-  //       if (this.modeClientId !== props.modeClientId) {
-  //         this.modeClientId = props.modeClientId
-  //         changed.modeClientId = props.modeClientId
-  //         moded = true
-  //       }
-  //     }
-  //     if (props.hasOwnProperty('uploading')) {
-  //       if (this.uploading !== props.uploading) {
-  //         this.uploading = props.uploading
-  //         changed.uploading = props.uploading
-  //       }
-  //     }
-  //     if (moved) {
-  //       this.root.dirty()
-  //     }
-  //     if (moded) {
-  //       this.checkMode()
-  //     }
-  //     if (sync && !isEmpty(changed)) {
-  //       const data = this.getUpdate()
-  //       data.props = {
-  //         ...data.props,
-  //         ...changed,
-  //       }
-  //     }
-  //   }
-  // }
-
-  // applyNetworkChanges({ state, props }) {
-  //   if (state) {
-  //     for (const key in state) {
-  //       this.state[key] = state[key]
-  //       this.stateChanges[key] = state[key]
-  //     }
-  //   }
-  //   if (props) {
-  //     if (props.position) {
-  //       this.networkPosition.fromArray(props.position)
-  //     }
-  //     if (props.quaternion) {
-  //       this.networkQuaternion.fromArray(props.quaternion)
-  //     }
-  //     if (props.mode) {
-  //       this.mode = props.mode
-  //       this.modeClientId = props.modeClientId
-  //       this.checkMode()
-  //     }
-  //     if (props.hasOwnProperty('uploading')) {
-  //       if (props.uploading !== null) {
-  //         console.error('uploading should only ever be nulled')
-  //       }
-  //       if (this.uploading !== props.uploading) {
-  //         this.uploading = props.uploading
-  //         this.load()
-  //       }
-  //     }
-  //   }
-  // }
 
   // getStats() {
   //   let triangles = 0
