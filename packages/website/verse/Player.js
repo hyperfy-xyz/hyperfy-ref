@@ -24,7 +24,7 @@ const MOVE_SPEED = 8
 // const MOVE_SPEED = 50
 // const MOVE_SPEED = 300 // debug
 
-const MOVING_SEND_RATE = 1 / 5
+// const MOVING_SEND_RATE = 1 / 5
 
 const v1 = new THREE.Vector3()
 const e1 = new THREE.Euler(0, 0, 0, 'YXZ')
@@ -56,12 +56,10 @@ export class Player extends Entity {
     this.vrmUrl = this.createNetworkProp('vrmUrl', props.vrmUrl || defaults.vrmUrl) // prettier-ignore
     this.vrmUrl.onChange = this.loadVRM.bind(this)
 
-    this.root = new THREE.Object3D()
-    this.root.position.copy(this.position.value)
-    this.root.quaternion.copy(this.quaternion.value)
-
-    // this.networkPosition = new THREE.Vector3().copy(this.root.position)
-    // this.networkQuaternion = new THREE.Quaternion().copy(this.root.quaternion)
+    // ghost is just a container that controllers/vrms follow
+    this.ghost = new THREE.Object3D()
+    this.ghost.position.copy(this.position.value)
+    this.ghost.quaternion.copy(this.quaternion.value)
 
     this.gravity = 20 // 9.81
     this.jumpHeight = 1.5
@@ -126,7 +124,7 @@ export class Player extends Entity {
     desc.stepOffset = 0.5 // PhysX default = 0.5m
     this.controller = this.world.physics.controllerManager.createController(desc) // prettier-ignore
     PHYSX.destroy(desc)
-    this.controller.setFootPosition(this.root.position.toPxExtVec3())
+    this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
 
     // camera
     this.world.graphics.cameraRig.position.y = this.vrm.height
@@ -145,7 +143,7 @@ export class Player extends Entity {
     if (this.vrmN !== n) return // stop if vrm url changed again while this one was loading
     if (this.destroyed) return // stop if the player has been destroyed
     if (this.vrm) this.vrm.destroy()
-    this.vrm = vrm.factory(this.root.matrix, null)
+    this.vrm = vrm.factory(this.ghost.matrix, null)
   }
 
   onItemIdxChange(idx) {
@@ -290,9 +288,9 @@ export class Player extends Entity {
     }
 
     // HACK: temp flying
-    if (input.down.Space) {
-      this.velocity.y += 1
-    }
+    // if (input.down.Space) {
+    //   this.velocity.y += 1
+    // }
 
     // apply emote
     if (this.action) {
@@ -341,24 +339,24 @@ export class Player extends Entity {
       this.velocity.y = -this.gravity * delta
     }
 
-    // read back controller position and apply to root & vrm
+    // read back controller position and apply to ghost & vrm
     const pos = this.controller.getFootPosition()
-    this.root.position.copy(pos)
-    this.root.updateMatrix()
-    this.vrm.move(this.root.matrix)
+    this.ghost.position.copy(pos)
+    this.ghost.updateMatrix()
+    this.vrm.move(this.ghost.matrix)
 
     // make camera follow our final position horizontally
     // and vertically at our vrm model height
     rig.position.set(
-      this.root.position.x,
-      this.root.position.y + this.vrm.height,
-      this.root.position.z
+      this.ghost.position.x,
+      this.ghost.position.y + this.vrm.height,
+      this.ghost.position.z
     )
 
     // if we're moving continually rotate ourselves toward the direction we are moving
     if (this.isMoving || this.action) {
       const alpha = 1 - Math.pow(0.00000001, delta)
-      this.root.quaternion.slerp(this.targetQuaternion, alpha)
+      this.ghost.quaternion.slerp(this.targetQuaternion, alpha)
     }
 
     // clear the action when its complete
@@ -373,22 +371,22 @@ export class Player extends Entity {
     }
 
     // network
-    this.position.value.copy(this.root.position)
-    this.quaternion.value.copy(this.root.quaternion)
+    this.position.value.copy(this.ghost.position)
+    this.quaternion.value.copy(this.ghost.quaternion)
   }
 
   updateRemote(delta) {
     // move
     // smoothDamp(
-    //   this.root.position,
+    //   this.ghost.position,
     //   this.position.value,
     //   MOVING_SEND_RATE * 3,
     //   delta
     // )
-    this.root.position.lerp(this.position.value, 7 * delta)
-    this.root.quaternion.slerp(this.quaternion.value, 7 * delta)
-    this.root.updateMatrix()
-    this.vrm.move(this.root.matrix)
+    this.ghost.position.lerp(this.position.value, 7 * delta)
+    this.ghost.quaternion.slerp(this.quaternion.value, 7 * delta)
+    this.ghost.updateMatrix()
+    this.vrm.move(this.ghost.matrix)
     // emote
     this.vrm.setEmote(this.emote.value)
     // item attachment
@@ -399,10 +397,10 @@ export class Player extends Entity {
   }
 
   teleport(x, y, z) {
-    this.root.position.set(x, y, z)
-    this.root.updateMatrix()
-    this.vrm.move(this.root.matrix)
-    this.controller.setFootPosition(this.root.position.toPxExtVec3())
+    this.ghost.position.set(x, y, z)
+    this.ghost.updateMatrix()
+    this.vrm.move(this.ghost.matrix)
+    this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
   }
 
   async setItem(idx) {
@@ -561,87 +559,3 @@ export class Player extends Entity {
     }
   }
 }
-
-// class RollAction {
-//   constructor() {
-//     this.emote = emotes.roll
-//     this.displacement = new THREE.Vector3(0, 0, -1)
-//     this.speed = 20
-//     this.time = 0
-//     this.complete = false
-//     this.targetCamera = false
-//   }
-//   update(delta) {
-//     this.time += delta
-//     if (this.time > 0.5) {
-//       this.complete = true
-//     }
-//   }
-//   reset() {
-//     this.time = 0
-//     this.complete = false
-//   }
-// }
-
-// class BackstepAction {
-//   constructor() {
-//     this.emote = emotes.backstep
-//     this.displacement = new THREE.Vector3(0, 0, 1)
-//     this.speed = 10
-//     this.time = 0
-//     this.complete = false
-//     this.targetCamera = false
-//   }
-//   update(delta) {
-//     this.time += delta
-//     if (this.time > 0.4) {
-//       this.complete = true
-//     }
-//   }
-//   reset() {
-//     this.time = 0
-//     this.complete = false
-//   }
-// }
-
-// class MeleeStrikeAction {
-//   constructor() {
-//     this.emote = emotes.meleeStrike
-//     this.displacement = new THREE.Vector3(0, 0, -0.5)
-//     this.speed = 1
-//     this.time = 0
-//     this.complete = false
-//     this.targetCamera = true
-//   }
-//   update(delta) {
-//     this.time += delta
-//     if (this.time > 0.5) {
-//       this.complete = true
-//     }
-//   }
-//   reset() {
-//     this.time = 0
-//     this.complete = false
-//   }
-// }
-
-// class MeleePummelAction {
-//   constructor() {
-//     this.emote = emotes.meleePummel
-//     this.displacement = new THREE.Vector3(0, 0, -0.1)
-//     this.speed = 1
-//     this.time = 0
-//     this.complete = false
-//     this.targetCamera = true
-//   }
-//   update(delta) {
-//     this.time += delta
-//     if (this.time > 1.23) {
-//       this.complete = true
-//     }
-//   }
-//   reset() {
-//     this.time = 0
-//     this.complete = false
-//   }
-// }
