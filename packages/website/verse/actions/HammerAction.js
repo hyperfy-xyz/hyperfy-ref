@@ -9,7 +9,7 @@ export class HammerAction extends Action {
     this.displacement.z = -0.1
     this.speed = 1
     this.moveFreedom = 0
-    this.lockOn = true
+    this.lockOn = false
     this.duration = 1.23
     this.elapsed = 0
     this.complete = false
