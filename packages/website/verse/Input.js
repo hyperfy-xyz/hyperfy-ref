@@ -81,7 +81,7 @@ export class Input extends System {
         this.moving.lastSend += delta
         const sync = this.moving.lastSend >= MOVE_SEND_RATE
         if (sync) this.moving.lastSend = 0
-        this.moving.entity.position.value = hit.point
+        this.moving.entity.position.value.copy(hit.point)
         // this.moving.entity.applyLocalProps(
         //   {
         //     position: hit.point,

@@ -47,9 +47,9 @@ export class Object extends Entity {
     this.modeClientId = this.createNetworkProp('modeClientId', props.modeClientId) // prettier-ignore
     this.modeClientId.onChange = this.onModeClientIdChange.bind(this)
     this.position = this.createNetworkProp('position', new Vector3().fromArray(props.position || defaultPosition)) // prettier-ignore
-    this.position.onChange = this.onPositionChange.bind(this)
+    // this.position.onChange = this.onPositionChange.bind(this)
     this.quaternion = this.createNetworkProp('quaternion', new Quaternion().fromArray(props.quaternion || defaultQuaternion)) // prettier-ignore
-    this.quaternion.onChange = this.onQuaternionChange.bind(this)
+    // this.quaternion.onChange = this.onQuaternionChange.bind(this)
 
     this.root = new Nodes.group({
       name: '$root',
@@ -323,12 +323,14 @@ export class Object extends Entity {
         this.root.quaternion.copy(this.quaternion.value)
         this.root.dirty()
       } else {
-        smoothDamp(
-          this.root.position,
-          this.position.value,
-          MOVING_SEND_RATE * 3,
-          delta
-        )
+        // this is broken because it modifes target (position.value) lol
+        // smoothDamp(
+        //   this.root.position,
+        //   this.position.value,
+        //   MOVING_SEND_RATE * 3,
+        //   delta
+        // )
+        this.root.position.lerp(this.position.value, 5 * delta)
         this.root.quaternion.slerp(this.quaternion.value, 5 * delta)
         this.root.dirty()
       }

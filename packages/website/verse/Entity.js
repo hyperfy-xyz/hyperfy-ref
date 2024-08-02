@@ -81,7 +81,6 @@ export class Entity {
 }
 
 function createPrimitiveNetworkProp(entity, key, value, onChange) {
-  let deserializing
   let oldValue = value
   const prop = {
     key,
@@ -91,8 +90,6 @@ function createPrimitiveNetworkProp(entity, key, value, onChange) {
         return prop.value
       },
       set value(newValue) {
-        if (deserializing) return
-        if (entity.dirtyProps.has(prop)) return
         if (oldValue === newValue) return
         prop.value = newValue
         prop.box.onChange?.(newValue, oldValue)
@@ -106,12 +103,10 @@ function createPrimitiveNetworkProp(entity, key, value, onChange) {
       return prop.value
     },
     deserialize(data) {
-      deserializing = true
       const oldValue = prop.value
       const newValue = data
       prop.value = newValue
       prop.box.onChange?.(newValue, oldValue)
-      deserializing = false
     },
   }
   return prop
@@ -128,8 +123,6 @@ function createVector3NetworkProp(entity, key, value, onChange) {
         return prop.value
       },
       set value(newValue) {
-        if (deserializing) return
-        if (entity.dirtyProps.has(prop)) return
         if (oldValue.equals(newValue)) return
         prop.value.copy(newValue)
         prop.box.onChange?.(prop.value, oldValue)
@@ -152,7 +145,6 @@ function createVector3NetworkProp(entity, key, value, onChange) {
   }
   prop.value._onChange(() => {
     if (deserializing) return
-    if (entity.dirtyProps.has(prop)) return
     if (oldValue.equals(value)) return
     prop.box.onChange?.(prop.value, oldValue)
     oldValue.copy(prop.value)
@@ -173,8 +165,6 @@ function createQuaternionNetworkProp(entity, key, value, onChange) {
         return prop.value
       },
       set value(newValue) {
-        if (deserializing) return
-        if (entity.dirtyProps.has(prop)) return
         if (oldValue.equals(newValue)) return
         prop.value.copy(newValue)
         prop.box.onChange?.(prop.value, oldValue)
@@ -197,7 +187,6 @@ function createQuaternionNetworkProp(entity, key, value, onChange) {
   }
   prop.value._onChange(() => {
     if (deserializing) return
-    if (entity.dirtyProps.has(prop)) return
     if (oldValue.equals(value)) return
     prop.box.onChange?.(prop.value, oldValue)
     oldValue.copy(prop.value)
