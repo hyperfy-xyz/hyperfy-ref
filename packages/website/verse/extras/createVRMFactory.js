@@ -210,14 +210,24 @@ export function createVRMFactory(glb, world) {
       }
     }
 
+    console.log('=== vrm ===')
+    console.log('vrm', vrm)
+    // console.log('skeleton', skeleton)
+
     const bonesByName = {}
-    const applyBoneMatrixWorld = (name, matrix) => {
+    const findBone = name => {
+      // name is the official vrm bone name eg 'leftHand'
+      // actualName is the actual bone name used in the skeleton which may different across vrms
       if (!bonesByName[name]) {
-        bonesByName[name] = skeleton.getBoneByName(name)
+        const actualName = glb.userData.vrm.humanoid.getRawBoneNode(name)?.name
+        bonesByName[name] = skeleton.getBoneByName(actualName)
       }
-      const bone = bonesByName[name]
+      return bonesByName[name]
+    }
+
+    const applyBoneMatrixWorld = (name, matrix) => {
+      const bone = findBone(name)
       matrix.multiplyMatrices(vrm.scene.matrixWorld, bone.matrixWorld)
-      // const bone = vrm.userData.vrm.humanoid._normalizedHumanBones.humanBones[name]?.node // prettier-ignore
     }
 
     return {

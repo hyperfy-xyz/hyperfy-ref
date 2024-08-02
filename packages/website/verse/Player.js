@@ -88,17 +88,17 @@ export class Player extends Entity {
       },
       {
         modelUrl: `${process.env.PUBLIC_ASSETS_URL}/weapon-sword.glb`,
-        boneName: 'Right_Hand',
+        boneName: 'rightHand',
         action: new SwordAction(),
       },
       {
         modelUrl: `${process.env.PUBLIC_ASSETS_URL}/weapon-hammer.glb`,
-        boneName: 'Right_Hand',
+        boneName: 'rightHand',
         action: new HammerAction(),
       },
       {
         modelUrl: `${process.env.PUBLIC_ASSETS_URL}/weapon-bow.glb`,
-        boneName: 'Left_Hand',
+        boneName: 'leftHand',
         action: new BowAction(),
       },
     ]
@@ -418,7 +418,7 @@ export class Player extends Entity {
       // load it if we haven't yet
       if (!item.model) {
         const glb = await this.world.loader.loadGLB(item.modelUrl)
-        item.model = glb.raw.scene
+        item.model = glb.raw.scene.clone()
         item.model.matrixAutoUpdate = false
         item.model.matrixWorldAutoUpdate = false
       }
@@ -556,6 +556,9 @@ export class Player extends Entity {
     this.vrm?.destroy()
     this.controller.release()
     this.controller = null
+    if (this.item?.model) {
+      this.world.graphics.scene.remove(this.item.model)
+    }
   }
 }
 
