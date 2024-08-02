@@ -11,6 +11,7 @@ import { HammerAction } from './actions/HammerAction'
 import { BowAction } from './actions/BowAction'
 import { DoubleJumpAction } from './actions/DoubleJumpAction'
 import { PunchAction } from './actions/PunchAction'
+import { smoothDamp } from './extras/smoothDamp'
 
 const UP = new THREE.Vector3(0, 1, 0)
 const FORWARD = new THREE.Vector3(0, 0, -1)
@@ -23,6 +24,8 @@ const MOVE_SPEED = 8
 // const MOVE_SPEED = 50
 // const MOVE_SPEED = 300 // debug
 
+const MOVING_SEND_RATE = 1 / 5
+
 const v1 = new THREE.Vector3()
 const e1 = new THREE.Euler(0, 0, 0, 'YXZ')
 const q1 = new THREE.Quaternion()
@@ -34,37 +37,28 @@ const emotes = {
   float: 'avatar@float.glb',
 }
 
+const defaults = {
+  position: [0, 0, 0],
+}
+
 export class Player extends Entity {
-  constructor(world, data) {
-    super(world, data)
-    this.type === 'player'
-    this.isPlayer = true
+  constructor(world, props) {
+    super(world, props)
 
-    this.blah = this.createNetworkProp('blah', 'Hello')
-    this.blah.onChange = (oldValue, newValue) => {
-      console.log('blah', oldValue, newValue)
-    }
-
-    // const onTestChange = (oldValue, newValue) => {
-    //   console.log('onTestChange', oldValue, newValue)
-    // }
-    // this.addFoob(String, 'test',  'TEST-1', onTestChange, true) // prettier-ignore
-    // this.addFoob(
-    //   Vector3,
-    //   'vec3',
-    //   [0, 0, 0],
-    //   (oldValue, newValue) => {
-    //     console.log('vec3', oldValue, newValue)
-    //   },
-    //   true
-    // )
+    const position = new THREE.Vector3().fromArray(props.position || defaults.position) // prettier-ignore
+    this.position = this.createNetworkProp('position', position) // prettier-ignore
+    const quaternion = new THREE.Quaternion().fromArray(props.quaternion || defaults.quaternion) // prettier-ignore
+    this.quaternion = this.createNetworkProp('quaternion', quaternion) // prettier-ignore
+    this.emote = this.createNetworkProp('emote', emotes.idle) // prettier-ignore
+    this.itemIdx = this.createNetworkProp('itemIdx', null) // prettier-ignore
+    this.itemIdx.onChange = this.onItemIdxChange.bind(this)
 
     this.root = new THREE.Object3D()
-    this.root.position.fromArray(data.position)
-    this.root.quaternion.fromArray(data.quaternion)
+    this.root.position.copy(this.position.value)
+    this.root.quaternion.copy(this.quaternion.value)
 
-    this.networkPosition = new THREE.Vector3().copy(this.root.position)
-    this.networkQuaternion = new THREE.Quaternion().copy(this.root.quaternion)
+    // this.networkPosition = new THREE.Vector3().copy(this.root.position)
+    // this.networkQuaternion = new THREE.Quaternion().copy(this.root.quaternion)
 
     this.gravity = 20 // 9.81
     this.jumpHeight = 1.5
@@ -105,7 +99,6 @@ export class Player extends Entity {
         action: new BowAction(),
       },
     ]
-    this.item = null
 
     this.init()
   }
@@ -115,8 +108,8 @@ export class Player extends Entity {
     const radius = 0.4
 
     // vrm
-    const vrmNode = await this.world.loader.load(`${process.env.PUBLIC_ASSETS_URL}/wizard_255.vrm`, 'vrm') // prettier-ignore
-    this.vrm = vrmNode.children[0].factory({ entity: this }, this.root.matrix)
+    const vrmFactory = await this.world.loader.load(`${process.env.PUBLIC_ASSETS_URL}/wizard_255.vrm`, 'vrm') // prettier-ignore
+    this.vrm = vrmFactory(this.root.matrix, null)
 
     // todo: check player wasn't destroyed or another vrm loaded
 
@@ -142,6 +135,10 @@ export class Player extends Entity {
     // this.world.graphics.scene.add(this.vrm)
     this.world.entities.incActive(this)
     this.world.network.onCameraReady?.()
+  }
+
+  onItemIdxChange(idx) {
+    this.setItem(idx)
   }
 
   isOwner() {
@@ -178,7 +175,7 @@ export class Player extends Entity {
     // zoom camera if scrolling wheel (and not moving an object)
     if (input.wheel && !input.moving) {
       this.zoom -= input.wheel * ZOOM_SPEED * delta
-      this.zoom = clamp(this.zoom, 4, 16)
+      this.zoom = clamp(this.zoom, 4, 100 /*16*/)
     }
     v1.set(0, 0, this.zoom)
     camera.position.lerp(v1, 0.1)
@@ -186,13 +183,13 @@ export class Player extends Entity {
     // switch items (if not performing an action)
     if (!this.action) {
       if (input.pressed.Digit1) {
-        this.setItem(this.items[0])
+        this.itemIdx.value = 0
       } else if (input.pressed.Digit2) {
-        this.setItem(this.items[1])
+        this.itemIdx.value = 1
       } else if (input.pressed.Digit3) {
-        this.setItem(this.items[2])
+        this.itemIdx.value = 2
       } else if (input.pressed.Digit4) {
-        this.setItem(this.items[3])
+        this.itemIdx.value = 3
       }
     }
 
@@ -282,19 +279,23 @@ export class Player extends Entity {
     }
 
     // HACK: temp flying
-    // if (input.down.Space) {
-    //   this.velocity.y += 1
-    // }
+    if (input.down.Space) {
+      this.velocity.y += 1
+    }
 
     // apply emote
     if (this.action) {
       this.vrm.setEmote(this.action.emote)
+      this.emote.value = this.action.emote
     } else if (!this.isGrounded) {
       this.vrm.setEmote(emotes.float)
+      this.emote.value = emotes.float
     } else if (this.isMoving) {
       this.vrm.setEmote(emotes.run)
+      this.emote.value = emotes.run
     } else {
       this.vrm.setEmote(emotes.idle)
+      this.emote.value = emotes.idle
     }
 
     // apply the velocity (for this frame) to our displacement
@@ -354,14 +355,36 @@ export class Player extends Entity {
       this.action = null
     }
 
+    // attach any item to bone
     if (this.item?.model) {
       this.vrm.applyBoneMatrixWorld(this.item.boneName, this.item.model.matrix)
       this.item.model.matrixWorld.copy(this.item.model.matrix)
     }
+
+    // network
+    this.position.value.copy(this.root.position)
+    this.quaternion.value.copy(this.root.quaternion)
   }
 
   updateRemote(delta) {
-    // ...
+    // move
+    // smoothDamp(
+    //   this.root.position,
+    //   this.position.value,
+    //   MOVING_SEND_RATE * 3,
+    //   delta
+    // )
+    this.root.position.lerp(this.position.value, 7 * delta)
+    this.root.quaternion.slerp(this.quaternion.value, 7 * delta)
+    this.root.updateMatrix()
+    this.vrm.move(this.root.matrix)
+    // emote
+    this.vrm.setEmote(this.emote.value)
+    // item attachment
+    if (this.item?.model) {
+      this.vrm.applyBoneMatrixWorld(this.item.boneName, this.item.model.matrix)
+      this.item.model.matrixWorld.copy(this.item.model.matrix)
+    }
   }
 
   teleport(x, y, z) {
@@ -371,14 +394,15 @@ export class Player extends Entity {
     this.controller.setFootPosition(this.root.position.toPxExtVec3())
   }
 
-  async setItem(item) {
+  async setItem(idx) {
     // clear any current item
     if (this.item) {
       if (this.item.model) {
         this.world.graphics.scene.remove(this.item.model)
       }
     }
-    this.item = item
+    this.item = this.items[idx]
+    const item = this.item
     if (item.modelUrl) {
       // load it if we haven't yet
       if (!item.model) {

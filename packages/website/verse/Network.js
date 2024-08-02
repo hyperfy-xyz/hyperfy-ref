@@ -144,7 +144,6 @@ export class Network extends System {
       ownerId: this.client.id, // destroy when client leaves
       position: [0, 0, 0],
       quaternion: [0, 0, 0, 1],
-      vars: {},
     }
     this.player = this.world.entities.addEntityLocal(player)
 
@@ -179,8 +178,6 @@ export class Network extends System {
             .toArray(),
           // position: [0, 0, 10],
           // quaternion: [0, 0, 0, 1],
-          state: {},
-          vars: {},
         }
         this.world.entities.addEntityLocal(bot)
       }
@@ -224,19 +221,19 @@ export class Network extends System {
   }
 
   onEntityAdded = data => {
-    this.log('entity:added', data)
+    // this.log('entity:added', data)
     this.world.entities.addEntity(data)
   }
 
   onEntityUpdated = data => {
-    this.log('entity:updated', data)
+    // this.log('entity:updated', data)
     const entity = this.world.entities.getEntity(data.id)
     if (!entity) return
     entity.receiveNetworkUpdate(data)
   }
 
   onEntityRemoved = id => {
-    this.log('entity:removed', id)
+    // this.log('entity:removed', id)
     this.world.entities.removeEntity(id)
   }
 

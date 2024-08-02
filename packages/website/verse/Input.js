@@ -168,8 +168,6 @@ export class Input extends System {
         modeClientId: this.world.network.client.id,
         position: hit.point.toArray(),
         quaternion: [0, 0, 0, 1],
-        state: {},
-        vars: {},
       })
       try {
         await this.world.loader.uploadAsset(file)

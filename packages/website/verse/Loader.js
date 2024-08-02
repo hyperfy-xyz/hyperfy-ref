@@ -13,6 +13,7 @@ import { vrmToNodes } from './extras/vrmToNodes'
 
 import { System } from './System'
 import { createEmoFactory } from './extras/createEmoFactory'
+import { createVRMFactory } from './extras/createVRMFactory'
 
 // cache across loaders
 THREE.Cache.enabled = true
@@ -92,6 +93,8 @@ export class Loader extends System {
       return promise
     }
     if (type === 'vrm') {
+      // TODO: loader.load should just cache and return factories for everything like this
+      // and if they need nodes, DIY
       const promise = this.loadVRM(url)
       this.results.set(url, promise)
       return promise
@@ -131,8 +134,9 @@ export class Loader extends System {
   }
 
   loadVRM(url) {
-    return this.gltfLoader.loadAsync(url).then(vrm => {
-      return vrmToNodes(vrm, world)
+    return this.gltfLoader.loadAsync(url).then(glb => {
+      return createVRMFactory(glb, this.world)
+      // return vrmToNodes(glb, world)
     })
   }
 

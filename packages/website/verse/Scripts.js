@@ -7,6 +7,7 @@ import { num } from './extras/num'
 import { wrapRawCode } from './extras/wrapRawCode'
 
 import { System } from './System'
+import { Vector3Enhanced } from './extras/Vector3Enhanced'
 
 export class Scripts extends System {
   constructor(world) {
@@ -24,7 +25,7 @@ export class Scripts extends System {
       num: num,
       Object3D: THREE.Object3D,
       Quaternion: THREE.Quaternion,
-      Vector3: THREE.Vector3,
+      Vector3: Vector3Enhanced,
       Euler: THREE.Euler,
       Matrix4: THREE.Matrix4,
       Vector3Lerp: Vector3Lerp,

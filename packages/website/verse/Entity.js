@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 
 import { Events } from './extras/Events'
+import { Vector3Enhanced } from './extras/Vector3Enhanced'
 
 const v1 = new THREE.Vector3()
 const q1 = new THREE.Quaternion()
@@ -23,8 +24,10 @@ export class Entity {
 
   createNetworkProp(key, value, onChange) {
     let prop
-    if (value?.isVector3) {
+    if (value?.isVector3Enhanced) {
       prop = createVector3NetworkProp(this, key, value, onChange)
+    } else if (value?.isVector3) {
+      prop = createVector3NetworkProp(this, key, new Vector3Enhanced().copy(value), onChange) // prettier-ignore
     } else if (value?.isQuaternion) {
       prop = createQuaternionNetworkProp(this, key, value, onChange)
     } else {
@@ -78,6 +81,8 @@ export class Entity {
 }
 
 function createPrimitiveNetworkProp(entity, key, value, onChange) {
+  let deserializing
+  let oldValue = value
   const prop = {
     key,
     value,
@@ -86,10 +91,12 @@ function createPrimitiveNetworkProp(entity, key, value, onChange) {
         return prop.value
       },
       set value(newValue) {
-        const oldValue = prop.value
+        if (deserializing) return
+        if (entity.dirtyProps.has(prop)) return
         if (oldValue === newValue) return
         prop.value = newValue
         prop.box.onChange?.(newValue, oldValue)
+        oldValue = newValue
         entity.dirtyProps.add(prop)
         entity.world.network.queueEntity(entity)
       },
@@ -99,16 +106,20 @@ function createPrimitiveNetworkProp(entity, key, value, onChange) {
       return prop.value
     },
     deserialize(data) {
+      deserializing = true
       const oldValue = prop.value
       const newValue = data
       prop.value = newValue
       prop.box.onChange?.(newValue, oldValue)
+      deserializing = false
     },
   }
   return prop
 }
 
 function createVector3NetworkProp(entity, key, value, onChange) {
+  let deserializing
+  const oldValue = value.clone()
   const prop = {
     key,
     value,
@@ -117,11 +128,12 @@ function createVector3NetworkProp(entity, key, value, onChange) {
         return prop.value
       },
       set value(newValue) {
-        // TODO: right now we take any setter value but we need it to be smarter
-        // TODO: watch .x .y .z changes too
-        const oldValue = v1.copy(prop.value)
+        if (deserializing) return
+        if (entity.dirtyProps.has(prop)) return
+        if (oldValue.equals(newValue)) return
         prop.value.copy(newValue)
         prop.box.onChange?.(prop.value, oldValue)
+        oldValue.copy(newValue)
         entity.dirtyProps.add(prop)
         entity.world.network.queueEntity(entity)
       },
@@ -131,15 +143,28 @@ function createVector3NetworkProp(entity, key, value, onChange) {
       return prop.value.toArray()
     },
     deserialize(data) {
-      const oldValue = v1.copy(prop.value)
+      deserializing = true
+      oldValue.copy(prop.value)
       const newValue = prop.value.fromArray(data)
       prop.box.onChange?.(newValue, oldValue)
+      deserializing = false
     },
   }
+  prop.value._onChange(() => {
+    if (deserializing) return
+    if (entity.dirtyProps.has(prop)) return
+    if (oldValue.equals(value)) return
+    prop.box.onChange?.(prop.value, oldValue)
+    oldValue.copy(prop.value)
+    entity.dirtyProps.add(prop)
+    entity.world.network.queueEntity(entity)
+  })
   return prop
 }
 
 function createQuaternionNetworkProp(entity, key, value, onChange) {
+  let deserializing
+  const oldValue = value.clone()
   const prop = {
     key,
     value,
@@ -148,11 +173,12 @@ function createQuaternionNetworkProp(entity, key, value, onChange) {
         return prop.value
       },
       set value(newValue) {
-        // TODO: right now we take any setter value but we need it to be smarter
-        // TODO: watch .x .y .z .w changes too
-        const oldValue = q1.copy(prop.value)
+        if (deserializing) return
+        if (entity.dirtyProps.has(prop)) return
+        if (oldValue.equals(newValue)) return
         prop.value.copy(newValue)
         prop.box.onChange?.(prop.value, oldValue)
+        oldValue.copy(newValue)
         entity.dirtyProps.add(prop)
         entity.world.network.queueEntity(entity)
       },
@@ -162,10 +188,21 @@ function createQuaternionNetworkProp(entity, key, value, onChange) {
       return prop.value.toArray()
     },
     deserialize(data) {
-      const oldValue = q1.copy(prop.value)
+      deserializing = true
+      oldValue.copy(prop.value)
       const newValue = prop.value.fromArray(data)
       prop.box.onChange?.(newValue, oldValue)
+      deserializing = false
     },
   }
+  prop.value._onChange(() => {
+    if (deserializing) return
+    if (entity.dirtyProps.has(prop)) return
+    if (oldValue.equals(value)) return
+    prop.box.onChange?.(prop.value, oldValue)
+    oldValue.copy(prop.value)
+    entity.dirtyProps.add(prop)
+    entity.world.network.queueEntity(entity)
+  })
   return prop
 }

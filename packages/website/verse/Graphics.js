@@ -18,6 +18,7 @@ import {
 import { N8AOPass, N8AOPostPass } from 'n8ao'
 
 import { Layers } from './extras/Layers'
+import { Vector3Enhanced } from './extras/Vector3Enhanced'
 
 // import { CSM } from './libs/csm/CSM'
 import { CSM } from 'three/examples/jsm/csm/CSM.js'
@@ -215,6 +216,7 @@ export class Graphics extends System {
       mesh.receiveShadow = true
       mesh.matrixAutoUpdate = false
       mesh.matrixWorldAutoUpdate = false
+      mesh.position.y -= 0.01
       // mesh.scale.setScalar(40) // temp huge
       mesh.updateMatrix()
       mesh.matrixWorld.copy(mesh.matrix)

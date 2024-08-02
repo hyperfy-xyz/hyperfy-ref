@@ -172,8 +172,6 @@ export class Control extends System {
         modeClientId: this.world.network.client.id,
         position: [0, 0, 0], // hit.point.toArray(),
         quaternion: [0, 0, 0, 1],
-        state: {},
-        vars: {},
       })
       try {
         await this.world.loader.uploadAsset(file)
@@ -769,8 +767,6 @@ export class Control extends System {
               modeClientId: null,
               position: entity.root.position.toArray(),
               quaternion: entity.root.quaternion.toArray(),
-              state: entity.state,
-              vars: {},
             })
             this.world.entities.removeEntityLocal(entity.id)
           },
@@ -792,8 +788,6 @@ export class Control extends System {
             modeClientId: this.world.network.client.id,
             position: entity.root.position.toArray(),
             quaternion: entity.root.quaternion.toArray(),
-            state: {},
-            vars: {},
           })
         },
       })
@@ -819,8 +813,6 @@ export class Control extends System {
               quaternion: q1.toArray(),
               // position: [num(-100, 100, 3), num(0, 100, 3), num(-100, 100, 3)], // everywhere
               // quaternion: [0, 0, 0, 1],
-              state: entity.state,
-              vars: {},
             })
           }
         },
