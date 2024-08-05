@@ -139,17 +139,12 @@ export class Player extends Entity {
     desc.contactOffset = 0.1 // PhysX default = 0.1
     desc.stepOffset = 0.5 // PhysX default = 0.5m
     this.controller = this.world.physics.controllerManager.createController(desc) // prettier-ignore
-    console.log('ctr', this.controller)
+    // console.log('ctr', this.controller)
     PHYSX.destroy(desc)
     this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
 
     // vrm
     await this.loadVRM()
-
-    // camera
-    this.world.graphics.cameraRig.position.y = this.vrm.height
-    this.world.graphics.cameraRig.rotation.x = -25 * DEG2RAD
-    this.world.graphics.camera.position.z = 6
 
     // start
     // this.world.graphics.scene.add(this.vrm)
@@ -198,8 +193,7 @@ export class Player extends Entity {
 
   updateLocal(delta) {
     const input = this.world.input
-    const rig = this.world.graphics.cameraRig
-    const camera = this.world.graphics.camera
+    const cam = this.world.graphics.cam
     const ghost = this.ghost
 
     // rotate camera if dragging
@@ -210,8 +204,8 @@ export class Player extends Entity {
       }
       this.lookDelta.copy(input.pan).sub(this.lookStart).multiplyScalar(LOOK_SPEED * delta) // prettier-ignore
       this.lookStart.copy(input.pan)
-      rig.rotation.y += -this.lookDelta.x
-      rig.rotation.x += -this.lookDelta.y
+      cam.rotation.y += -this.lookDelta.x
+      cam.rotation.x += -this.lookDelta.y
     } else {
       this.looking = false
     }
@@ -221,8 +215,7 @@ export class Player extends Entity {
       this.zoom -= input.wheel * ZOOM_SPEED * delta
       this.zoom = clamp(this.zoom, MIN_ZOOM, MAX_ZOOM)
     }
-    v1.set(0, 0, this.zoom)
-    camera.position.lerp(v1, 6 * delta)
+    cam.zoom = this.zoom
 
     // switch items (if not performing an action)
     if (!this.action) {
@@ -268,7 +261,7 @@ export class Player extends Entity {
       this.displacement.normalize()
 
       // rotate displacement by camera Y-rotation
-      const yRigQuaternion = q1.setFromAxisAngle(UP, rig.rotation.y)
+      const yRigQuaternion = q1.setFromAxisAngle(UP, cam.rotation.y)
       this.displacement.applyQuaternion(yRigQuaternion)
 
       // get a quaternion that faces the direction we are moving
@@ -303,7 +296,7 @@ export class Player extends Entity {
 
       // lock on (face camera)
       if (this.action.lockOn) {
-        this.targetEuler.set(0, rig.rotation.y, 0)
+        this.targetEuler.set(0, cam.rotation.y, 0)
         this.targetQuaternion.setFromEuler(this.targetEuler)
       }
     }
@@ -323,9 +316,9 @@ export class Player extends Entity {
     }
 
     // HACK: temp flying
-    // if (input.down.Space) {
-    //   this.velocity.y += 1
-    // }
+    if (input.down.Space) {
+      this.velocity.y += 1
+    }
 
     // apply emote
     if (this.action) {
@@ -382,7 +375,7 @@ export class Player extends Entity {
 
     // make camera follow our final position horizontally
     // and vertically at our vrm model height
-    rig.position.set(
+    cam.position.set(
       ghost.position.x,
       ghost.position.y + this.vrm.height,
       ghost.position.z
