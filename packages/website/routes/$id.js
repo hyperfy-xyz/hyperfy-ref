@@ -9,6 +9,7 @@ import { CodeEditor } from '@/components/CodeEditor'
 
 import { Verse } from '@/verse/Verse'
 import { wrapRawCode } from '@/verse/extras/wrapRawCode'
+import { Backpack } from '@/components/Backpack'
 
 let verse
 const getVerse = () => {
@@ -82,7 +83,7 @@ function Content() {
           }
           .world-next {
             position: absolute;
-            bottom: 20px;
+            top: 80px;
             right: 20px;
             background: black;
             color: white;
@@ -111,6 +112,7 @@ function Content() {
           <Context x={context.x} y={context.y} actions={context.actions} />
         )}
         {world && <Panels world={world} />}
+        {/* <Backpack world={world} /> */}
         {verse.next && <div className='world-next'>Loading next world</div>}
       </div>
     </>

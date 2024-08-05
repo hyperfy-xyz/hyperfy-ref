@@ -15,6 +15,7 @@ import {
   BombIcon,
   CopyIcon,
   EyeIcon,
+  GrabIcon,
   HandIcon,
   PencilRulerIcon,
   Trash2Icon,
@@ -70,6 +71,21 @@ export class Object extends Entity {
     this.load()
 
     // console.log(this)
+  }
+
+  serialize() {
+    return {
+      type: 'object',
+      id: null,
+      creator: this.creator,
+      schemaId: this.schema.id,
+      authority: null,
+      uploading: false,
+      mode: this.mode.value,
+      modeClientId: this.modeClientId.value,
+      position: this.position.value.toArray(),
+      quaternion: this.quaternion.value.toArray(),
+    }
   }
 
   onUploadingChange(newValue, oldValue) {
@@ -657,6 +673,15 @@ export class Object extends Entity {
         }
       },
     })
+    // add({
+    //   label: 'Take',
+    //   icon: GrabIcon,
+    //   visible: true,
+    //   disabled: false,
+    //   execute: () => {
+    //     world.backpack.take(self)
+    //   },
+    // })
     add({
       label: 'Destroy',
       icon: Trash2Icon,
