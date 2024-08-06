@@ -3,10 +3,21 @@ import * as THREE from 'three'
 
 const _v1 = new THREE.Vector3()
 const _v2 = new THREE.Vector3()
+const _v3 = new THREE.Vector3()
 const _q1 = new THREE.Quaternion()
 const _m1 = new THREE.Matrix4()
+const _intersectionPoint = new THREE.Vector3()
 const _intersects = []
 const _mesh = new THREE.Mesh()
+
+const _sphere = new THREE.Sphere()
+const _ray = new THREE.Ray()
+
+const _sphere2 = new THREE.Sphere()
+
+const _inverseMatrix = new THREE.Matrix4()
+const _tempSphere = new THREE.Sphere()
+const _tempRay = new THREE.Ray()
 
 // https://anteru.net/blog/2008/loose-octrees/
 
@@ -105,22 +116,13 @@ export class LooseOctree {
     return intersects
   }
 
-  // spherecast(sphere, intersects = []) {
-  //   // console.time('spherecast')
-  //   this.root.spherecast(sphere, intersects)
-  //   intersects.sort(sortAscending)
-  //   // console.timeEnd('spherecast')
-  //   // console.log('octree.spherecast', intersects)
-  //   return intersects
-  // }
-
-  // prune() {
-  //   console.time('prune')
-  //   this.pruneCount = 0
-  //   this.root.prune()
-  //   console.timeEnd('prune')
-  //   console.log('pruned:', this.pruneCount)
-  // }
+  spherecast(origin, direction, radius, far = Infinity, intersects = []) {
+    _sphere.set(origin, radius)
+    _ray.set(origin, direction)
+    this.root.spherecast(_sphere, _ray, far, intersects)
+    intersects.sort(sortAscending)
+    return intersects
+  }
 
   toggleHelper(enabled) {
     enabled = isBoolean(enabled) ? enabled : !this.helper
@@ -281,61 +283,154 @@ class LooseOctreeNode {
     return intersects
   }
 
-  // spherecast(sphere, intersects) {
-  //   if (!sphere.intersectsBox(this.outer)) {
-  //     return intersects
-  //   }
-  //   for (const item of this.items) {
-  //     if (sphere.intersectsSphere(item.sphere)) {
-  //       // just sphere-to-sphere is good enough for now
-  //       const centerToCenterDistance = sphere.center.distanceTo(
-  //         item.sphere.center
-  //       )
-  //       const overlapDistance =
-  //         item.sphere.radius + sphere.radius - centerToCenterDistance
-  //       const distance = Math.max(0, overlapDistance)
-  //       const intersect = {
-  //         distance: distance,
-  //         point: null,
-  //         object: null,
-  //         getEntity: item.getEntity,
-  //       }
-  //       intersects.push(intersect)
-  //       // _mesh.geometry = item.geometry
-  //       // _mesh.material = item.material
-  //       // _mesh.matrixWorld = item.matrix
-  //       // _mesh.raycast(raycaster, _intersects)
-  //       // for (let i = 0, l = _intersects.length; i < l; i++) {
-  //       //   const intersect = _intersects[i]
-  //       //   intersect.getEntity = item.getEntity
-  //       //   intersects.push(intersect)
-  //       // }
-  //       // _intersects.length = 0
-  //     }
-  //   }
-  //   for (const child of this.children) {
-  //     child.spherecast(sphere, intersects)
-  //   }
-  //   return intersects
-  // }
+  spherecast(sphere, ray, far, intersects) {
+    const nodeSphereRadius = Math.sqrt(3) * this.size
+    const nodeSphere = _sphere2.set(this.center, nodeSphereRadius)
+    if (!ray.intersectsSphere(nodeSphere)) {
+      return intersects
+    }
+    for (const item of this.items) {
+      if (item.info?.tag === 'ground') continue
+      const combinedItemSphere = _sphere2.set(item.sphere.center, item.sphere.radius + sphere.radius) // prettier-ignore
+      if (ray.intersectSphere(combinedItemSphere, _v1)) {
+        // temp: this seems to work fine but the commented code below acts more like a regular raycast
+        // const intersect = {
+        //   distance: ray.origin.distanceTo(_v1),
+        //   point: _v1.clone(),
+        //   info: item.info,
+        // }
+        // intersects.push(intersect)
 
-  // prune() {
-  //   let empty = true
-  //   for (const child of this.children) {
-  //     const canPrune = !child.items.length && child.prune()
-  //     if (!canPrune) {
-  //       empty = false
-  //     }
-  //   }
-  //   if (empty) {
-  //     for (const child of this.children) {
-  //       this.octree.helper?.remove(child)
-  //     }
-  //     this.children.length = 0
-  //     this.octree.pruneCount++
-  //   }
-  //   return empty
-  // }
+        _mesh.geometry = item.geometry
+        _mesh.material = item.material
+        _mesh.matrixWorld = item.matrix
+
+        _inverseMatrix.copy(item.matrix).invert()
+        const localSphere = _tempSphere
+          .copy(sphere)
+          .applyMatrix4(_inverseMatrix)
+        const localRay = _tempRay.copy(ray).applyMatrix4(_inverseMatrix)
+
+        console.log('Local sphere:', {
+          center: localSphere.center.toArray(),
+          radius: localSphere.radius,
+        })
+        console.log('Local ray:', {
+          origin: localRay.origin.toArray(),
+          direction: localRay.direction.toArray(),
+        })
+
+        const position = item.geometry.attributes.position
+        const index = item.geometry.index
+
+        for (let i = 0; i < index.count; i += 3) {
+          _v1.fromBufferAttribute(position, index.getX(i))
+          _v2.fromBufferAttribute(position, index.getY(i))
+          _v3.fromBufferAttribute(position, index.getZ(i))
+
+          console.log('Triangle vertices:', {
+            v1: _v1.toArray(),
+            v2: _v2.toArray(),
+            v3: _v3.toArray(),
+          })
+
+          const intersectionPoint = new THREE.Vector3()
+          const distance = rayIntersectsSphereTriangle(
+            localRay,
+            localSphere,
+            _v1,
+            _v2,
+            _v3,
+            intersectionPoint
+          )
+
+          console.log('Ray intersection result:', {
+            distance,
+            intersectionPoint: intersectionPoint.toArray(),
+          })
+
+          if (distance !== null && distance < far) {
+            const worldIntersectionPoint = intersectionPoint.applyMatrix4(
+              item.matrix
+            )
+            const worldDistance = worldIntersectionPoint.distanceTo(ray.origin)
+
+            const intersect = {
+              distance: worldDistance,
+              point: worldIntersectionPoint,
+              info: item.info,
+            }
+            intersects.push(intersect)
+            console.log('Intersection found:', intersect)
+          }
+        }
+
+        // _mesh.geometry = item.geometry
+        // _mesh.material = item.material
+        // _mesh.matrixWorld = item.matrix
+
+        // // get sphere and ray in mesh local coordinates
+        // _inverseMatrix.copy(item.matrix).invert()
+        // _tempSphere.copy(sphere).applyMatrix4(_inverseMatrix)
+        // _tempRay.copy(ray).applyMatrix4(_inverseMatrix)
+
+        // const position = item.geometry.attributes.position
+        // const index = item.geometry.index
+
+        // let closestIntersection = null
+        // let closestDistance = Infinity
+
+        // for (let i = 0; i < index.count; i += 3) {
+        //   _v1.fromBufferAttribute(position, index.getX(i))
+        //   _v2.fromBufferAttribute(position, index.getY(i))
+        //   _v3.fromBufferAttribute(position, index.getZ(i))
+
+        //   // Calculate normal using original vertices
+        //   const normal = _v1
+        //     .clone()
+        //     .sub(_v2)
+        //     .cross(_v3.clone().sub(_v2))
+        //     .normalize()
+
+        //   // Create new vectors for the expanded triangle
+        //   const e1 = _v1.clone().addScaledVector(normal, sphere.radius)
+        //   const e2 = _v2.clone().addScaledVector(normal, sphere.radius)
+        //   const e3 = _v3.clone().addScaledVector(normal, sphere.radius)
+
+        //   // Check for ray intersection with the expanded triangle
+        //   if (
+        //     _tempRay.intersectTriangle(e1, e2, e3, false, _intersectionPoint)
+        //   ) {
+        //     const localDistance = _intersectionPoint.distanceTo(_tempRay.origin)
+        //     if (localDistance < closestDistance) {
+        //       closestDistance = localDistance
+        //       closestIntersection = _intersectionPoint.clone()
+        //     }
+        //   }
+        // }
+
+        // if (closestIntersection) {
+        //   const worldIntersectionPoint = closestIntersection.applyMatrix4(
+        //     item.matrix
+        //   )
+        //   const worldDistance = worldIntersectionPoint.distanceTo(ray.origin)
+
+        //   if (worldDistance < far) {
+        //     const intersect = {
+        //       distance: worldDistance,
+        //       point: worldIntersectionPoint,
+        //       info: item.info,
+        //     }
+        //     intersects.push(intersect)
+        //   }
+        // }
+      }
+    }
+    for (const child of this.children) {
+      child.spherecast(sphere, ray, far, intersects)
+    }
+    return intersects
+  }
 
   getDepth() {
     if (this.children.length === 0) {
@@ -489,3 +584,426 @@ function createHelper(octree) {
     destroy,
   }
 }
+
+function rayIntersectsSphereTriangle(ray, sphere, a, b, c, target) {
+  // First, check if the ray intersects the sphere
+  const sphereIntersection = new THREE.Vector3()
+  const intersectsSphere = ray.intersectSphere(sphere, sphereIntersection)
+
+  if (!intersectsSphere) {
+    console.log('Ray does not intersect sphere')
+    return null
+  }
+
+  // Calculate the triangle normal
+  const edge1 = _v1.subVectors(b, a)
+  const edge2 = _v2.subVectors(c, a)
+  const normal = _v3.crossVectors(edge1, edge2).normalize()
+
+  // Calculate the distance from the ray origin to the triangle plane
+  const denom = normal.dot(ray.direction)
+
+  if (Math.abs(denom) < 1e-6) {
+    console.log('Ray is parallel to triangle plane')
+    return null
+  }
+
+  const t = normal.dot(_v1.subVectors(a, ray.origin)) / denom
+
+  if (t < 0) {
+    console.log('Triangle is behind the ray')
+    return null
+  }
+
+  const intersectionPoint = ray.at(t, new THREE.Vector3())
+  console.log('Ray-plane intersection point:', intersectionPoint.toArray())
+
+  // Check if the intersection point is inside the triangle
+  const inTriangle = pointInTriangle(intersectionPoint, a, b, c)
+  console.log('Intersection point in triangle:', inTriangle)
+
+  if (
+    inTriangle &&
+    intersectionPoint.distanceTo(sphere.center) <= sphere.radius
+  ) {
+    target.copy(intersectionPoint)
+    return t
+  }
+
+  // If not in triangle, check edges
+  const edges = [
+    [a, b],
+    [b, c],
+    [c, a],
+  ]
+  for (const [v1, v2] of edges) {
+    const closestPoint = closestPointOnLineSegment(v1, v2, intersectionPoint)
+    if (
+      closestPoint.distanceTo(sphere.center) <= sphere.radius // &&
+      // closestPoint.distanceTo(ray.origin) <= far
+    ) {
+      target.copy(closestPoint)
+      return closestPoint.distanceTo(ray.origin)
+    }
+  }
+
+  console.log('No intersection found')
+  return null
+}
+
+function pointInTriangle(p, a, b, c) {
+  const v0 = c.clone().sub(a)
+  const v1 = b.clone().sub(a)
+  const v2 = p.clone().sub(a)
+
+  const dot00 = v0.dot(v0)
+  const dot01 = v0.dot(v1)
+  const dot02 = v0.dot(v2)
+  const dot11 = v1.dot(v1)
+  const dot12 = v1.dot(v2)
+
+  const invDenom = 1 / (dot00 * dot11 - dot01 * dot01)
+  const u = (dot11 * dot02 - dot01 * dot12) * invDenom
+  const v = (dot00 * dot12 - dot01 * dot02) * invDenom
+
+  return u >= 0 && v >= 0 && u + v <= 1
+}
+
+function closestPointOnLineSegment(a, b, p) {
+  const ab = b.clone().sub(a)
+  let t = p.clone().sub(a).dot(ab) / ab.dot(ab)
+  t = Math.max(0, Math.min(1, t))
+  return a.clone().add(ab.multiplyScalar(t))
+}
+
+// function checkTriangleSphereIntersection(sphere, v1, v2, v3, ray) {
+//   // This function needs to consider the sphere's radius while checking for intersection
+//   const faceNormal = new THREE.Vector3()
+//     .crossVectors(v2.clone().sub(v1), v3.clone().sub(v1))
+//     .normalize()
+//   const expandedV1 = v1.clone().add(faceNormal.multiplyScalar(sphere.radius))
+//   const expandedV2 = v2.clone().add(faceNormal.multiplyScalar(sphere.radius))
+//   const expandedV3 = v3.clone().add(faceNormal.multiplyScalar(sphere.radius))
+
+//   const triangle = new THREE.Triangle(expandedV1, expandedV2, expandedV3)
+//   const target = new THREE.Vector3()
+
+//   if (ray.intersectTriangle(expandedV1, expandedV2, expandedV3, true, target)) {
+//     // Calculate the distance from the ray origin to the intersection point
+//     const distance = ray.origin.distanceTo(target)
+//     if (distance <= sphere.radius) {
+//       return {
+//         point: target,
+//         distance: distance,
+//         normal: triangle.getNormal(new THREE.Vector3()),
+//         face: { a: expandedV1, b: expandedV2, c: expandedV3 },
+//       }
+//     }
+//   }
+
+//   return null
+// }
+
+// function spherecast(item, mesh, ray, sphere, intersects) {
+//   const _inverseMatrix = new THREE.Matrix4().copy(mesh.matrixWorld).invert()
+//   const _localRay = ray.clone().applyMatrix4(_inverseMatrix)
+//   const _localSphere = sphere.clone().applyMatrix4(_inverseMatrix)
+
+//   const geometry = mesh.geometry
+//   const positionAttribute = geometry.attributes.position
+//   const index = geometry.index
+
+//   if (index) {
+//     for (let i = 0; i < index.count; i += 3) {
+//       const a = index.getX(i)
+//       const b = index.getX(i + 1)
+//       const c = index.getX(i + 2)
+
+//       const v1 = new THREE.Vector3().fromBufferAttribute(positionAttribute, a)
+//       const v2 = new THREE.Vector3().fromBufferAttribute(positionAttribute, b)
+//       const v3 = new THREE.Vector3().fromBufferAttribute(positionAttribute, c)
+
+//       const intersection = checkTriangleSphereIntersection(
+//         _localSphere,
+//         v1,
+//         v2,
+//         v3,
+//         _localRay
+//       )
+
+//       if (intersection) {
+//         console.log('WOOO')
+//         intersects.push({
+//           point: intersection.point.applyMatrix4(mesh.matrixWorld),
+//           distance: intersection.distance,
+//           face: intersection.face,
+//           normal: intersection.normal,
+//           object: mesh,
+//           info: item.info,
+//         })
+//       }
+//     }
+//   } else {
+//     console.log('BOO')
+//   }
+
+//   return intersects
+// }
+
+// // function checkTriangleSphereIntersection(sphere, v1, v2, v3, ray, target) {
+// //   // First, check if the ray intersects the triangle
+// //   const intersection = ray.intersectTriangle(v1, v2, v3, false, target)
+// //   if (intersection) {
+// //     // If the ray intersects the triangle, check if this point is within the sphere's path
+// //     const distanceAlongRay = intersection.sub(ray.origin).dot(ray.direction)
+// //     if (distanceAlongRay >= 0 && distanceAlongRay <= sphere.radius) {
+// //       return true
+// //     }
+// //   }
+
+// //   // If no intersection, check if the sphere intersects the triangle at its closest approach
+// //   const planeNormal = new THREE.Vector3()
+// //     .crossVectors(_v1.subVectors(v2, v1), _v2.subVectors(v3, v1))
+// //     .normalize()
+
+// //   const planeConstant = planeNormal.dot(v1)
+// //   const rayDirectionDotNormal = ray.direction.dot(planeNormal)
+
+// //   if (Math.abs(rayDirectionDotNormal) < 1e-6) {
+// //     // Ray is parallel to the triangle plane
+// //     return false
+// //   }
+
+// //   const t =
+// //     (planeConstant - ray.origin.dot(planeNormal)) / rayDirectionDotNormal
+// //   const closestPoint = ray.at(t, new THREE.Vector3())
+
+// //   const closestPointToTriangle = new THREE.Vector3()
+// //   new THREE.Triangle(v1, v2, v3).closestPointToPoint(
+// //     closestPoint,
+// //     closestPointToTriangle
+// //   )
+
+// //   if (closestPoint.distanceTo(closestPointToTriangle) <= sphere.radius) {
+// //     target.copy(closestPointToTriangle)
+// //     return true
+// //   }
+
+// //   return false
+// // }
+
+// // function checkTriangleSphereIntersection(sphere, v1, v2, v3, ray, target) {
+// //   // Check if the sphere intersects with the triangle
+// //   const closestPoint = new THREE.Vector3()
+// //   const triangle = new THREE.Triangle(v1, v2, v3)
+// //   triangle.closestPointToPoint(sphere.center, closestPoint)
+
+// //   if (
+// //     closestPoint.distanceToSquared(sphere.center) <=
+// //     sphere.radius * sphere.radius
+// //   ) {
+// //     // The sphere intersects with the triangle
+// //     // Now check if the ray intersects with the triangle
+// //     const intersectionPoint = ray.intersectTriangle(v1, v2, v3, false, target)
+// //     if (intersectionPoint) {
+// //       // Check if the intersection point is within the sphere
+// //       if (
+// //         intersectionPoint.distanceToSquared(sphere.center) <=
+// //         sphere.radius * sphere.radius
+// //       ) {
+// //         return true
+// //       }
+// //     }
+// //   }
+
+// //   return false
+// // }
+
+// // function triangleSphereIntersect(sphere, v0, v1, v2, ray, target) {
+// //   // Check if the sphere intersects with the triangle
+// //   const closestPoint = new THREE.Vector3()
+// //   const triangle = new THREE.Triangle(v0, v1, v2)
+// //   triangle.closestPointToPoint(sphere.center, closestPoint)
+
+// //   if (
+// //     closestPoint.distanceToSquared(sphere.center) <=
+// //     sphere.radius * sphere.radius
+// //   ) {
+// //     // The sphere intersects with the triangle
+// //     // Now check if the ray intersects with the triangle
+// //     const backfaceCulling = false // Set to true if you want to cull backfaces
+// //     return ray.intersectTriangle(v0, v1, v2, backfaceCulling, target)
+// //   }
+
+// //   return false
+// // }
+
+// // ===== Repurposed Mesh.raycast/_computeIntersections for spheres
+
+// // function _computeIntersectionsSphere(mesh, raycaster, intersects, sphere) {
+// //   const geometry = mesh.geometry
+// //   const material = mesh.material
+// //   const matrixWorld = mesh.matrixWorld
+
+// //   if (material === undefined) return
+
+// //   // Temporary variables
+// //   const _inverseMatrix = new THREE.Matrix4()
+// //   const _ray = new THREE.Ray()
+// //   const _sphere = new THREE.Sphere()
+// //   const _sphereHitAt = new THREE.Vector3()
+
+// //   // Convert sphere to local space of mesh
+// //   _inverseMatrix.copy(matrixWorld).invert()
+// //   _sphere.copy(sphere).applyMatrix4(_inverseMatrix)
+// //   _ray.copy(raycaster.ray).applyMatrix4(_inverseMatrix)
+
+// //   const index = geometry.index
+// //   const position = geometry.attributes.position
+// //   const uv = geometry.attributes.uv
+// //   const uv1 = geometry.attributes.uv1
+// //   const normal = geometry.attributes.normal
+// //   const groups = geometry.groups
+// //   const drawRange = geometry.drawRange
+
+// //   if (index !== null) {
+// //     // Indexed buffer geometry
+// //     const start = Math.max(0, drawRange.start)
+// //     const end = Math.min(index.count, drawRange.start + drawRange.count)
+
+// //     for (let i = start, il = end; i < il; i += 3) {
+// //       const a = index.getX(i)
+// //       const b = index.getX(i + 1)
+// //       const c = index.getX(i + 2)
+
+// //       const intersection = checkGeometryIntersection(
+// //         mesh,
+// //         material,
+// //         _ray,
+// //         _sphere,
+// //         uv,
+// //         uv1,
+// //         normal,
+// //         a,
+// //         b,
+// //         c
+// //       )
+
+// //       if (intersection) {
+// //         intersection.faceIndex = Math.floor(i / 3)
+// //         applyMatrix4ToIntersection(intersection, matrixWorld)
+// //         intersects.push(intersection)
+// //         break
+// //       }
+// //     }
+// //   } else if (position !== undefined) {
+// //     // Non-indexed buffer geometry
+// //     const start = Math.max(0, drawRange.start)
+// //     const end = Math.min(position.count, drawRange.start + drawRange.count)
+
+// //     for (let i = start, il = end; i < il; i += 3) {
+// //       const a = i
+// //       const b = i + 1
+// //       const c = i + 2
+
+// //       const intersection = checkGeometryIntersection(
+// //         mesh,
+// //         material,
+// //         _ray,
+// //         _sphere,
+// //         uv,
+// //         uv1,
+// //         normal,
+// //         a,
+// //         b,
+// //         c
+// //       )
+
+// //       if (intersection) {
+// //         intersection.faceIndex = Math.floor(i / 3)
+// //         applyMatrix4ToIntersection(intersection, matrixWorld)
+// //         intersects.push(intersection)
+// //         break
+// //       }
+// //     }
+// //   }
+// // }
+
+// // function checkGeometryIntersection(
+// //   object,
+// //   material,
+// //   ray,
+// //   sphere,
+// //   uv,
+// //   uv1,
+// //   normal,
+// //   a,
+// //   b,
+// //   c
+// // ) {
+// //   const _vA = new THREE.Vector3()
+// //   const _vB = new THREE.Vector3()
+// //   const _vC = new THREE.Vector3()
+// //   const _intersectionPoint = new THREE.Vector3()
+
+// //   object.getVertexPosition(a, _vA)
+// //   object.getVertexPosition(b, _vB)
+// //   object.getVertexPosition(c, _vC)
+
+// //   const intersection = checkTriangleSphereIntersection(
+// //     sphere,
+// //     _vA,
+// //     _vB,
+// //     _vC,
+// //     ray,
+// //     _intersectionPoint
+// //   )
+
+// //   if (intersection) {
+// //     const face = {
+// //       a: a,
+// //       b: b,
+// //       c: c,
+// //       normal: new THREE.Vector3(),
+// //       materialIndex: 0,
+// //     }
+
+// //     THREE.Triangle.getNormal(_vA, _vB, _vC, face.normal)
+
+// //     return {
+// //       point: _intersectionPoint.clone(),
+// //       face: face,
+// //       faceIndex: null, // Will be set later
+// //     }
+// //   }
+
+// //   return null
+// // }
+
+// // function checkTriangleSphereIntersection(sphere, v1, v2, v3, ray, target) {
+// //   // First, check if the ray intersects the triangle
+// //   const intersection = ray.intersectTriangle(v1, v2, v3, false, target)
+// //   if (intersection) {
+// //     // If the ray intersects the triangle, check if this point is within the sphere
+// //     if (intersection.distanceTo(sphere.center) <= sphere.radius) {
+// //       return true
+// //     }
+// //   }
+
+// //   // If no intersection, check if the sphere intersects the triangle
+// //   const closestPoint = new THREE.Vector3()
+// //   const triangle = new THREE.Triangle(v1, v2, v3)
+// //   triangle.closestPointToPoint(sphere.center, closestPoint)
+
+// //   if (closestPoint.distanceTo(sphere.center) <= sphere.radius) {
+// //     target.copy(closestPoint)
+// //     return true
+// //   }
+
+// //   return false
+// // }
+
+// // function applyMatrix4ToIntersection(intersection, matrix) {
+// //   intersection.point.applyMatrix4(matrix)
+// //   intersection.face.normal.applyMatrix4(matrix).normalize()
+// // }

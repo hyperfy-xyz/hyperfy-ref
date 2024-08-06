@@ -155,6 +155,7 @@ export class Graphics extends System {
     this.cam = new THREE.Object3D()
     this.cam.rotation.reorder('YXZ')
     this.cam.zoom = 4
+    this.cam.sphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 0.5)
 
     this.cameraRig = new THREE.Object3D()
     this.cameraRig.rotation.reorder('YXZ')
@@ -234,6 +235,9 @@ export class Graphics extends System {
         geometry: mesh.geometry,
         material: mesh.material,
         getEntity: null,
+        info: {
+          tag: 'ground',
+        },
       }
       this.world.spatial.octree.insert(sItem)
     })
@@ -299,12 +303,35 @@ export class Graphics extends System {
   }
 
   update(delta) {
+    // cam lag
     const distanceToTarget = this.cameraRig.position.distanceTo(this.cam.position) // prettier-ignore
     const t = Math.min(distanceToTarget / CAM_MAX_DISTANCE, 1)
     const lerpFactor = CAM_MAX_FACTOR - (CAM_MAX_FACTOR - CAM_MIN_FACTOR) * (1 - Math.pow(t, 2)) // prettier-ignore
     this.cameraRig.position.lerp(this.cam.position, lerpFactor * delta)
     this.cameraRig.quaternion.slerp(this.cam.quaternion, 16 * delta)
+    // cam zoom (+ spherecast)
+    this.cam.updateMatrix()
+    const direction = v1.set(0,0,1).applyMatrix4(this.cam.matrix).sub(this.cam.position).normalize() // prettier-ignore
+    // console.log(direction.toArray())
+    // const hits = this.world.spatial.octree.spherecast(
+    //   this.cam.position,
+    //   direction,
+    //   0.2
+    // )
+    // console.log(hits)
+    // console.log(hits.map(hit => hit.info?.tag))
+    // const hit = hits.find(hit => hit.getEntity?.()?.type !== 'player')
+    // const hit = hits.find(hit => hit.info?.tag !== 'vrm')
+    // const hit = hits[0]
+    // console.log(hit)
+    // console.log(hit?.getEntity?.())
+    // console.log(hit?.info?.tag, hit?.distance)
+    // if (hit) {
+    //   let distance = Math.min(hit.distance, this.cam.zoom)
+    //   this.camera.position.lerp(v1.set(0, 0, distance), 6 * delta)
+    // } else {
     this.camera.position.lerp(v1.set(0, 0, this.cam.zoom), 6 * delta)
+    // }
 
     this.csm.update()
     this.render()

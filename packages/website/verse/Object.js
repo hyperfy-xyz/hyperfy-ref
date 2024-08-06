@@ -353,7 +353,7 @@ export class Object extends Entity {
     }
     if (this.mode.value === 'moving') {
       const isMover = this.modeClientId.value === this.world.network.client.id
-      console.log(isMover)
+      // console.log(isMover)
       if (isMover) {
         this.root.position.copy(this.position.value)
         this.root.quaternion.copy(this.quaternion.value)

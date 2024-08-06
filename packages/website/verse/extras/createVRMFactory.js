@@ -114,6 +114,9 @@ export function createVRMFactory(glb, world) {
       geometry: createCapsule(cRadius, height - cRadius * 2),
       material,
       getEntity,
+      info: {
+        tag: 'vrm',
+      },
     }
     world.spatial.octree.insert(sItem)
 

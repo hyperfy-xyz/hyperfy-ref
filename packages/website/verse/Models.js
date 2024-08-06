@@ -65,6 +65,9 @@ class Model {
       geometry: this.mesh.geometry,
       material: this.mesh.material,
       getEntity: () => this.items[item.idx]?.node.entity,
+      info: {
+        tag: node.entity.schema.model,
+      },
     }
     this.world.spatial.octree.insert(sItem)
     return {
