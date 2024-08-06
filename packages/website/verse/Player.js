@@ -138,7 +138,16 @@ export class Player extends Entity {
     desc.material = this.world.physics.defaultMaterial
     desc.contactOffset = 0.1 // PhysX default = 0.1
     desc.stepOffset = 0.5 // PhysX default = 0.5m
+    // desc.queryFilterCallback = this.world.physics.controllerQueryFilterCallback
     this.controller = this.world.physics.controllerManager.createController(desc) // prettier-ignore
+    const actor = this.controller.getActor()
+    const shapes = new PHYSX.PxArray_PxShapePtr(1)
+    actor.getShapes(shapes.begin(), 1, 0)
+    const shape = shapes.get(0)
+
+    shape.setSimulationFilterData(
+      new PHYSX.PxFilterData(this.world.physics.groups.PLAYER, 0, 0, 0)
+    )
     // console.log('ctr', this.controller)
     PHYSX.destroy(desc)
     this.controller.setFootPosition(this.ghost.position.toPxExtVec3())

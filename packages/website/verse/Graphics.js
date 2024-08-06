@@ -304,6 +304,17 @@ export class Graphics extends System {
     const lerpFactor = CAM_MAX_FACTOR - (CAM_MAX_FACTOR - CAM_MIN_FACTOR) * (1 - Math.pow(t, 2)) // prettier-ignore
     this.cameraRig.position.lerp(this.cam.position, lerpFactor * delta)
     this.cameraRig.quaternion.slerp(this.cam.quaternion, 16 * delta)
+
+    const origin = this.cameraRig.position
+    const direction = v1
+      .set(0, 0, -1)
+      .applyQuaternion(this.cameraRig.quaternion)
+    const layerMask = this.world.physics.layerMask
+    const hit = this.world.physics.raycast(origin, direction, 200)
+    let distance = this.cam.zoom
+    if (hit && hit.distance < distance) {
+      distance = hit.distance
+    }
     this.camera.position.lerp(v1.set(0, 0, this.cam.zoom), 6 * delta)
 
     this.csm.update()
