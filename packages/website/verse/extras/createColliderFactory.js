@@ -64,21 +64,20 @@ export function createColliderFactory(world, mesh) {
   )
   const material = physics.createMaterial(0.5, 0.5, 0.5)
 
-  const tmpFilterData = new PHYSX.PxFilterData(1, 1, 0, 0)
-  
-  const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
+  const filterData = new PHYSX.PxFilterData(world.physics.groups.environment, world.physics.masks.environment, 0, 0) // prettier-ignore
 
+  const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
 
   PHYSX.destroy(scale)
   PHYSX.destroy(desc)
   PHYSX.destroy(points)
   PHYSX.destroy(triangles)
 
-
   return {
     create(node, matrix) {
       const shape = physics.createShape(geometry, material, true, flags)
-      shape.setSimulationFilterData(tmpFilterData)
+      shape.setQueryFilterData(filterData)
+      shape.setSimulationFilterData(filterData)
 
       // convert matrix to physx transform
       const pos = new THREE.Vector3()
@@ -127,6 +126,6 @@ export function createColliderFactory(world, mesh) {
       PHYSX.destroy(transform)
       PHYSX.destroy(tmpFilterData)
       material.release()
-    }
+    },
   }
 }

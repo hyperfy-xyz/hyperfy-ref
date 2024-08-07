@@ -15,6 +15,7 @@ import { Updater } from './Updater'
 import { Input } from './Input'
 import { Loader } from './Loader'
 import { Network } from './Network'
+import { Cam } from './Cam'
 import { Physics } from './Physics'
 import { Entities } from './Entities'
 import { Graphics } from './Graphics'
@@ -49,6 +50,7 @@ export class World extends EventEmitter {
     this.input = this.register(Input)
     this.loader = this.register(Loader)
     this.network = this.register(Network)
+    this.cam = this.register(Cam)
     this.physics = this.register(Physics)
     this.entities = this.register(Entities)
     this.graphics = this.register(Graphics)

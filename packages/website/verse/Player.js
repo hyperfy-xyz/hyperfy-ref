@@ -139,6 +139,16 @@ export class Player extends Entity {
     desc.contactOffset = 0.1 // PhysX default = 0.1
     desc.stepOffset = 0.5 // PhysX default = 0.5m
     this.controller = this.world.physics.controllerManager.createController(desc) // prettier-ignore
+
+    const actor = this.controller.getActor()
+    const shapes = new PHYSX.PxArray_PxShapePtr(1)
+    actor.getShapes(shapes.begin(), 1, 0)
+    const shape = shapes.get(0)
+    const filterData = new PHYSX.PxFilterData(this.world.physics.groups.player, this.world.physics.masks.player, 0, 0) // prettier-ignore
+    shape.setQueryFilterData(filterData)
+    shape.setSimulationFilterData(filterData)
+    PHYSX.destroy(shapes)
+
     // console.log('ctr', this.controller)
     PHYSX.destroy(desc)
     this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
@@ -193,7 +203,7 @@ export class Player extends Entity {
 
   updateLocal(delta) {
     const input = this.world.input
-    const cam = this.world.graphics.cam
+    const cam = this.world.cam
     const ghost = this.ghost
 
     // rotate camera if dragging

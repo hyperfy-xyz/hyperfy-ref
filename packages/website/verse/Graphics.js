@@ -53,10 +53,6 @@ const vec2 = new THREE.Vector2()
 
 const FOV = 70
 
-const CAM_MAX_DISTANCE = 2 // Maximum expected distance between camera and target
-const CAM_MIN_FACTOR = 5 // Minimum lerp factor (slowest speed)
-const CAM_MAX_FACTOR = 50 // Maximum lerp factor (fastest speed)
-
 export class Graphics extends System {
   constructor(world) {
     super(world)
@@ -151,10 +147,6 @@ export class Graphics extends System {
       })
     )
     this.composer.addPass(this.effectPass)
-
-    this.cam = new THREE.Object3D()
-    this.cam.rotation.reorder('YXZ')
-    this.cam.zoom = 4
 
     this.cameraRig = new THREE.Object3D()
     this.cameraRig.rotation.reorder('YXZ')
@@ -299,13 +291,6 @@ export class Graphics extends System {
   }
 
   update(delta) {
-    const distanceToTarget = this.cameraRig.position.distanceTo(this.cam.position) // prettier-ignore
-    const t = Math.min(distanceToTarget / CAM_MAX_DISTANCE, 1)
-    const lerpFactor = CAM_MAX_FACTOR - (CAM_MAX_FACTOR - CAM_MIN_FACTOR) * (1 - Math.pow(t, 2)) // prettier-ignore
-    this.cameraRig.position.lerp(this.cam.position, lerpFactor * delta)
-    this.cameraRig.quaternion.slerp(this.cam.quaternion, 16 * delta)
-    this.camera.position.lerp(v1.set(0, 0, this.cam.zoom), 6 * delta)
-
     this.csm.update()
     this.render()
   }

@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 
+import { bindRotations } from '../extras/bindRotations'
+
 const DEFAULT_POSITION = [0, 0, 0]
 const DEFAULT_QUATERNION = [0, 0, 0, 1]
 const DEFAULT_SCALE = [1, 1, 1]
@@ -19,12 +21,7 @@ export class Node {
     this.rotation = new THREE.Euler()
     this.quaternion = new THREE.Quaternion()
     this.scale = new THREE.Vector3()
-    this.rotation._onChange(() => {
-      this.quaternion.setFromEuler(this.rotation, false)
-    })
-    this.quaternion._onChange(() => {
-      this.rotation.setFromQuaternion(this.quaternion, undefined, false)
-    })
+    bindRotations(this.quaternion, this.rotation)
     this.position.fromArray(data.position || DEFAULT_POSITION)
     this.quaternion.fromArray(data.quaternion || DEFAULT_QUATERNION)
     this.scale.fromArray(data.scale || DEFAULT_SCALE)

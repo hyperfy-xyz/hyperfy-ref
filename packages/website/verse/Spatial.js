@@ -3,8 +3,6 @@ import * as THREE from 'three'
 import { System } from './System'
 import { LooseOctree } from './extras/LooseOctree'
 
-const PRUNE_RATE = 5
-
 export class Spatial extends System {
   constructor(world) {
     super(world)

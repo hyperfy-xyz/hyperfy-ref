@@ -1,7 +1,6 @@
 import * as THREE from 'three'
 
 import { System } from './System'
-import { isBoolean } from 'lodash-es'
 import { createColliderFactory } from './extras/createColliderFactory'
 
 export class Models extends System {
