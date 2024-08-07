@@ -25,7 +25,8 @@ export class Cam extends System {
   }
 
   start() {
-    this.zoomIgnoreGroups = this.world.physics.groups.player
+    const groups = this.world.physics.groups
+    this.zoomIgnoreGroups = groups.player | groups.object
     this.sweepGeometry = new PHYSX.PxSphereGeometry(0.2)
   }
 

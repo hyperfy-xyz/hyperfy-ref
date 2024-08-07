@@ -64,8 +64,6 @@ export function createColliderFactory(world, mesh) {
   )
   const material = physics.createMaterial(0.5, 0.5, 0.5)
 
-  const filterData = new PHYSX.PxFilterData(world.physics.groups.environment, world.physics.masks.environment, 0, 0) // prettier-ignore
-
   const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
 
   PHYSX.destroy(scale)
@@ -74,8 +72,9 @@ export function createColliderFactory(world, mesh) {
   PHYSX.destroy(triangles)
 
   return {
-    create(node, matrix) {
+    create(node, matrix, layer) {
       const shape = physics.createShape(geometry, material, true, flags)
+      const filterData = world.physics.layers[layer] || world.physics.layers.environment // prettier-ignore
       shape.setQueryFilterData(filterData)
       shape.setSimulationFilterData(filterData)
 

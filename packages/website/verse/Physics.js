@@ -19,8 +19,9 @@ const _hitResult = {
 const collisionMatrix = {
   // key = group
   // value = mask for what the group can hit
-  player: ['environment'],
-  environment: ['player', 'environment'],
+  player: ['environment', 'object'],
+  environment: ['player', 'environment', 'object'],
+  object: ['player', 'environment', 'object'],
 }
 
 export class Physics extends System {
@@ -44,6 +45,7 @@ export class Physics extends System {
     this.defaultMaterial = this.physics.createMaterial(0.2, 0.2, 0.2)
     this.groups = {}
     this.masks = {}
+    this.layers = {}
     this.setupCollisionMatrix()
     const tmpVec = new PHYSX.PxVec3(0, -9.81, 0)
     const sceneDesc = new PHYSX.PxSceneDesc(this.tolerances)
@@ -95,6 +97,10 @@ export class Physics extends System {
       this.masks[name] = collisionMatrix[name].reduce((acc, name2) => {
         return acc | this.groups[name2]
       }, 0)
+    }
+    // layers
+    for (const name in collisionMatrix) {
+      this.layers[name] = new PHYSX.PxFilterData(this.groups[name], this.masks[name], 0, 0) // prettier-ignore
     }
   }
 

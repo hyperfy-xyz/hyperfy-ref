@@ -1,7 +1,5 @@
 import { isBoolean } from 'lodash-es'
 
-import { Layers } from '../extras/Layers'
-
 import { Node } from './Node'
 
 export class Mesh extends Node {
@@ -12,6 +10,7 @@ export class Mesh extends Node {
     this.model = data.model
     this.visible = isBoolean(data.visible) ? data.visible : true
     this.collision = isBoolean(data.collision) ? data.collision : false
+    this.collisionLayer = data.collisionLayer
     this.mesh = null
     this.collider = null
   }
@@ -22,7 +21,11 @@ export class Mesh extends Node {
         this.mesh = this.model.createMesh(this, this.matrixWorld)
       }
       if (this.collision) {
-        this.collider = this.model.createCollider(this, this.matrixWorld)
+        this.collider = this.model.createCollider(
+          this,
+          this.matrixWorld,
+          this.collisionLayer
+        )
       }
     }
   }
@@ -76,6 +79,7 @@ export class Mesh extends Node {
     this.model = source.model
     this.visible = source.visible
     this.collision = source.collision
+    this.collisionLayer = source.collisionLayer
     return this
   }
 
