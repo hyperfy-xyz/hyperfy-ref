@@ -172,7 +172,7 @@ function createBoard(width, height, pxToMeters, world) {
   const canvas = document.createElement('canvas')
   canvas.width = size * pr
   canvas.height = size * pr
-  console.log('board', canvas.width, canvas.height)
+  // console.log('board', canvas.width, canvas.height)
   const ctx = canvas.getContext('2d')
 
   let texture
@@ -305,7 +305,7 @@ function createBoard(width, height, pxToMeters, world) {
       material.transparent = true
       material.renderOrder = 999
       mesh = new THREE.Mesh(geometry, material)
-      console.log(mesh)
+      // console.log(mesh)
       return mesh
     },
     commit() {

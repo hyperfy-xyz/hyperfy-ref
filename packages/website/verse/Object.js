@@ -89,18 +89,18 @@ export class Object extends Entity {
   }
 
   onUploadingChange(newValue, oldValue) {
-    console.log('onUploadingChange', newValue)
+    // console.log('onUploadingChange', newValue)
     this.load()
   }
 
   onModeChange(newValue, oldValue) {
-    console.log('onModeChange', newValue)
+    // console.log('onModeChange', newValue)
     this.modeChanged++
     this.world.entities.incActive(this)
   }
 
   onModeClientIdChange(newValue, oldValue) {
-    console.log('onModeClientIdChange', newValue)
+    // console.log('onModeClientIdChange', newValue)
     this.modeChanged++
     this.world.entities.incActive(this)
   }

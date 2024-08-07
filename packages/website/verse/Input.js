@@ -394,7 +394,7 @@ export class Input extends System {
 
   openContext() {
     const coords = this.pointer
-    console.log(coords.toArray())
+    // console.log(coords.toArray())
     const [hit, entity] = this.resolveHit(this.hits)
     const actions = []
     const add = opts => {
@@ -411,7 +411,7 @@ export class Input extends System {
     // hit world
     if (hit && !entity) return
     // hit entity
-    console.log('entity', entity)
+    // console.log('entity', entity)
     entity.getActions(add)
     // const hitVoid = !hit
     // const hitWorld = hit && !entity

@@ -60,7 +60,7 @@ export class LooseOctree {
   }
 
   expand() {
-    console.log('expand')
+    // console.log('expand')
     // when we expand we do it twice so that it expands in both directions.
     // first goes positive, second goes back negative
     let prevRoot

@@ -210,8 +210,8 @@ export function createVRMFactory(glb, world) {
       }
     }
 
-    console.log('=== vrm ===')
-    console.log('vrm', vrm)
+    // console.log('=== vrm ===')
+    // console.log('vrm', vrm)
     // console.log('skeleton', skeleton)
 
     const bonesByName = {}
