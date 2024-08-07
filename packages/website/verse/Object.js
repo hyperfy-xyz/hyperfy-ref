@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { Vector3, Quaternion } from 'three'
+import { createNoise2D } from 'simplex-noise'
 
 import { isEmpty } from 'lodash-es'
 
@@ -677,6 +678,35 @@ export class Object extends Entity {
             // quaternion: [0, 0, 0, 1],
           })
         }
+
+        // ---------
+        // minecraft (use 3d/supaverse/cube-grass)
+        // ---------
+        // const noise2D = createNoise2D(() => 0.1)
+        // function sinToAlpha(value) {
+        //   return value / 2 + 0.5 // map (-1, 1) to (0, 1)
+        // }
+        // const size = 200
+        // for (let x = -size; x < size; x++) {
+        //   for (let z = -size; z < size; z++) {
+        //     const surfaceAmp = 10
+        //     const surfaceNoiseScale = 0.01
+        //     let surfaceNoise = noise2D(x * surfaceNoiseScale, z * surfaceNoiseScale) // prettier-ignore
+        //     surfaceNoise = sinToAlpha(surfaceNoise)
+        //     const y = Math.round(surfaceNoise * surfaceAmp)
+        //     world.entities.addEntityLocal({
+        //       type: 'object',
+        //       id: world.network.makeId(),
+        //       schemaId: self.schema.id,
+        //       creator: world.network.client.user.id, // ???
+        //       authority: world.network.client.id,
+        //       mode: 'active',
+        //       modeClientId: null,
+        //       position: [x, y, z],
+        //       quaternion: [0, 0, 0, 1],
+        //     })
+        //   }
+        // }
       },
     })
     // add({
