@@ -402,8 +402,12 @@ function EditPanel({ panel }) {
   const save = async () => {
     setSaving(true)
     const raw = rawRef.current
-    const id = await entity.world.scripts.upload(raw)
-    entity.schema.script = id
+    if (raw) {
+      const id = await entity.world.scripts.upload(raw)
+      entity.schema.script = id
+    } else {
+      entity.schema.script = null
+    }
     entity.world.entities.upsertSchemaLocal(entity.schema)
     setSaving(false)
   }

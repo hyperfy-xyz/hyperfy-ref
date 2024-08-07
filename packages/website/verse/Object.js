@@ -181,7 +181,10 @@ export class Object extends Entity {
 
   reload() {
     this.blueprint = null
-    this.script = null
+    if (this.script) {
+      this.script = null
+      this.world.entities.decActive(this)
+    }
     this.load()
   }
 
