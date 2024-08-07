@@ -64,7 +64,7 @@ export class Box extends Node {
       this.mesh.matrixWorld.copy(this.matrixWorld)
       this.mesh.node = this
       if (this.layer) this.mesh.layers.set(this.layer)
-      this.entity.world.graphics.scene.add(this.mesh)
+      this.ctx.world.graphics.scene.add(this.mesh)
     }
     if (this.physics) {
       const geometry = new PHYSX.PxBoxGeometry(
@@ -117,10 +117,10 @@ export class Box extends Node {
 
   unmount() {
     if (this.mesh) {
-      this.entity.world.graphics.scene.remove(this.mesh)
+      this.ctx.world.graphics.scene.remove(this.mesh)
     }
     if (this.body) {
-      this.world.physics.scene.removeActor(this.body)
+      this.ctx.world.physics.scene.removeActor(this.body)
       this.unbind?.()
     }
   }

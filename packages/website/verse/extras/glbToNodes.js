@@ -1,5 +1,6 @@
 import CustomShaderMaterial from '../libs/three-custom-shader-material'
-import * as Nodes from '../nodes'
+
+import { createNode } from './createNode'
 
 const LOD_REGEX = /_lod(\d+)/ // eg mesh_lod0 & mesh_lod100
 const COLLIDER_REGEX = /_collider/ // eg mesh_collider
@@ -8,14 +9,12 @@ const groupTypes = ['Scene', 'Group', 'Object3D']
 
 export function glbToNodes(glb, world) {
   const nodes = new Map()
-  function createNode(data) {
+  function registerNode(data) {
     if (nodes.has(data.name)) {
       console.error('node name already exists:', data.name)
       return
     }
-    const Node = Nodes[data.type]
-    if (!Node) console.error('unknown node:', data.type)
-    const node = new Node(data)
+    const node = createNode(data)
     nodes.set(node.name, node)
     return node
   }
@@ -48,7 +47,7 @@ export function glbToNodes(glb, world) {
       // Object3D, Group, Scene
       if (groupTypes.includes(object3d.type)) {
         const lod = hasLods(object3d.children)
-        const node = createNode({
+        const node = registerNode({
           type: lod ? 'lod' : 'group',
           name: object3d.name,
           position: object3d.position.toArray(),
@@ -65,7 +64,7 @@ export function glbToNodes(glb, world) {
         if (object3d.material.userData.wind) {
           addWind(object3d, world)
         }
-        const node = createNode({
+        const node = registerNode({
           type: 'mesh',
           name: object3d.name,
           model: world.models.register(object3d),
@@ -85,7 +84,7 @@ export function glbToNodes(glb, world) {
         // if (isLod) {
         //   let lod = lods[baseName]
         //   if (!lod) {
-        //     lod = createNode({
+        //     lod = registerNode({
         //       type: 'lod',
         //       name: baseName,
         //       position: [0, 0, 0], // object3d.position.toArray(),
@@ -107,7 +106,7 @@ export function glbToNodes(glb, world) {
     }
   }
   const rootHasLods = hasLods(glb.scene.children)
-  const root = createNode({
+  const root = registerNode({
     type: rootHasLods ? 'lod' : 'group',
     name: '$root',
   })

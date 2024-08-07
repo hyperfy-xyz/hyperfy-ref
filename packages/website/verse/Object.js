@@ -59,6 +59,8 @@ export class Object extends Entity {
     this.root.position.copy(this.position.value)
     this.root.quaternion.copy(this.quaternion.value)
 
+    this.ctx = { world: this.world, entity: this }
+
     this.scriptVarIds = 0
 
     this.modeChanged = 0
@@ -190,7 +192,7 @@ export class Object extends Entity {
     }
     const Node = Nodes[data.type]
     const node = new Node(data)
-    node.bind(this)
+    // node.bind(this)
     this.nodes.set(node.name, node)
     return node
   }
@@ -240,7 +242,7 @@ export class Object extends Entity {
     } else {
       // construct from blueprint
       this.root = this.blueprint.clone(true)
-      this.root.bind(this)
+      this.root.setContext(this.ctx)
     }
     // copy over transforms
     this.root.position.copy(prevRoot.position)

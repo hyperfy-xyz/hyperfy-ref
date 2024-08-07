@@ -20,12 +20,12 @@ export class LOD extends Node {
   }
 
   mount() {
-    this.entity.world.lods.register(this)
+    this.ctx.world.lods.register(this)
     this.check()
   }
 
   check() {
-    const cameraPos = this.entity.world.graphics.cameraRig.position
+    const cameraPos = this.ctx.world.graphics.cameraRig.position
     const itemPos = v1.set(this.matrixWorld.elements[12], this.matrixWorld.elements[13], this.matrixWorld.elements[14]) // prettier-ignore
     const distance = cameraPos.distanceTo(itemPos)
     const lod = this.lods.find(lod => distance <= lod.maxDistance)
@@ -43,7 +43,7 @@ export class LOD extends Node {
   }
 
   unmount() {
-    this.entity.world.lods.unregister(this)
+    this.ctx.world.lods.unregister(this)
   }
 
   copy(source, recursive) {

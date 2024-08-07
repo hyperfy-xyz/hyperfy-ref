@@ -63,7 +63,7 @@ class Model {
       matrix,
       geometry: this.mesh.geometry,
       material: this.mesh.material,
-      getEntity: () => this.items[item.idx]?.node.entity,
+      getEntity: () => this.items[item.idx]?.node.ctx.entity,
     }
     this.world.spatial.octree.insert(sItem)
     return {

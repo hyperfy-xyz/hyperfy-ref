@@ -105,7 +105,7 @@ export function createVRMFactory(glb, world) {
     vrm.scene.matrixWorld = matrix // synced!
     world.graphics.scene.add(vrm.scene)
 
-    const getEntity = () => node?.entity
+    const getEntity = () => node?.ctx.entity
 
     // spatial capsule
     const cRadius = 0.3

@@ -35,17 +35,17 @@ export class Controller extends Node {
       this.mesh.matrix.copy(this.matrix)
       this.mesh.matrixWorld.copy(this.matrixWorld)
       this.mesh.node = this
-      this.entity.world.graphics.scene.add(this.mesh)
+      this.ctx.world.graphics.scene.add(this.mesh)
     }
     const desc = new PHYSX.PxCapsuleControllerDesc()
     desc.height = this.height
     desc.radius = this.radius
     desc.climbingMode = PHYSX.PxCapsuleClimbingModeEnum.eCONSTRAINED
     desc.slopeLimit = Math.cos(60 * DEG2RAD) // 60 degrees
-    desc.material = this.entity.world.physics.defaultMaterial
+    desc.material = this.ctx.world.physics.defaultMaterial
     desc.contactOffset = 0.1 // PhysX default = 0.1
     desc.stepOffset = 0.5 // PhysX default = 0.5m
-    this.controller = this.entity.world.physics.controllerManager.createController(desc) // prettier-ignore
+    this.controller = this.ctx.world.physics.controllerManager.createController(desc) // prettier-ignore
     PHYSX.destroy(desc)
     const worldPosition = this.getWorldPosition()
     this.controller.setFootPosition(worldPosition.toPxExtVec3())
@@ -66,7 +66,7 @@ export class Controller extends Node {
 
   unmount() {
     if (this.mesh) {
-      this.entity.world.graphics.scene.remove(this.mesh)
+      this.ctx.world.graphics.scene.remove(this.mesh)
     }
     if (this.controller) {
       this.controller.release()
@@ -79,7 +79,7 @@ export class Controller extends Node {
       vec3.toPxVec3(),
       0,
       1 / 60,
-      this.entity.world.physics.controllerFilters
+      this.ctx.world.physics.controllerFilters
     )
     // this.isGrounded = moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN) // prettier-ignore
     const pos = this.controller.getFootPosition()

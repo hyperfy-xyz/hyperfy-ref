@@ -28,7 +28,7 @@ export class Action extends Node {
   }
 
   mount() {
-    this.entity.world.actions.register(this)
+    this.ctx.world.actions.register(this)
     this.worldPos.setFromMatrixPosition(this.matrixWorld)
   }
 
@@ -37,7 +37,7 @@ export class Action extends Node {
   }
 
   unmount() {
-    this.entity.world.actions.unregister(this)
+    this.ctx.world.actions.unregister(this)
   }
 
   setMode(mode) {

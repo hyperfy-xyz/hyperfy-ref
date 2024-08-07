@@ -12,11 +12,11 @@ const _q1 = new THREE.Quaternion()
 
 export class Node {
   constructor(data = {}) {
-    this.entity = null
     this.type = 'node'
     this.name = data.name || ''
     this.parent = null
     this.children = []
+    this.ctx = null
     this.position = new THREE.Vector3()
     this.rotation = new THREE.Euler()
     this.quaternion = new THREE.Quaternion()
@@ -31,9 +31,9 @@ export class Node {
     this.mounted = false
   }
 
-  bind(entity) {
+  setContext(ctx) {
     this.traverse(node => {
-      node.entity = entity
+      node.ctx = ctx
     })
   }
 
@@ -60,6 +60,7 @@ export class Node {
     }
     node.parent = this
     this.children.push(node)
+    node.setContext(this.ctx)
     if (this.mounted) {
       node.activate()
     }
@@ -93,7 +94,7 @@ export class Node {
 
   dirty() {
     this.isDirty = true
-    this.entity.world.entities.dirtyNodes.push(this)
+    this.ctx.world.entities.dirtyNodes.push(this)
   }
 
   apply() {
@@ -195,12 +196,18 @@ export class Node {
           self.dirty()
         },
         add(pNode) {
-          const node = self.entity.nodes.get(pNode.name)
+          if (!self.ctx.entity) {
+            return console.error('node has no ctx.entity')
+          }
+          const node = self.ctx.entity.nodes.get(pNode.name)
           self.add(node)
           return this
         },
         remove(pNode) {
-          const node = self.entity.nodes.get(pNode.name)
+          if (!self.ctx.entity) {
+            return console.error('node has no ctx.entity')
+          }
+          const node = self.ctx.entity.nodes.get(pNode.name)
           self.remove(node)
           return this
         },

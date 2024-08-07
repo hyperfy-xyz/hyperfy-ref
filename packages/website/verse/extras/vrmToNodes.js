@@ -1,23 +1,21 @@
-import * as Nodes from '../nodes'
-import { createVRMFactory } from './createVRMFactory'
+import { createNode } from './createNode'
 
 export function vrmToNodes(factory) {
   const nodes = new Map()
-  function createNode(data) {
+  function registerNode(data) {
     if (nodes.has(data.name)) {
       console.error('node name already exists:', data.name)
       return
     }
-    const Node = Nodes[data.type]
-    const node = new Node(data)
+    const node = createNode(data)
     nodes.set(node.name, node)
     return node
   }
-  const root = createNode({
+  const root = registerNode({
     type: 'group',
     name: '$root',
   })
-  const vrm = createNode({
+  const vrm = registerNode({
     type: 'vrm',
     name: 'vrm',
     factory,
