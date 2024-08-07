@@ -138,6 +138,11 @@ export class Player extends Entity {
     desc.material = this.world.physics.defaultMaterial
     desc.contactOffset = 0.1 // PhysX default = 0.1
     desc.stepOffset = 0.5 // PhysX default = 0.5m
+    const behaviorCallback = new PHYSX.PxControllerBehaviorCallbackImpl()
+    behaviorCallback.getShapeBehaviorFlags = (shape, actor) => PHYSX.PxControllerBehaviorFlagEnum.eCCT_CAN_RIDE_ON_OBJECT // prettier-ignore
+    behaviorCallback.getControllerBehaviorFlags = (controller) => PHYSX.PxControllerBehaviorFlagEnum.eCCT_CAN_RIDE_ON_OBJECT // prettier-ignore
+    behaviorCallback.getObstacleBehaviorFlags = (obstacle) => PHYSX.PxControllerBehaviorFlagEnum.eCCT_CAN_RIDE_ON_OBJECT // prettier-ignore
+    desc.behaviorCallback = behaviorCallback
     this.controller = this.world.physics.controllerManager.createController(desc) // prettier-ignore
 
     const actor = this.controller.getActor()
