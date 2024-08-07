@@ -40,7 +40,8 @@ export class HeightTerrain extends System {
 
   async start() {
     // create material
-    const texture = await this.world.loader.loadTexture('/static/terrain/Grass1.png') // prettier-ignore
+    let texture = await this.world.loader.loadTexture('/static/terrain/Grass1.png') // prettier-ignore
+    texture = texture.clone()
     texture.colorSpace = THREE.SRGBColorSpace
     texture.wrapS = THREE.RepeatWrapping
     texture.wrapT = THREE.RepeatWrapping

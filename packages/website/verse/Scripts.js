@@ -72,7 +72,8 @@ export class Scripts extends System {
       },
       body: JSON.stringify({ raw, compiled }),
     })
-    const data = await resp.json()
-    return data.id
+    const { id } = await resp.json()
+    // this.raw.set(id, raw)
+    return id
   }
 }

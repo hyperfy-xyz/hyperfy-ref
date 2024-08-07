@@ -65,6 +65,15 @@ export class Box extends Node {
       this.mesh.node = this
       if (this.layer) this.mesh.layers.set(this.layer)
       this.ctx.world.graphics.scene.add(this.mesh)
+      this.sItem = {
+        matrix: this.matrixWorld,
+        geometry: this.mesh.geometry,
+        material: this.mesh.material,
+        getEntity: () => {
+          return this.ctx.entity
+        },
+      }
+      this.ctx.world.spatial.octree.insert(this.sItem)
     }
     if (this.physics) {
       const geometry = new PHYSX.PxBoxGeometry(
@@ -111,13 +120,15 @@ export class Box extends Node {
   update() {
     if (this.mesh) {
       // this.matrixWorld.decompose(_v1, _q1, _v2)
-      this.mesh.matrix.copy(this.matrixWorld)
+      this.mesh.matrixWorld.copy(this.matrixWorld)
+      this.ctx.world.spatial.octree.move(this.sItem)
     }
   }
 
   unmount() {
     if (this.mesh) {
       this.ctx.world.graphics.scene.remove(this.mesh)
+      this.ctx.world.spatial.octree.remove(this.sItem)
     }
     if (this.body) {
       this.ctx.world.physics.scene.removeActor(this.body)

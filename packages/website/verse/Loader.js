@@ -41,48 +41,56 @@ export class Loader extends System {
     this.gltfLoader.setDRACOLoader(this.dracoLoader)
   }
 
-  async loadScript(url) {
+  loadScript(url) {
     const key = `script/${url}`
     if (this.cache.has(key)) {
       return this.cache.get(key)
     }
-    const resp = await fetch(url)
-    const code = await resp.text()
-    const script = this.world.scripts.evaluate(code)
-    this.cache.set(key, script)
-    return script
+    const promise = new Promise(async (resolve, reject) => {
+      const resp = await fetch(url)
+      const code = await resp.text()
+      const script = this.world.scripts.evaluate(code)
+      resolve(script)
+    })
+    this.cache.set(key, promise)
+    return promise
   }
 
-  async loadHDR(url) {
+  loadHDR(url) {
     const key = `hdr/${url}`
     if (this.cache.has(key)) {
       return this.cache.get(key)
     }
-    const texture = await this.rgbeLoader.loadAsync(url)
-    this.cache.set(key, texture)
-    return texture
+    const promise = this.rgbeLoader.loadAsync(url).then(texture => {
+      return texture
+    })
+    this.cache.set(key, promise)
+    return promise
   }
 
-  async loadTexture(url) {
+  loadTexture(url) {
     const key = `texture/${url}`
     if (this.cache.has(key)) {
-      const texture = this.cache.get(key)
-      return texture.clone()
+      return this.cache.get(key)
     }
-    const texture = await this.texLoader.loadAsync(url)
-    this.cache.set(key, texture)
-    return texture
+    const promise = this.texLoader.loadAsync(url).then(texture => {
+      return texture
+    })
+    this.cache.set(key, promise)
+    return promise
   }
 
-  async loadEmote(url) {
+  loadEmote(url) {
     const key = `emote/${url}`
     if (this.cache.has(key)) {
       return this.cache.get(key)
     }
-    const glb = await this.gltfLoader.loadAsync(url)
-    const factory = createEmoFactory(glb, url)
-    this.cache.set(key, factory)
-    return factory
+    const promise = this.gltfLoader.loadAsync(url).then(glb => {
+      const factory = createEmoFactory(glb, url)
+      return factory
+    })
+    this.cache.set(key, promise)
+    return promise
   }
 
   loadVRM(url) {

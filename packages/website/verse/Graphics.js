@@ -236,6 +236,7 @@ export class Graphics extends System {
     // const skyUrl = '/static/above-day-a.png'
     // const skyUrl = '/static/above-day-b.png'
     this.world.loader.loadTexture(skyUrl).then(texture => {
+      texture = texture.clone()
       texture.minFilter = texture.magFilter = THREE.LinearFilter
       texture.mapping = THREE.EquirectangularReflectionMapping
       // texture.encoding = Encoding[this.encoding]

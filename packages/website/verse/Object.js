@@ -242,18 +242,18 @@ export class Object extends Entity {
     } else {
       // construct from blueprint
       this.root = this.blueprint.clone(true)
-      this.root.setContext(this.ctx)
+      // collect nodes by name
+      this.root.traverse(node => {
+        if (this.nodes.has(node.name)) {
+          console.warn('dupe node name', node.name)
+        }
+        this.nodes.set(node.name, node)
+      })
     }
+    this.root.setContext(this.ctx)
     // copy over transforms
     this.root.position.copy(prevRoot.position)
     this.root.quaternion.copy(prevRoot.quaternion)
-    // re-collect nodes by name
-    this.root.traverse(node => {
-      if (this.nodes.has(node.name)) {
-        console.warn('dupe node name', node.name)
-      }
-      this.nodes.set(node.name, node)
-    })
     // bind all nodes to this entity
     // this.root.bind(this)
   }
@@ -292,7 +292,7 @@ export class Object extends Entity {
         } catch (err) {
           console.error('entity instantiate failed', this)
           console.error(err)
-          this.kill()
+          return this.kill()
         }
       }
       // emit script 'setup' event (pre-mount)
@@ -301,7 +301,7 @@ export class Object extends Entity {
       } catch (err) {
         console.error('entity setup failed', this)
         console.error(err)
-        this.kill()
+        return this.kill()
       }
       // activate (mount) nodes
       this.root.activate()
@@ -311,7 +311,7 @@ export class Object extends Entity {
       } catch (err) {
         console.error('entity start failed', this)
         console.error(err)
-        this.kill()
+        return this.kill()
       }
       // register for script update/fixedUpdate etc
       if (this.script) {
@@ -348,9 +348,10 @@ export class Object extends Entity {
       try {
         this.emit('update', delta)
       } catch (err) {
-        // console.error('entity update failed', this)
+        console.error('entity update failed', this)
         console.error(err)
         this.kill()
+        return
       }
     }
     if (this.mode.value === 'moving') {
@@ -420,6 +421,7 @@ export class Object extends Entity {
   kill() {
     this.blueprint = null
     this.script = null
+
     this.checkMode(true)
   }
 
@@ -664,8 +666,8 @@ export class Object extends Entity {
             authority: world.network.client.id,
             mode: 'active',
             modeClientId: null,
-            // position: [num(-200, 200, 3), 0, num(-200, 200, 3)], // ground
-            position: [num(-50, 50, 3), 0, num(-50, 50, 3)], // ground-smaller
+            position: [num(-200, 200, 3), 0, num(-200, 200, 3)], // ground
+            // position: [num(-50, 50, 3), 0, num(-50, 50, 3)], // ground-smaller
             // position: [num(-200, 200, 3), num(0, 200, 3), num(-200, 200, 3)], // box
             // position: [num(-100, 100, 3), num(0, 100, 3), num(-100, 100, 3)], // everywhere
             quaternion: q1.toArray(),

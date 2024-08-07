@@ -145,7 +145,8 @@ export class Input extends System {
     if (file && ['glb', 'vox'].includes(ext)) {
       this.updateHits()
       const [hit] = this.resolveHit(this.hits)
-      if (!hit) return console.warn('no hit, no place to drop dnd')
+      // if (!hit) return console.warn('no hit, no place to drop dnd')
+      const position = hit?.point || new THREE.Vector3(0, 0, 0)
       const hash = await hashFile(file)
       const url = `${process.env.PUBLIC_ASSETS_URL}/${hash}`
       this.world.loader.setGLB(url, file)
@@ -166,7 +167,7 @@ export class Input extends System {
         uploading: this.world.network.client.id,
         mode: 'moving',
         modeClientId: this.world.network.client.id,
-        position: hit.point.toArray(),
+        position: position.toArray(),
         quaternion: [0, 0, 0, 1],
       })
       try {
