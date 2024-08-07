@@ -93,25 +93,24 @@ export class Node {
   }
 
   dirty() {
+    if (this.isDirty) return
     this.isDirty = true
-    this.ctx.world.entities.dirtyNodes.push(this)
+    this.ctx.world.entities.dirtyNodes.add(this)
+    this.traverse(node => {
+      if (node === this) return
+      // if its already dirty, stop tracking it because we will update it
+      if (node.isDirty) {
+        this.ctx.world.entities.dirtyNodes.delete(this)
+      } else {
+        node.isDirty = true
+      }
+    })
   }
 
   apply() {
     if (!this.isDirty) return
-    let curr = this
-    let highestDirty = null
-    while (curr.parent !== null) {
-      if (curr.isDirty) {
-        highestDirty = curr
-      }
-      curr = curr.parent
-    }
-    if (curr.isDirty) {
-      highestDirty = curr
-    }
-    highestDirty.project()
-    highestDirty.traverse(node => {
+    this.project()
+    this.traverse(node => {
       node.update()
     })
   }

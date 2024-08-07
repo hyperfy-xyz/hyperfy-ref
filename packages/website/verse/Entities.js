@@ -15,7 +15,7 @@ export class Entities extends System {
     super(world)
     this.schemas = new Map()
     this.entities = new Map()
-    this.dirtyNodes = []
+    this.dirtyNodes = new Set()
     this.activeEntities = new Set()
   }
 
@@ -102,9 +102,10 @@ export class Entities extends System {
   }
 
   update(delta) {
-    while (this.dirtyNodes.length) {
-      this.dirtyNodes.pop().apply()
+    for (const node of this.dirtyNodes) {
+      node.apply()
     }
+    this.dirtyNodes.clear()
     for (const entity of this.activeEntities) {
       entity.update(delta)
     }
