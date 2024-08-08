@@ -8,8 +8,8 @@ export class DodgeAction extends Action {
     this.duration = null
   }
 
-  check(input, avatar) {
-    if (input.pressed.ShiftLeft) {
+  check(avatar) {
+    if (avatar.controls.dodge) {
       this.emote = avatar.isMoving ? 'avatar@roll.glb' : 'avatar@backstep.glb'
       this.displacement.z = avatar.isMoving ? -1 : 1
       this.speed = avatar.isMoving ? 15 : 10
@@ -23,7 +23,7 @@ export class DodgeAction extends Action {
     return false
   }
 
-  update(delta, input, avatar) {
+  update(delta, avatar) {
     this.elapsed += delta
     if (this.elapsed > this.duration) {
       this.complete = true

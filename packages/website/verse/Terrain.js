@@ -471,6 +471,26 @@ export class Terrain extends System {
     console.time('terrain:build')
     this.chunks.forEach(chunk => chunk.build())
     console.timeEnd('terrain:build')
+
+    this.unregisterInput = this.world.input.register({
+      priority: 999,
+      btnDown: code => {
+        if (code === 'KeyF') {
+          this.editing = !this.editing
+          return true
+        }
+        if (code === 'MouseLeft') {
+          this.isModifyKeyDown = true
+          return true
+        }
+      },
+      btnUp: code => {
+        if (code === 'MouseLeft') {
+          this.isModifyKeyDown = false
+          return true
+        }
+      },
+    })
   }
 
   seed(value) {
@@ -479,12 +499,8 @@ export class Terrain extends System {
   }
 
   update(delta) {
-    const input = this.world.input
-    if (input.pressed.KeyF) {
-      this.editing = !this.editing
-    }
-    if (this.editing && input.hits[0]?.chunk) {
-      const hit = input.hits[0]
+    const hit = this.world.environment.hits[0]
+    if (this.editing && hit?.chunk) {
       this.cursor.visible = true
       this.cursor.position.copy(hit.point)
       const radius = 3 // todo: listen to wheel changes // was control.terrian.radius
@@ -499,7 +515,7 @@ export class Terrain extends System {
       //   TERRAIN_RADIUS_MAX
       // )
       this.cursor.scale.setScalar(radius)
-      if (input.down.LMB) {
+      if (this.isModifyKeyDown) {
         this.modifyRate += delta
         if (this.modifyRate > MODIFY_RATE) {
           this.modifyRate = 0
@@ -568,6 +584,11 @@ export class Terrain extends System {
   //     chunk.modify(localPoint, radius / scale, subtract)
   //   }
   // }
+
+  destroy() {
+    this.unregisterInput?.()
+    this.unregisterInput = null
+  }
 }
 
 let foo = 0

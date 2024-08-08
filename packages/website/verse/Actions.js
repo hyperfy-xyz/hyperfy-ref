@@ -106,6 +106,8 @@ function createAction(world) {
 
   let node = null
   let cancelled = false
+  let unregisterInput
+  let btnDown = false
 
   return {
     start(_node) {
@@ -114,13 +116,26 @@ function createAction(world) {
       node.progress = 0
       draw(node.text, node.progress / node.duration)
       world.graphics.scene.add(mesh)
+      unregisterInput = world.input.register({
+        priority: 999,
+        btnDown(code) {
+          if (code === 'KeyE') {
+            btnDown = true
+          }
+        },
+        btnUp(code) {
+          if (code === 'KeyE') {
+            btnDown = false
+          }
+        },
+      })
     },
     update(delta) {
       if (!node) return
       mesh.position.setFromMatrixPosition(node.matrixWorld)
       mesh.quaternion.setFromRotationMatrix(world.graphics.camera.matrixWorld)
       world.graphics.scaleUI(mesh, heightPx, pxToMeters)
-      if (world.input.down.KeyE) {
+      if (btnDown) {
         if (node.progress === 0) {
           cancelled = false
           try {
@@ -156,6 +171,7 @@ function createAction(world) {
     },
     stop() {
       node = null
+      unregisterInput?.()
       if (mesh.parent) {
         world.graphics.scene.remove(mesh)
       }

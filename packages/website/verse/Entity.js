@@ -75,7 +75,7 @@ export class Entity {
 
   destroy() {
     // overrides MUST call super.destroy()
-    this.world.input.onEntityDestroyed(this)
+    this.world.environment.onEntityDestroyed(this)
     this.destroyed = true
   }
 }

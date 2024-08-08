@@ -324,7 +324,7 @@ export class Object extends Entity {
     }
     if (mode === 'moving') {
       if (modeClientId === this.world.network.client.id) {
-        this.world.input.setMoving(this)
+        this.world.environment.setMoving(this)
       }
       this.world.entities.incActive(this)
       // activate (mount) nodes

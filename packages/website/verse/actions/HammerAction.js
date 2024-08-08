@@ -15,9 +15,9 @@ export class HammerAction extends Action {
     this.complete = false
   }
 
-  check(input, avatar) {
+  check(avatar) {
     // TODO: rename LMB -> MouseLeft/LeftMouse
-    if (input.pressed.LMB) {
+    if (avatar.controls.use) {
       this.elapsed = 0
       this.complete = false
       return true
@@ -25,7 +25,7 @@ export class HammerAction extends Action {
     return false
   }
 
-  update(delta, input, avatar) {
+  update(delta, avatar) {
     this.elapsed += delta
     if (this.elapsed > this.duration) {
       this.complete = true

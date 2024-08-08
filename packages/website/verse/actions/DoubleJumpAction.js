@@ -16,11 +16,11 @@ export class DoubleJumpAction extends Action {
     this.complete = false
   }
 
-  check(input, avatar) {
+  check(avatar) {
     if (avatar.isGrounded && this.consumed) {
       this.consumed = false
     }
-    if (avatar.isJumping && input.pressed.Space && !this.consumed) {
+    if (avatar.isJumping && avatar.controls.jump && !this.consumed) {
       this.elapsed = 0
       this.consumed = true
       this.started = false
@@ -30,7 +30,7 @@ export class DoubleJumpAction extends Action {
     return false
   }
 
-  update(delta, input, avatar) {
+  update(delta, avatar) {
     if (!this.started) {
       avatar.velocity.y = Math.sqrt(2 * avatar.gravity * avatar.jumpHeight)
       this.started = true

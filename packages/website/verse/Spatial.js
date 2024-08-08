@@ -15,11 +15,19 @@ export class Spatial extends System {
       size: 10,
     })
     this.lastPrune = 0
+    this.unregisterInput = this.world.input.register({
+      priority: 999,
+      btnDown: code => {
+        if (code === 'KeyP') {
+          this.octree.toggleHelper()
+          return true
+        }
+      },
+    })
   }
 
-  update(delta) {
-    if (this.world.input.pressed.KeyP) {
-      this.octree.toggleHelper()
-    }
+  destroy() {
+    this.unregisterInput?.()
+    this.unregisterInput = null
   }
 }

@@ -28,7 +28,7 @@ const LOOK_SPEED = 0.1
 const MOVE_SPEED = 8
 // const MOVE_SPEED = 50
 // const MOVE_SPEED = 300 // debug
-const MIN_ZOOM = 4
+const MIN_ZOOM = 2
 const MAX_ZOOM = 100 // 16
 
 // const MOVING_SEND_RATE = 1 / 5
@@ -84,10 +84,6 @@ export class Player extends Entity {
 
     this.targetEuler = new THREE.Euler(0, 0, 0, 'YXZ')
     this.targetQuaternion = new THREE.Quaternion()
-
-    this.lookStart = new THREE.Vector2()
-    this.lookDelta = new THREE.Vector2()
-    this.looking = false
 
     this.networkPosition = new NetworkedVector3(
       this.ghost.position,
@@ -166,8 +162,126 @@ export class Player extends Entity {
     this.world.entities.incActive(this)
 
     if (this.isOwner()) {
+      this.bindControls()
       this.world.network.onCameraReady?.()
     }
+  }
+
+  bindControls() {
+    const world = this.world
+    const controls = {
+      lookActive: false,
+      lookDelta: new THREE.Vector3(),
+      zoomDelta: 0,
+      nextItem: null,
+      move: new THREE.Vector3(),
+      jump: false,
+      jumpDown: false,
+      use: false,
+      dodge: false,
+    }
+    this.unregisterInput = world.input.register({
+      priority: 0,
+      btnDown: code => {
+        // console.log('btnDown', code)
+        switch (code) {
+          case 'MouseLeft':
+            controls.use = true
+            break
+          case 'MouseRight':
+            world.input.lockPointer()
+            controls.lookActive = true
+            break
+          case 'Digit1':
+            controls.nextItem = 0
+            break
+          case 'Digit2':
+            controls.nextItem = 1
+            break
+          case 'Digit3':
+            controls.nextItem = 2
+            break
+          case 'Digit4':
+            controls.nextItem = 3
+            break
+          case 'ArrowLeft':
+          case 'KeyA':
+            controls.move.x -= 1
+            break
+          case 'ArrowRight':
+          case 'KeyD':
+            controls.move.x += 1
+            break
+          case 'ArrowUp':
+          case 'KeyW':
+            controls.move.z -= 1
+            break
+          case 'ArrowDown':
+          case 'KeyS':
+            controls.move.z += 1
+            break
+          case 'Space':
+            controls.jump = true
+            controls.jumpDown = true
+            break
+          case 'ShiftLeft':
+            controls.dodge = true
+            break
+        }
+      },
+      btnUp: code => {
+        // console.log('btnUp', code)
+        switch (code) {
+          case 'MouseLeft':
+            controls.use = false
+            break
+          case 'MouseRight':
+            world.input.unlockPointer()
+            controls.lookActive = false
+            break
+          case 'ArrowLeft':
+          case 'KeyA':
+            controls.move.x += 1
+            break
+          case 'ArrowRight':
+          case 'KeyD':
+            controls.move.x -= 1
+            break
+          case 'ArrowUp':
+          case 'KeyW':
+            controls.move.z += 1
+            break
+          case 'ArrowDown':
+          case 'KeyS':
+            controls.move.z -= 1
+            break
+          case 'Space':
+            controls.jump = false
+            controls.jumpDown = false
+            break
+          case 'ShiftLeft':
+            controls.dodge = false
+            break
+        }
+      },
+      move: axis => {
+        // wasd/arrows/d-pad/joystick [-1,-1] to [1,1]
+        console.log('move', axis)
+      },
+      pointer: info => {
+        // coords of the mouse [0,0] to [1,1]
+        // position of the mouse [0,0] to [viewportWidth,viewportHeight]
+        // delta of the mouse in pixels
+        // console.log('pointer', coords, position, locked)
+        if (controls.lookActive) {
+          controls.lookDelta.add(info.delta)
+        }
+      },
+      zoom: delta => {
+        controls.zoomDelta += delta
+      },
+    })
+    this.controls = controls
   }
 
   async loadVRM() {
@@ -207,51 +321,34 @@ export class Player extends Entity {
   }
 
   updateLocal(delta) {
-    const input = this.world.input
+    const controls = this.controls
     const cam = this.world.cam
     const ghost = this.ghost
 
-    // rotate camera if dragging
-    if (input.down.RMB) {
-      if (!this.looking) {
-        this.lookStart.copy(input.pan)
-        this.looking = true
-      }
-      this.lookDelta.copy(input.pan).sub(this.lookStart).multiplyScalar(LOOK_SPEED * delta) // prettier-ignore
-      this.lookStart.copy(input.pan)
-      cam.rotation.y += -this.lookDelta.x
-      cam.rotation.x += -this.lookDelta.y
-    } else {
-      this.looking = false
-    }
+    // rotate camera when looking (holding right mouse + dragging)
+    cam.rotation.y += -controls.lookDelta.x * LOOK_SPEED * delta
+    cam.rotation.x += -controls.lookDelta.y * LOOK_SPEED * delta
+    controls.lookDelta.set(0, 0, 0)
 
     // zoom camera if scrolling wheel (and not moving an object)
-    if (input.wheel && !input.moving) {
-      this.zoom -= input.wheel * ZOOM_SPEED * delta
-      this.zoom = clamp(this.zoom, MIN_ZOOM, MAX_ZOOM)
-    }
+    this.zoom += -controls.zoomDelta * ZOOM_SPEED * delta
+    this.zoom = clamp(this.zoom, MIN_ZOOM, MAX_ZOOM)
     cam.zoom = this.zoom
+    controls.zoomDelta = 0
 
     // switch items (if not performing an action)
-    if (!this.action) {
-      if (input.pressed.Digit1) {
-        this.itemIdx.value = 0
-      } else if (input.pressed.Digit2) {
-        this.itemIdx.value = 1
-      } else if (input.pressed.Digit3) {
-        this.itemIdx.value = 2
-      } else if (input.pressed.Digit4) {
-        this.itemIdx.value = 3
-      }
+    if (!this.action && controls.nextItem !== null) {
+      this.itemIdx.value = controls.nextItem
+      controls.nextItem = null
     }
 
     // if not performing an action, check if we should start one
     if (!this.action) {
-      if (this.item?.action?.check(input, this)) {
+      if (this.item?.action?.check(this)) {
         this.action = this.item.action
       } else {
         for (const action of this.actions) {
-          if (action.check(input, this)) {
+          if (action.check(this)) {
             this.action = action
             break
           }
@@ -264,10 +361,8 @@ export class Player extends Entity {
 
     // if we're not performing an action, use directional input displacement
     if (!this.action || this.action.moveFreedom) {
-      if (input.down.ArrowLeft || input.down.KeyA) this.displacement.x -= 1 // prettier-ignore
-      if (input.down.ArrowRight || input.down.KeyD) this.displacement.x += 1 // prettier-ignore
-      if (input.down.ArrowUp || input.down.KeyW) this.displacement.z -= 1 // prettier-ignore
-      if (input.down.ArrowDown || input.down.KeyS) this.displacement.z += 1 // prettier-ignore
+      // copy input axis
+      this.displacement.copy(controls.move)
 
       // we're moving if any keys are down
       this.isMoving = this.displacement.length() > 0
@@ -295,7 +390,7 @@ export class Player extends Entity {
 
     // progress our action if any
     if (this.action) {
-      this.action.update(delta, input, this)
+      this.action.update(delta, this)
 
       v1.copy(this.action.displacement)
 
@@ -325,13 +420,13 @@ export class Player extends Entity {
     }
 
     // if we're grounded and we want to jump, apply jump velocity
-    if (this.isGrounded && input.down.Space && !this.action) {
+    if (this.isGrounded && controls.jump && !this.action) {
       this.velocity.y = Math.sqrt(2 * this.gravity * this.jumpHeight)
       this.isJumping = true
+      controls.jump = false // consume
     }
-
     // HACK: temp flying
-    if (input.down.Space) {
+    if (controls.jumpDown) {
       this.velocity.y += 1
     }
 
@@ -505,5 +600,6 @@ export class Player extends Entity {
     if (this.item?.model) {
       this.world.graphics.scene.remove(this.item.model)
     }
+    this.unregisterInput?.()
   }
 }

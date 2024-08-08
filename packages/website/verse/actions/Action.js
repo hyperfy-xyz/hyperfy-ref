@@ -11,11 +11,11 @@ export class Action {
     this.complete = false
   }
 
-  check(input, avatar) {
+  check(avatar) {
     return false
   }
 
-  update(delta, input, avatar) {
+  update(delta, avatar) {
     // ...
   }
 }

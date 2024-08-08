@@ -123,7 +123,6 @@ export function createColliderFactory(world, mesh) {
       pmesh.release()
       PHYSX.destroy(geometry)
       PHYSX.destroy(transform)
-      PHYSX.destroy(tmpFilterData)
       material.release()
     },
   }

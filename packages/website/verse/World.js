@@ -13,6 +13,7 @@ import { Panels } from './Panels'
 import { Permissions } from './Permissions'
 import { Updater } from './Updater'
 import { Input } from './Input'
+import { Environment } from './Environment'
 import { Loader } from './Loader'
 import { Network } from './Network'
 import { Cam } from './Cam'
@@ -48,6 +49,7 @@ export class World extends EventEmitter {
     this.permissions = this.register(Permissions)
     this.updater = this.register(Updater)
     this.input = this.register(Input)
+    this.environment = this.register(Environment)
     this.loader = this.register(Loader)
     this.network = this.register(Network)
     this.cam = this.register(Cam)
