@@ -6,7 +6,9 @@ return object => {
 })()`
 }
 
-export const botScriptRaw = `
+const js = String.raw
+
+export const botScriptRaw = js`
   const v1 = new Vector3()
   const q1 = new Quaternion()
 
@@ -85,12 +87,22 @@ export const botScriptRaw = `
     },
   ]
   
-  let ctrl
-  let vrm
+  const GRAVITY = 9.81
+
   let action 
   let direction = new Vector3()
 
-  const GRAVITY = 9.81
+  const ctrl = object.create({
+    type: 'controller',
+    name: 'ctrl',
+    radius: 0.4,
+    height: 1,
+  })
+  object.add(ctrl)
+  
+  const vrm = object.get('vrm')
+  vrm.rotation.reorder('YXZ')
+  ctrl.add(vrm)
 
   function setNextAction(forceQuat) {
     const act = actions[num(0, actions.length - 1)]
@@ -108,20 +120,8 @@ export const botScriptRaw = `
     }
   }
 
-  object.on('setup', () => {
-    ctrl = object.create({
-      type: 'controller',
-      name: 'ctrl',
-      radius: 0.4,
-      height: 1,
-    })
-    object.add(ctrl)
-    vrm = object.get('vrm')
-    vrm.rotation.reorder('YXZ')
-    ctrl.add(vrm)
-  })
 
-  object.on('start', () => {
+  object.on('mount', () => {
     ctrl.detach()
     vrm.quaternion.copy(ctrl.quaternion)
     ctrl.quaternion.set(0, 0, 0, 1)

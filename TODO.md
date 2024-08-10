@@ -1,6 +1,10 @@
-# Bigger Questions
+# Bigger Work
 
 - how are we gonna handle emotes for real? eg the plane having a custom sit emote scenario
+
+# Little Work
+
+- rename action node onComplete to onTrigger it looks much cleaner in a script
 
 # TODO
 
@@ -126,11 +130,7 @@ x website that speaks to api
 ## Cube Spin
 
 ```
-let cube
-
-object.on('setup', () => {
-  cube = object.get('Cube')
-})
+const cube = object.get('Cube')
 
 object.on('update', delta => {
   cube.rotation.y += 1 * delta
@@ -141,11 +141,7 @@ object.on('update', delta => {
 ## Mill (Blades Spinning)
 
 ```
-let blades
-
-object.on('setup', () => {
-  blades = object.get('MillBlades')
-})
+const blades = object.get('MillBlades')
 
 object.on('update', delta => {
   blades.rotation.y += 0.2 * delta
@@ -156,156 +152,19 @@ object.on('update', delta => {
 ## Tree Choppable
 
 ```jsx
-let trunk
-let leaves
-let stump
-let action
-
-object.on('setup', () => {
-  trunk = object.get('trunk')
-  leaves = object.get('leaves')
-  stump = object.get('stump')
-  action = object.create({
-    type: 'action',
-    text: 'Chop',
-    onComplete() {
-      object.remove(trunk)
-      object.remove(leaves)
-      stump.setVisible(true)
-      object.remove(action)
-    },
-  })
-  object.add(action)
-  action.position.y = 1
+const trunk = object.get('trunk')
+const leaves = object.get('leaves')
+const stump = object.get('stump')
+const action = object.create({
+  type: 'action',
+  text: 'Chop',
+  onComplete() {
+    object.remove(trunk)
+    object.remove(leaves)
+    stump.setVisible(true)
+    object.remove(action)
+  },
 })
-```
-
-## Fighter Pete (plane/jet)
-
-```jsx
-let action
-let box
-let control
-
-const LOOK_SPEED = 0.1
-const ZOOM_SPEED = 2
-const MIN_ZOOM = 2
-const MAX_ZOOM = 100
-
-const input = {
-  lookActive: false,
-  lookDelta: new Vector3(),
-  zoomDelta: 0,
-  throttle: false,
-}
-
-function setup() {
-  action = object.create({
-    type: 'action',
-    name: 'action',
-    text: 'Enter',
-    onComplete() {
-      object.remove(action)
-      enter()
-    },
-  })
-  action.position.y = 2
-  action.position.z = -1
-  object.add(action)
-  box = object.create({
-    type: 'box',
-    name: 'box',
-    size: [2, 1.5, 5],
-    physics: 'dynamic',
-  })
-  box.position.y = 0.75
-  object.add(box)
-}
-
-function start() {
-  box.detach()
-}
-
-function enter() {
-  // bind control
-  control = object.control({
-    btnDown: code => {
-      switch (code) {
-        case 'MouseRight':
-          control.lockPointer()
-          input.lookActive = true
-          break
-        case 'KeyW':
-          input.throttle = true
-          break
-        case 'KeyE':
-          control.release()
-          break
-      }
-      return true
-    },
-    btnUp: code => {
-      switch (code) {
-        case 'MouseRight':
-          control.unlockPointer()
-          input.lookActive = false
-          break
-        case 'KeyW':
-          input.throttle = false
-          break
-      }
-      return true
-    },
-    pointer: info => {
-      if (input.lookActive) {
-        input.lookDelta.add(info.delta)
-      }
-    },
-    zoom: delta => {
-      input.zoomDelta += delta
-    },
-    release: () => {
-      leave()
-    },
-  })
-  // intialize camera
-  control.camera.position.copy(object.position)
-  control.camera.rotation.copy(object.rotation)
-  control.camera.zoom = 4
-  control.camera.active = true
-  // watch updates
-  object.on('update', update)
-}
-
-// object.on('update', () => {
-//   console.log('obj pos', object.position.toArray())
-// })
-
-function update(delta) {
-  control.camera.rotation.y += -input.lookDelta.x * LOOK_SPEED * delta
-  control.camera.rotation.x += -input.lookDelta.y * LOOK_SPEED * delta
-  control.camera.rotation.reorder('YXZ')
-  input.lookDelta.set(0, 0, 0)
-
-  control.camera.position.copy(object.position)
-  control.camera.position.y += 2
-
-  control.camera.zoom += -input.zoomDelta * ZOOM_SPEED * delta
-  control.camera.zoom = clamp(control.camera.zoom, MIN_ZOOM, MAX_ZOOM)
-  input.zoomDelta = 0
-
-  if (input.throttle) {
-    object.position.z += 10 * delta
-    object.dirty()
-  }
-}
-
-function leave() {
-  console.log('leave')
-  object.off('update', update)
-  object.add(action)
-}
-
-object.on('setup', setup)
-object.on('start', start)
+action.position.y = 1
+object.add(action)
 ```

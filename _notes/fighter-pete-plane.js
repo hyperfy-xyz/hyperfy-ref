@@ -17,16 +17,12 @@ const MAX_ZOOM = 100
 const THROTTLE_INCREMENT = 100
 const MAX_THRUST = 0.1
 
-let action
-let body
-let seat
-let fighter
+const networkPos = object.createNetworkProp(new Vector3())
+const networkQua = object.createNetworkProp(new Quaternion())
+
 let control
 let throttle = 0
 let isAuthority = object.isAuthority()
-
-const networkPos = object.createNetworkProp(new Vector3())
-const networkQua = object.createNetworkProp(new Quaternion())
 
 const input = {
   lookActive: false,
@@ -51,46 +47,47 @@ function clearDownInput() {
   input.yawRight = false
 }
 
-function setup() {
-  // create physics body
-  body = object.create({
-    type: 'box',
-    name: 'body',
-    size: [7, 1.1, 7],
-    physics: isAuthority ? 'dynamic' : 'kinematic',
-    visible: false,
-  })
-  body.position.y = 1
-  object.add(body)
-  // add seat
-  seat = object.create({
-    type: 'group',
-    name: 'seat',
-  })
-  seat.position.z = -0.6
-  seat.position.y = -0.4
-  body.add(seat)
-  // add fighter to child of body so it follows
-  fighter = object.get('Fighter')
-  fighter.position.y -= 1.5 / 2
-  body.add(fighter)
-  // create enter action
-  action = object.create({
-    type: 'action',
-    name: 'action',
-    text: 'Enter',
-    onComplete() {
-      enter()
-    },
-  })
-  action.position.y = 2
-  action.position.z = -1
-  fighter.add(action)
-}
+// create physics body
+const body = object.create({
+  type: 'box',
+  name: 'body',
+  size: [7, 1.1, 7],
+  physics: isAuthority ? 'dynamic' : 'kinematic',
+  visible: false,
+})
+body.position.y = 1
+object.add(body)
 
-function start() {
+// add seat
+const seat = object.create({
+  type: 'group',
+  name: 'seat',
+})
+seat.position.z = -0.6
+seat.position.y = -0.4
+body.add(seat)
+
+// move fighter to child of body so it follows
+const fighter = object.get('Fighter')
+fighter.position.y -= 1.5 / 2
+body.add(fighter)
+
+// create enter action
+const action = object.create({
+  type: 'action',
+  name: 'action',
+  text: 'Enter',
+  onComplete() {
+    enter()
+  },
+})
+action.position.y = 2
+action.position.z = -1
+fighter.add(action)
+
+object.on('mount', () => {
   body.detach()
-}
+})
 
 function enter() {
   // take authority if needed
@@ -311,9 +308,6 @@ function leave() {
   fighter.add(action)
   control = null
 }
-
-object.on('setup', setup)
-object.on('start', start)
 
 object.on('fixedUpdate', fixedUpdate)
 object.on('update', update)

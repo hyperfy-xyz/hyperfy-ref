@@ -191,6 +191,10 @@ export class Object extends Entity {
   }
 
   createNode(data) {
+    if (!data.name) {
+      console.error('node name required')
+      return
+    }
     if (this.nodes.has(data.name)) {
       console.error('node name already exists: ', data.name)
       return
@@ -303,21 +307,13 @@ export class Object extends Entity {
           return this.kill()
         }
       }
-      // emit script 'setup' event (pre-mount)
-      try {
-        this.emit('setup')
-      } catch (err) {
-        console.error('entity setup failed', this)
-        console.error(err)
-        return this.kill()
-      }
       // activate (mount) nodes
       this.root.activate()
-      // emit script 'start' event (post-mount)
+      // emit script 'mount' event (post-mount)
       try {
-        this.emit('start')
+        this.emit('mount')
       } catch (err) {
-        console.error('entity start failed', this)
+        console.error('entity mount failed', this)
         console.error(err)
         return this.kill()
       }
