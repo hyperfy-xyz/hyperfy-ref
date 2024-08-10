@@ -59,6 +59,7 @@ const body = object.create({
 body.position.copy(object.position)
 body.position.y += 1
 body.rotation.copy(object.rotation)
+body.setMass(1000)
 
 // add seat
 const seat = object.create({
@@ -109,10 +110,10 @@ function enter() {
           input.accelerate = true
           break
         case 'KeyW':
-          input.pitchUp = true
+          input.pitchDown = true
           break
         case 'KeyS':
-          input.pitchDown = true
+          input.pitchUp = true
           break
         case 'KeyA':
           input.rollLeft = true
@@ -142,10 +143,10 @@ function enter() {
           input.accelerate = false
           break
         case 'KeyW':
-          input.pitchUp = false
+          input.pitchDown = false
           break
         case 'KeyS':
-          input.pitchDown = false
+          input.pitchUp = false
           break
         case 'KeyA':
           input.rollLeft = false

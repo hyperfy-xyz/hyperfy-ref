@@ -18,6 +18,20 @@ export class Actions extends System {
 
   start() {
     this.action = createAction(this.world)
+    this.btnDown = false
+    this.control = this.world.input.bind({
+      priority: 100,
+      btnDown: code => {
+        if (code === 'KeyE') {
+          this.btnDown = true
+        }
+      },
+      btnUp: code => {
+        if (code === 'KeyE') {
+          this.btnDown = false
+        }
+      },
+    })
   }
 
   register(node) {
@@ -74,6 +88,11 @@ export class Actions extends System {
     }
     this.action.update(delta)
   }
+
+  destroy() {
+    this.control.release()
+    this.control = null
+  }
 }
 
 function createAction(world) {
@@ -106,37 +125,22 @@ function createAction(world) {
 
   let node = null
   let cancelled = false
-  let control
-  let btnDown = false
 
   return {
     start(_node) {
       if (node) console.error('erm node already set')
       node = _node
-      btnDown = false
+      world.actions.btnDown = false
       node.progress = 0
       draw(node.text, node.progress / node.duration)
       world.graphics.scene.add(mesh)
-      control = world.input.bind({
-        priority: 100,
-        btnDown(code) {
-          if (code === 'KeyE') {
-            btnDown = true
-          }
-        },
-        btnUp(code) {
-          if (code === 'KeyE') {
-            btnDown = false
-          }
-        },
-      })
     },
     update(delta) {
       if (!node) return
       mesh.position.setFromMatrixPosition(node.matrixWorld)
       mesh.quaternion.setFromRotationMatrix(world.graphics.camera.matrixWorld)
       world.graphics.scaleUI(mesh, heightPx, pxToMeters)
-      if (btnDown) {
+      if (world.actions.btnDown) {
         if (node.progress === 0) {
           cancelled = false
           try {
@@ -172,8 +176,6 @@ function createAction(world) {
     },
     stop() {
       node = null
-      control?.release()
-      control = null
       if (mesh.parent) {
         world.graphics.scene.remove(mesh)
       }

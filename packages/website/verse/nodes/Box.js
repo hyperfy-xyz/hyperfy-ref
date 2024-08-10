@@ -158,6 +158,11 @@ export class Box extends Node {
     }
   }
 
+  setMass(mass) {
+    if (!this.body) return
+    this.body.setMass(mass)
+  }
+
   addForce(force) {
     if (!this.body) return
     this.body.addForce(force.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
@@ -236,6 +241,9 @@ export class Box extends Node {
     const self = this
     if (!this.proxy) {
       const proxy = {
+        setMass(mass) {
+          self.setMass(mass)
+        },
         addForce(force) {
           self.addForce(force)
         },
