@@ -545,7 +545,6 @@ export class Player extends Entity {
     }
 
     // if we're anchored most of above doesn't matter because we're forcing our position
-    console.log('anchorNode', !!anchorNode)
     if (anchorNode) {
       anchorNode.matrixWorld.decompose(
         this.ghost.position,

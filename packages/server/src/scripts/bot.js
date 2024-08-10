@@ -1,6 +1,6 @@
 function wrapRawCode(code) {
   return `(function() {
-return object => {
+return (world, object) => {
     ${code}
 }
 })()`
@@ -93,16 +93,21 @@ export const botScriptRaw = js`
   let direction = new Vector3()
 
   const ctrl = object.create({
+    id: 'ctrl',
     type: 'controller',
-    name: 'ctrl',
     radius: 0.4,
     height: 1,
   })
-  object.add(ctrl)
-  
+  ctrl.position.copy(object.position)
+
   const vrm = object.get('vrm')
   vrm.rotation.reorder('YXZ')
+  vrm.quaternion.copy(object.quaternion)
   ctrl.add(vrm)
+
+  setNextAction(vrm.quaternion) // start in vrm direction
+
+  world.add(ctrl)
 
   function setNextAction(forceQuat) {
     const act = actions[num(0, actions.length - 1)]
@@ -119,16 +124,6 @@ export const botScriptRaw = js`
       direction.set(0, 0, -1).applyQuaternion(vrm.quaternion)
     }
   }
-
-
-  object.on('mount', () => {
-    ctrl.detach()
-    vrm.quaternion.copy(ctrl.quaternion)
-    ctrl.quaternion.set(0, 0, 0, 1)
-    setNextAction(vrm.quaternion) // start in vrm direction
-    ctrl.dirty()
-    vrm.dirty()
-  })
 
   object.on('update', delta => {
     vrm.setEmote(action.emote)

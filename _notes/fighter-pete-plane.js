@@ -49,8 +49,8 @@ function clearDownInput() {
 
 // create physics body
 const body = object.create({
+  id: 'body',
   type: 'box',
-  name: 'body',
   size: [7, 1.1, 7],
   physics: isAuthority ? 'dynamic' : 'kinematic',
   visible: false,
@@ -60,8 +60,8 @@ object.add(body)
 
 // add seat
 const seat = object.create({
+  id: 'seat',
   type: 'group',
-  name: 'seat',
 })
 seat.position.z = -0.6
 seat.position.y = -0.4
@@ -74,8 +74,8 @@ body.add(fighter)
 
 // create enter action
 const action = object.create({
+  id: 'action',
   type: 'action',
-  name: 'action',
   text: 'Enter',
   onComplete() {
     enter()
@@ -85,9 +85,11 @@ action.position.y = 2
 action.position.z = -1
 fighter.add(action)
 
-object.on('mount', () => {
-  body.detach()
-})
+world.add(body)
+
+// object.on('mount', () => {
+//   body.detach()
+// })
 
 function enter() {
   // take authority if needed

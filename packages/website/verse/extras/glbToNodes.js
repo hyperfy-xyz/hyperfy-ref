@@ -10,12 +10,12 @@ const groupTypes = ['Scene', 'Group', 'Object3D']
 export function glbToNodes(glb, world) {
   const nodes = new Map()
   function registerNode(data) {
-    if (nodes.has(data.name)) {
-      console.error('node name already exists:', data.name)
+    const node = createNode(data)
+    if (nodes.has(node.id)) {
+      console.error('node with id already exists:', node.id)
       return
     }
-    const node = createNode(data)
-    nodes.set(node.name, node)
+    nodes.set(node.id, node)
     return node
   }
   // function parseName(name) {
@@ -48,8 +48,8 @@ export function glbToNodes(glb, world) {
       if (groupTypes.includes(object3d.type)) {
         const lod = hasLods(object3d.children)
         const node = registerNode({
+          id: object3d.name,
           type: lod ? 'lod' : 'group',
-          name: object3d.name,
           position: object3d.position.toArray(),
           quaternion: object3d.quaternion.toArray(),
           scale: object3d.scale.toArray(),
@@ -65,8 +65,8 @@ export function glbToNodes(glb, world) {
           addWind(object3d, world)
         }
         const node = registerNode({
+          id: object3d.name,
           type: 'mesh',
-          name: object3d.name,
           model: world.models.register(object3d),
           visible: object3d.userData.visible,
           collision: object3d.userData.collision,
@@ -85,8 +85,8 @@ export function glbToNodes(glb, world) {
         //   let lod = lods[baseName]
         //   if (!lod) {
         //     lod = registerNode({
+        //       id: baseName,
         //       type: 'lod',
-        //       name: baseName,
         //       position: [0, 0, 0], // object3d.position.toArray(),
         //       quaternion: [0, 0, 0, 1], // object3d.quaternion.toArray(),
         //       scale: [1, 1, 1], // object3d.scale.toArray(),
@@ -107,8 +107,8 @@ export function glbToNodes(glb, world) {
   }
   const rootHasLods = hasLods(glb.scene.children)
   const root = registerNode({
+    id: '$root',
     type: rootHasLods ? 'lod' : 'group',
-    name: '$root',
   })
   parseTerrain(glb)
   parse(glb.scene.children, root)

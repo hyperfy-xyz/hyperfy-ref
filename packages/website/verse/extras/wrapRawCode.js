@@ -1,7 +1,7 @@
 export function wrapRawCode(code) {
   return `
 (function() {
-  return object => {
+  return (world, object) => {
     ${code}
   }
 })()

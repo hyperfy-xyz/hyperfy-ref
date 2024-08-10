@@ -16,7 +16,6 @@ export class BowAction extends Action {
   }
 
   check(avatar) {
-    // TODO: rename LMB -> MouseLeft/LeftMouse
     if (avatar.input.use) {
       this.emote = 'avatar@bow-aim.glb'
       this.fired = false

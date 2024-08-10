@@ -3,21 +3,21 @@ import { createNode } from './createNode'
 export function vrmToNodes(factory) {
   const nodes = new Map()
   function registerNode(data) {
-    if (nodes.has(data.name)) {
-      console.error('node name already exists:', data.name)
+    const node = createNode(data)
+    if (nodes.has(node.id)) {
+      console.error('node with id already exists:', node.id)
       return
     }
-    const node = createNode(data)
-    nodes.set(node.name, node)
+    nodes.set(node.id, node)
     return node
   }
   const root = registerNode({
+    id: '$root',
     type: 'group',
-    name: '$root',
   })
   const vrm = registerNode({
+    id: 'vrm',
     type: 'vrm',
-    name: 'vrm',
     factory,
   })
   root.add(vrm)

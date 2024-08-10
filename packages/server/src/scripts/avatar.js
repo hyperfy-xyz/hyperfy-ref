@@ -1,6 +1,6 @@
 function wrapRawCode(code) {
   return `(function() {
-  return object => {
+  return (world, object) => {
     ${code}
   }
 })()`
@@ -53,15 +53,15 @@ object.on('setup', () => {
   const authority = object.isAuthority()
   if (authority) {
     base = object.create({
+      id: 'ctrl',
       type: 'controller',
-      name: 'ctrl',
       radius: 0.4,
       height: 1,
     })
   } else {
     base = object.create({
+      id: 'base',
       type: 'group',
-      name: 'base',
     })
   }
   object.add(base)

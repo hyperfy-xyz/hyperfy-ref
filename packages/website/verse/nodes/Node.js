@@ -10,10 +10,12 @@ const _v1 = new THREE.Vector3()
 const _v2 = new THREE.Vector3()
 const _q1 = new THREE.Quaternion()
 
+let nodeIds = -1
+
 export class Node {
   constructor(data = {}) {
+    this.id = data.id || ++nodeIds
     this.type = 'node'
-    this.name = data.name || ''
     this.parent = null
     this.children = []
     this.ctx = null
@@ -76,21 +78,21 @@ export class Node {
     return this
   }
 
-  detach(node) {
-    if (node) {
-      const idx = this.children.indexOf(node)
-      if (idx === -1) return
-      this.project()
-      node.parent = null
-      this.children.splice(idx, 1)
-      node.matrix.copy(node.matrixWorld)
-      node.matrix.decompose(node.position, node.quaternion, node.scale)
-      node.project()
-      node.update()
-    } else {
-      this.parent?.detach(this)
-    }
-  }
+  // detach(node) {
+  //   if (node) {
+  //     const idx = this.children.indexOf(node)
+  //     if (idx === -1) return
+  //     this.project()
+  //     node.parent = null
+  //     this.children.splice(idx, 1)
+  //     node.matrix.copy(node.matrixWorld)
+  //     node.matrix.decompose(node.position, node.quaternion, node.scale)
+  //     node.project()
+  //     node.update()
+  //   } else {
+  //     this.parent?.detach(this)
+  //   }
+  // }
 
   dirty() {
     if (this.isDirty) return
@@ -160,7 +162,7 @@ export class Node {
   }
 
   copy(source, recursive) {
-    this.name = source.name
+    this.id = source.id
     this.position.copy(source.position)
     this.quaternion.copy(source.quaternion)
     this.scale.copy(source.scale)
@@ -187,7 +189,7 @@ export class Node {
     if (!this.proxy) {
       const self = this
       const proxy = {
-        name: self.name,
+        id: self.id,
         position: self.position,
         rotation: self.rotation,
         quaternion: self.quaternion,
@@ -198,7 +200,7 @@ export class Node {
           if (!self.ctx.entity) {
             return console.error('node has no ctx.entity')
           }
-          const node = self.ctx.entity.nodes.get(pNode.name)
+          const node = self.ctx.entity.nodes.get(pNode.id)
           self.add(node)
           return this
         },
@@ -206,16 +208,16 @@ export class Node {
           if (!self.ctx.entity) {
             return console.error('node has no ctx.entity')
           }
-          const node = self.ctx.entity.nodes.get(pNode.name)
+          const node = self.ctx.entity.nodes.get(pNode.id)
           self.remove(node)
           return this
         },
         getParent() {
           return self.parent?.getProxy()
         },
-        detach(node) {
-          self.detach(node)
-        },
+        // detach(node) {
+        //   self.detach(node)
+        // },
       }
       this.proxy = proxy
     }

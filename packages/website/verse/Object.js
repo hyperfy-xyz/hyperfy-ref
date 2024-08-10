@@ -56,7 +56,7 @@ export class Object extends Entity {
     // this.quaternion.onChange = this.onQuaternionChange.bind(this)
 
     this.root = new Nodes.group({
-      name: '$root',
+      id: '$root',
     })
     this.root.position.copy(this.position.value)
     this.root.quaternion.copy(this.quaternion.value)
@@ -191,18 +191,14 @@ export class Object extends Entity {
   }
 
   createNode(data) {
-    if (!data.name) {
-      console.error('node name required')
-      return
-    }
-    if (this.nodes.has(data.name)) {
-      console.error('node name already exists: ', data.name)
-      return
-    }
     const Node = Nodes[data.type]
     const node = new Node(data)
-    // node.bind(this)
-    this.nodes.set(node.name, node)
+    node.setContext(this.ctx)
+    if (this.nodes.has(node.id)) {
+      console.error('node with id already exists: ', node.id)
+      return
+    }
+    this.nodes.set(node.id, node)
     return node
   }
 
@@ -228,12 +224,12 @@ export class Object extends Entity {
     if (this.isUploading()) {
       // show loading
       this.root = this.createNode({
+        id: '$root',
         type: 'group',
-        name: '$root',
       })
       const box = this.createNode({
+        id: 'loading',
         type: 'box',
-        name: 'loading',
         color: 'blue',
         position: [0, 0.5, 0],
       })
@@ -241,12 +237,12 @@ export class Object extends Entity {
     } else if (!this.blueprint) {
       // not uploading but no blueprint? must be dead!
       this.root = this.createNode({
+        id: '$root',
         type: 'group',
-        name: '$root',
       })
       const box = this.createNode({
+        id: 'error',
         type: 'box',
-        name: 'error',
         color: 'red',
         position: [0, 0.5, 0],
       })
@@ -254,12 +250,12 @@ export class Object extends Entity {
     } else {
       // construct from blueprint
       this.root = this.blueprint.clone(true)
-      // collect nodes by name
+      // collect nodes by id
       this.root.traverse(node => {
-        if (this.nodes.has(node.name)) {
-          console.warn('dupe node name', node.name)
+        if (this.nodes.has(node.id)) {
+          console.warn('duplicate node id found', node.id)
         }
-        this.nodes.set(node.name, node)
+        this.nodes.set(node.id, node)
       })
     }
     this.root.setContext(this.ctx)
@@ -300,7 +296,7 @@ export class Object extends Entity {
       // instantiate script
       if (this.script) {
         try {
-          this.script(this.getProxy())
+          this.script(this.getWorldProxy(), this.getObjectProxy())
         } catch (err) {
           console.error('entity instantiate failed', this)
           console.error(err)
@@ -428,7 +424,28 @@ export class Object extends Entity {
     this.checkMode(true)
   }
 
-  getProxy() {
+  getWorldProxy() {
+    const entity = this
+    const world = this.world
+    return {
+      add(pNode) {
+        const node = entity.nodes.get(pNode.id)
+        if (!node) return
+        if (node.parent) {
+          node.parent.remove(node)
+        }
+        node.activate()
+      },
+      remove(pNode) {
+        const node = entity.nodes.get(pNode.id)
+        if (!node) return
+        if (node.parent) return // its not in world
+        node.deactivate()
+      },
+    }
+  }
+
+  getObjectProxy() {
     const entity = this
     const world = this.world
     return {
@@ -438,8 +455,8 @@ export class Object extends Entity {
       off(name, callback) {
         entity.off(name, callback)
       },
-      get(name) {
-        const node = entity.nodes.get(name)
+      get(id) {
+        const node = entity.nodes.get(id)
         if (!node) return null
         return node.getProxy()
       },

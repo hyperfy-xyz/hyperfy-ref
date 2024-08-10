@@ -63,7 +63,7 @@ export class Input extends System {
       },
       setPlayerAnchor: (node, emote) => {
         if (!object) return // anchors currently only work with object scripts
-        this.world.network.player.setAnchor(object.id, node.name, emote)
+        this.world.network.player.setAnchor(object.id, node.id, emote)
       },
       lockPointer: () => {
         this.lockPointer()

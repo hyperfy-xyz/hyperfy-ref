@@ -1,5 +1,5 @@
 ;(function () {
-  return object => {
+  return (world, object) => {
     const o1 = new Object3D()
     const v1 = new Vector3()
     const v2 = new Vector3()
@@ -43,15 +43,15 @@
       const authority = object.isAuthority()
       if (authority) {
         base = object.create({
+          id: 'ctrl',
           type: 'controller',
-          name: 'ctrl',
           radius: 0.4,
           height: 1,
         })
       } else {
         base = object.create({
+          id: 'base',
           type: 'group',
-          name: 'base',
         })
       }
       object.add(base)
