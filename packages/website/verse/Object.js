@@ -35,6 +35,8 @@ const q1 = new THREE.Quaternion()
 const defaultPosition = [0, 0, 0]
 const defaultQuaternion = [0, 0, 0, 1]
 
+const hotEventNames = ['fixedUpdate', 'update', 'lateUpdate']
+
 export class Object extends Entity {
   constructor(world, props) {
     super(world, props)
@@ -65,7 +67,10 @@ export class Object extends Entity {
 
     this.scriptVarIds = 0
 
-    this.modeChanged = 0
+    this.hotCounter = 0
+    this.hotEvents = 0
+
+    this.modeChanged = false
 
     this.nodes = new Map()
     this.events = {}
@@ -99,14 +104,20 @@ export class Object extends Entity {
 
   onModeChange(newValue, oldValue) {
     // console.log('onModeChange', newValue)
-    this.modeChanged++
-    this.world.entities.incActive(this)
+    // NOTE: we can't just call checkMode() here because the modeClientId may also have changed
+    if (!this.modeChanged) {
+      this.modeChanged = true
+      this.incHot() // get the next update
+    }
   }
 
   onModeClientIdChange(newValue, oldValue) {
     // console.log('onModeClientIdChange', newValue)
-    this.modeChanged++
-    this.world.entities.incActive(this)
+    // NOTE: we can't just call checkMode() here because the modeClientId may also have changed
+    if (!this.modeChanged) {
+      this.modeChanged = true
+      this.incHot() // get the next update
+    }
   }
 
   onPositionChange(newValue, oldValue) {
@@ -183,10 +194,7 @@ export class Object extends Entity {
 
   reload() {
     this.blueprint = null
-    if (this.script) {
-      this.script = null
-      this.world.entities.decActive(this)
-    }
+    this.script = null
     this.load()
   }
 
@@ -213,8 +221,10 @@ export class Object extends Entity {
     // release script control
     this.control?.release(false)
     this.control = null
-    // clear script events
+    // clear script events and unregister those hot updates
     this.events = {}
+    this.decHot(this.hotEvents)
+    this.hotEvents = 0
     // clear script vars
     // for (let i = 0; i < this.scriptVarIds; i++) {
     //   this.destroyVar(`$${i}`)
@@ -274,12 +284,10 @@ export class Object extends Entity {
     if (prevMode === mode && !forceRespawn) return
     // cleanup previous
     if (prevMode === 'active') {
-      if (this.script) {
-        this.world.entities.decActive(this)
-      }
+      // ...
     }
     if (prevMode === 'moving') {
-      this.world.entities.decActive(this)
+      this.decHot()
       const isMover = prevModeClientId === this.world.network.client.id
       if (!isMover) {
         // before rebuilding, snap to final network transforms for accuracy
@@ -306,23 +314,24 @@ export class Object extends Entity {
       // activate (mount) nodes
       this.root.activate()
       // emit script 'mount' event (post-mount)
-      try {
-        this.emit('mount')
-      } catch (err) {
-        console.error('entity mount failed', this)
-        console.error(err)
-        return this.kill()
-      }
+      // try {
+      //   this.emit('mount')
+      // } catch (err) {
+      //   console.error('entity mount failed', this)
+      //   console.error(err)
+      //   return this.kill()
+      // }
       // register for script update/fixedUpdate etc
-      if (this.script) {
-        this.world.entities.incActive(this)
-      }
+      // if (this.script) {
+      //   this.world.entities.incActive(this)
+      // }
     }
     if (mode === 'moving') {
       if (modeClientId === this.world.network.client.id) {
         this.world.environment.setMoving(this)
       }
-      this.world.entities.incActive(this)
+      // ensure we get updates
+      this.incHot()
       // activate (mount) nodes
       this.root.activate()
     }
@@ -334,10 +343,8 @@ export class Object extends Entity {
   update(delta) {
     // console.log('update')
     if (this.modeChanged) {
-      while (this.modeChanged > 0) {
-        this.world.entities.decActive(this)
-        this.modeChanged--
-      }
+      this.modeChanged = false
+      this.decHot()
       this.checkMode()
     }
     // only called when
@@ -404,17 +411,42 @@ export class Object extends Entity {
       this.events[name] = new Set()
     }
     this.events[name].add(callback)
+    if (hotEventNames.includes(name)) {
+      this.hotEvents++
+      this.incHot()
+    }
   }
 
   off(name, callback) {
     if (!this.events[name]) return
     this.events[name].delete(callback)
+    if (hotEventNames.includes(name)) {
+      this.hotEvents--
+      this.decHot()
+    }
   }
 
   emit(name, a1, a2) {
     if (!this.events[name]) return
     for (const callback of this.events[name]) {
       callback(a1, a2)
+    }
+  }
+
+  incHot() {
+    this.hotCounter++
+    if (this.hotCounter === 1) {
+      this.world.entities.setHot(this, true)
+    }
+  }
+
+  decHot(n = 1) {
+    this.hotCounter -= n
+    if (this.hotCounter === 0) {
+      this.world.entities.setHot(this, false)
+    }
+    if (this.hotCounter < 0) {
+      console.warn('hot counter dropped below zero')
     }
   }
 
@@ -760,7 +792,7 @@ export class Object extends Entity {
 
   destroy() {
     super.destroy()
-    this.world.entities.decActive(this, true)
+    this.world.entities.setHot(this, false)
     this.nodes.forEach(node => {
       if (node.mounted) {
         node.unmount()

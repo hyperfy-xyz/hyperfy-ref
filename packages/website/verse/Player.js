@@ -163,7 +163,7 @@ export class Player extends Entity {
 
     // start
     // this.world.graphics.scene.add(this.vrm)
-    this.world.entities.incActive(this)
+    this.world.entities.setHot(this, true)
 
     if (this.isOwner()) {
       this.bindControls()
@@ -684,7 +684,7 @@ export class Player extends Entity {
 
   destroy() {
     super.destroy()
-    this.world.entities.decActive(this, true)
+    this.world.entities.setHot(this, false)
     this.vrm?.destroy()
     this.controller.release()
     this.controller = null

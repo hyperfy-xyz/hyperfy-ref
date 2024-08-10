@@ -16,7 +16,7 @@ export class Entities extends System {
     this.schemas = new Map()
     this.entities = new Map()
     this.dirtyNodes = new Set()
-    this.activeEntities = new Set()
+    this.hot = new Set()
   }
 
   upsertSchema(schema) {
@@ -85,19 +85,11 @@ export class Entities extends System {
     return n
   }
 
-  incActive(entity) {
-    if (!entity._activeCount) {
-      entity._activeCount = 0
-    }
-    entity._activeCount++
-    this.activeEntities.add(entity)
-  }
-
-  decActive(entity, force) {
-    entity._activeCount--
-    if (force) entity._activeCount = 0
-    if (entity._activeCount <= 0) {
-      this.activeEntities.delete(entity)
+  setHot(entity, isHot) {
+    if (isHot) {
+      this.hot.add(entity)
+    } else {
+      this.hot.delete(entity)
     }
   }
 
@@ -109,21 +101,21 @@ export class Entities extends System {
   }
 
   fixedUpdate(delta) {
-    for (const entity of this.activeEntities) {
+    for (const entity of this.hot) {
       entity.fixedUpdate(delta)
     }
   }
 
   update(delta) {
     // this.project()
-    for (const entity of this.activeEntities) {
+    for (const entity of this.hot) {
       entity.update(delta)
     }
   }
 
   lateUpdate(delta) {
     this.project()
-    for (const entity of this.activeEntities) {
+    for (const entity of this.hot) {
       entity.lateUpdate(delta)
     }
     this.project()
