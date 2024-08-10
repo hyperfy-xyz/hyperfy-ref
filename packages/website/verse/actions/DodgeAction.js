@@ -9,7 +9,7 @@ export class DodgeAction extends Action {
   }
 
   check(avatar) {
-    if (avatar.controls.dodge) {
+    if (avatar.input.dodge) {
       this.emote = avatar.isMoving ? 'avatar@roll.glb' : 'avatar@backstep.glb'
       this.displacement.z = avatar.isMoving ? -1 : 1
       this.speed = avatar.isMoving ? 15 : 10

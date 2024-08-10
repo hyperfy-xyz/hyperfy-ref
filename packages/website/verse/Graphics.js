@@ -292,6 +292,10 @@ export class Graphics extends System {
   }
 
   update(delta) {
+    // ...
+  }
+
+  lateUpdate(delta) {
     this.csm.update()
     this.render()
   }

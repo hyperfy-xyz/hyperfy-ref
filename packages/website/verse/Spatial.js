@@ -15,8 +15,8 @@ export class Spatial extends System {
       size: 10,
     })
     this.lastPrune = 0
-    this.unregisterInput = this.world.input.register({
-      priority: 999,
+    this.control = this.world.input.bind({
+      priority: 100,
       btnDown: code => {
         if (code === 'KeyP') {
           this.octree.toggleHelper()
@@ -27,7 +27,7 @@ export class Spatial extends System {
   }
 
   destroy() {
-    this.unregisterInput?.()
-    this.unregisterInput = null
+    this.control?.release()
+    this.control = null
   }
 }

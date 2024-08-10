@@ -15,6 +15,7 @@ import { smoothDamp } from './extras/smoothDamp'
 import { Vector3Enhanced } from './extras/Vector3Enhanced'
 import { NetworkedVector3 } from './extras/NetworkedVector3'
 import { NetworkedQuaternion } from './extras/NetworkedQuaternion'
+import { bindRotations } from './extras/bindRotations'
 
 const UP = new THREE.Vector3(0, 1, 0)
 const FORWARD = new THREE.Vector3(0, 0, -1)
@@ -42,12 +43,14 @@ const emotes = {
   run: 'avatar@run.glb',
   walk: 'avatar@walk.glb',
   float: 'avatar@float.glb',
+  sit: 'avatar@sit.glb', // temp: used by fighter-pete
 }
 
 const defaults = {
   position: [0, 0, 0],
   vrmUrl: `${process.env.PUBLIC_ASSETS_URL}/wizard_255.vrm`,
   teleportN: 0,
+  anchor: null,
 }
 
 export class Player extends Entity {
@@ -68,6 +71,7 @@ export class Player extends Entity {
     this.vrmUrl = this.createNetworkProp('vrmUrl', props.vrmUrl || defaults.vrmUrl) // prettier-ignore
     this.vrmUrl.onChange = () => this.loadVRM(this)
     this.teleportN = this.createNetworkProp('teleportN', props.teleportN || defaults.teleportN) // prettier-ignore
+    this.anchor = this.createNetworkProp('anchor', props.anchor || defaults.anchor) // prettier-ignore
 
     // ghost is just a container that controllers/vrms follow
     this.ghost = new THREE.Object3D()
@@ -168,64 +172,69 @@ export class Player extends Entity {
   }
 
   bindControls() {
+    console.log('bindControls')
     const world = this.world
-    const controls = {
+    const input = {
       lookActive: false,
       lookDelta: new THREE.Vector3(),
       zoomDelta: 0,
       nextItem: null,
-      move: new THREE.Vector3(),
+      moveForward: false,
+      moveBack: false,
+      moveLeft: false,
+      moveRight: false,
       jump: false,
       jumpDown: false,
       use: false,
       dodge: false,
     }
-    this.unregisterInput = world.input.register({
+    this.input = input
+    this.control = world.input.bind({
       priority: 0,
       btnDown: code => {
         // console.log('btnDown', code)
         switch (code) {
           case 'MouseLeft':
-            controls.use = true
+            input.use = true
             break
           case 'MouseRight':
-            world.input.lockPointer()
-            controls.lookActive = true
+            this.control.lockPointer()
+            input.lookActive = true
             break
           case 'Digit1':
-            controls.nextItem = 0
+            input.nextItem = 0
             break
           case 'Digit2':
-            controls.nextItem = 1
+            input.nextItem = 1
             break
           case 'Digit3':
-            controls.nextItem = 2
+            input.nextItem = 2
             break
           case 'Digit4':
-            controls.nextItem = 3
+            input.nextItem = 3
             break
           case 'ArrowLeft':
           case 'KeyA':
-            controls.move.x -= 1
+            input.moveLeft = true
             break
           case 'ArrowRight':
           case 'KeyD':
-            controls.move.x += 1
+            input.moveRight = true
             break
           case 'ArrowUp':
           case 'KeyW':
-            controls.move.z -= 1
+            input.moveForward = true
             break
           case 'ArrowDown':
           case 'KeyS':
-            controls.move.z += 1
+            input.moveBack = true
             break
           case 'Space':
-            controls.jump = true
-            controls.jumpDown = true
+            input.jump = true
+            input.jumpDown = true
             break
           case 'ShiftLeft':
-            controls.dodge = true
+            input.dodge = true
             break
         }
       },
@@ -233,34 +242,34 @@ export class Player extends Entity {
         // console.log('btnUp', code)
         switch (code) {
           case 'MouseLeft':
-            controls.use = false
+            input.use = false
             break
           case 'MouseRight':
-            world.input.unlockPointer()
-            controls.lookActive = false
+            this.control.unlockPointer()
+            input.lookActive = false
             break
           case 'ArrowLeft':
           case 'KeyA':
-            controls.move.x += 1
+            input.moveLeft = false
             break
           case 'ArrowRight':
           case 'KeyD':
-            controls.move.x -= 1
+            input.moveRight = false
             break
           case 'ArrowUp':
           case 'KeyW':
-            controls.move.z += 1
+            input.moveForward = false
             break
           case 'ArrowDown':
           case 'KeyS':
-            controls.move.z -= 1
+            input.moveBack = false
             break
           case 'Space':
-            controls.jump = false
-            controls.jumpDown = false
+            input.jump = false
+            input.jumpDown = false
             break
           case 'ShiftLeft':
-            controls.dodge = false
+            input.dodge = false
             break
         }
       },
@@ -273,15 +282,27 @@ export class Player extends Entity {
         // position of the mouse [0,0] to [viewportWidth,viewportHeight]
         // delta of the mouse in pixels
         // console.log('pointer', coords, position, locked)
-        if (controls.lookActive) {
-          controls.lookDelta.add(info.delta)
+        if (input.lookActive) {
+          input.lookDelta.add(info.delta)
         }
       },
       zoom: delta => {
-        controls.zoomDelta += delta
+        input.zoomDelta += delta
+      },
+      blur() {
+        // clear down keys so they don't get stuck
+        input.use = false
+        input.lookActive = false
+        input.moveForward = false
+        input.moveBack = false
+        input.moveLeft = false
+        input.moveRight = false
+        input.jump = false
+        input.jumpDown = false
+        input.dodge = false
       },
     })
-    this.controls = controls
+    this.control.camera.active = true
   }
 
   async loadVRM() {
@@ -321,25 +342,35 @@ export class Player extends Entity {
   }
 
   updateLocal(delta) {
-    const controls = this.controls
-    const cam = this.world.cam
+    const input = this.input
+    const camera = this.control.camera
     const ghost = this.ghost
 
+    // anchor node
+    let anchorNode
+    let anchorEmote
+    if (this.anchor.value) {
+      const entity = this.world.entities.getEntity(this.anchor.value.objectId)
+      if (!entity) return
+      anchorNode = entity.nodes.get(this.anchor.value.node)
+      if (anchorNode) anchorEmote = emotes[this.anchor.value.emote]
+    }
+
     // rotate camera when looking (holding right mouse + dragging)
-    cam.rotation.y += -controls.lookDelta.x * LOOK_SPEED * delta
-    cam.rotation.x += -controls.lookDelta.y * LOOK_SPEED * delta
-    controls.lookDelta.set(0, 0, 0)
+    camera.rotation.y += -input.lookDelta.x * LOOK_SPEED * delta
+    camera.rotation.x += -input.lookDelta.y * LOOK_SPEED * delta
+    input.lookDelta.set(0, 0, 0)
 
     // zoom camera if scrolling wheel (and not moving an object)
-    this.zoom += -controls.zoomDelta * ZOOM_SPEED * delta
+    this.zoom += -input.zoomDelta * ZOOM_SPEED * delta
     this.zoom = clamp(this.zoom, MIN_ZOOM, MAX_ZOOM)
-    cam.zoom = this.zoom
-    controls.zoomDelta = 0
+    camera.zoom = this.zoom
+    input.zoomDelta = 0
 
     // switch items (if not performing an action)
-    if (!this.action && controls.nextItem !== null) {
-      this.itemIdx.value = controls.nextItem
-      controls.nextItem = null
+    if (!this.action && input.nextItem !== null) {
+      this.itemIdx.value = input.nextItem
+      input.nextItem = null
     }
 
     // if not performing an action, check if we should start one
@@ -362,7 +393,10 @@ export class Player extends Entity {
     // if we're not performing an action, use directional input displacement
     if (!this.action || this.action.moveFreedom) {
       // copy input axis
-      this.displacement.copy(controls.move)
+      if (input.moveForward) this.displacement.z -= 1
+      if (input.moveBack) this.displacement.z += 1
+      if (input.moveLeft) this.displacement.x -= 1
+      if (input.moveRight) this.displacement.x += 1
 
       // we're moving if any keys are down
       this.isMoving = this.displacement.length() > 0
@@ -371,7 +405,7 @@ export class Player extends Entity {
       this.displacement.normalize()
 
       // rotate displacement by camera Y-rotation
-      const yRigQuaternion = q1.setFromAxisAngle(UP, cam.rotation.y)
+      const yRigQuaternion = q1.setFromAxisAngle(UP, camera.rotation.y)
       this.displacement.applyQuaternion(yRigQuaternion)
 
       // get a quaternion that faces the direction we are moving
@@ -406,44 +440,52 @@ export class Player extends Entity {
 
       // lock on (face camera)
       if (this.action.lockOn) {
-        this.targetEuler.set(0, cam.rotation.y, 0)
+        this.targetEuler.set(0, camera.rotation.y, 0)
         this.targetQuaternion.setFromEuler(this.targetEuler)
       }
     }
 
-    // if we're grounded, dig into the ground (for when going down slopes)
-    // if we're not grounded, continually apply gravity
-    if (this.isGrounded) {
-      this.velocity.y = -20
-    } else {
+    // apply a natural gravity
+    // don't accrue it while anchored
+    if (!this.isGrounded && !anchorNode) {
       this.velocity.y -= this.gravity * delta
     }
 
+    // determine if we're airborn
+    // this is used to negate walking down slopes where you come off the ground
+    if (this.isGrounded) {
+      this.airtime = 0
+    } else {
+      this.airtime += delta
+    }
+    this.isAirborn = this.airtime > 0.3
+
     // if we're grounded and we want to jump, apply jump velocity
-    if (this.isGrounded && controls.jump && !this.action) {
+    if (this.isGrounded && input.jump && !this.action) {
       this.velocity.y = Math.sqrt(2 * this.gravity * this.jumpHeight)
       this.isJumping = true
-      controls.jump = false // consume
+      input.jump = false // consume
     }
     // HACK: temp flying
-    if (controls.jumpDown) {
+    if (input.jumpDown) {
       this.velocity.y += 1
     }
 
     // apply emote
-    if (this.action) {
-      this.vrm.setEmote(this.action.emote)
-      this.emote.value = this.action.emote
-    } else if (!this.isGrounded) {
-      this.vrm.setEmote(emotes.float)
-      this.emote.value = emotes.float
+    let emote
+    if (anchorEmote) {
+      emote = anchorEmote
+    } else if (this.action) {
+      emote = this.action.emote
+    } else if (this.isAirborn || this.isJumping) {
+      emote = emotes.float
     } else if (this.isMoving) {
-      this.vrm.setEmote(emotes.run)
-      this.emote.value = emotes.run
+      emote = emotes.run
     } else {
-      this.vrm.setEmote(emotes.idle)
-      this.emote.value = emotes.idle
+      emote = emotes.idle
     }
+    this.vrm.setEmote(emote)
+    this.emote.value = emote
 
     // apply the velocity (for this frame) to our displacement
     const velocity = v1.copy(this.velocity).multiplyScalar(delta)
@@ -485,7 +527,7 @@ export class Player extends Entity {
 
     // make camera follow our final position horizontally
     // and vertically at our vrm model height
-    cam.position.set(
+    camera.position.set(
       ghost.position.x,
       ghost.position.y + this.vrm.height,
       ghost.position.z
@@ -502,6 +544,19 @@ export class Player extends Entity {
       this.action = null
     }
 
+    // if we're anchored most of above doesn't matter because we're forcing our position
+    console.log('anchorNode', !!anchorNode)
+    if (anchorNode) {
+      anchorNode.matrixWorld.decompose(
+        this.ghost.position,
+        this.ghost.quaternion,
+        v1
+      )
+      this.ghost.updateMatrix()
+      this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
+      this.vrm.move(this.ghost.matrix)
+    }
+
     // attach any item to bone
     if (this.item?.model) {
       this.vrm.applyBoneMatrixWorld(this.item.boneName, this.item.model.matrix)
@@ -514,22 +569,42 @@ export class Player extends Entity {
   }
 
   updateRemote(delta) {
+    // anchor
+    let anchorNode
+    let anchorEmote
+    if (this.anchor.value) {
+      const entity = this.world.entities.getEntity(this.anchor.value.objectId)
+      if (!entity) return
+      anchorNode = entity.nodes.get(this.anchor.value.node)
+      if (anchorNode) {
+        anchorNode.matrixWorld.decompose(
+          this.ghost.position,
+          this.ghost.quaternion,
+          v1
+        )
+        // this.ghost.position.copy(anchorNode.position)
+        // this.ghost.quaternion.copy(anchorNode.quaternion)
+        anchorEmote = emotes[this.anchor.value.emote]
+      }
+    }
     // move
-    this.networkPosition.update(
-      this.position.value,
-      this.teleportN.value,
-      delta
-    )
-    this.networkQuaternion.update(
-      this.quaternion.value,
-      this.teleportN.value,
-      delta
-    )
+    if (!anchorNode) {
+      this.networkPosition.update(
+        this.position.value,
+        this.teleportN.value,
+        delta
+      )
+      this.networkQuaternion.update(
+        this.quaternion.value,
+        this.teleportN.value,
+        delta
+      )
+    }
     this.ghost.updateMatrix()
     this.vrm.move(this.ghost.matrix)
     this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
     // emote
-    this.vrm.setEmote(this.emote.value)
+    this.vrm.setEmote(anchorEmote || this.emote.value)
     // item attachment
     if (this.item?.model) {
       this.vrm.applyBoneMatrixWorld(this.item.boneName, this.item.model.matrix)
@@ -543,6 +618,15 @@ export class Player extends Entity {
     this.vrm.move(this.ghost.matrix)
     this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
     this.teleportN.value++
+  }
+
+  setAnchor(objectId, node, emote) {
+    if (objectId && node) {
+      this.anchor.value = { objectId, node, emote }
+    } else {
+      this.anchor.value = null
+      this.teleportN.value++
+    }
   }
 
   async setItem(idx) {
@@ -600,6 +684,7 @@ export class Player extends Entity {
     if (this.item?.model) {
       this.world.graphics.scene.remove(this.item.model)
     }
-    this.unregisterInput?.()
+    this.control?.release()
+    this.control = null
   }
 }

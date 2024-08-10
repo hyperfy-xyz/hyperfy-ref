@@ -1,3 +1,40 @@
+# Bigger Questions
+
+- how are we gonna handle emotes for real? eg the plane having a custom sit emote scenario
+
+# TODO
+
+- rename Input to Controls
+- world.controls.bind()
+- player controls.lookDelta -> input.lookDelta
+- problem: script can't be trusted to supply camera values eg we accidentally used a quaternion=Vector3 and it went black
+- cam.target can just be root values
+- after flying when i move it it flickers back to start
+
+# Input Contexts
+
+- player registers an input context
+  - uses lowest priority
+  - ## defines values they will read and whether they will be captured when read
+  - defines keys they want to read and whether they are captured
+- player then reads from that context, eg ctx.getKeyDown()
+
+# Next
+
+- object scripts update
+  - use a class, its feels nicer
+  - uses ts + decorators for networked props, automatic rpc etc
+- some objects act more like systems or are hidden by default
+  - a key should be available for people with permission to locally toggle on/off
+  - or at the very least you should be able to cmd+k > inspect > type to search objects by name (glb name by default but can be changed in inspector)
+
+# ...
+
+- shared Events enum using numbers
+- use shorthand event data [event, data] instead of { event, data }
+- rename entities to actors
+- rename schemas to blueprints
+
 # Color Matching
 
 - blender color management exposure=0 is threejs toneMappingExposure=1
@@ -92,7 +129,7 @@ x website that speaks to api
 let cube
 
 object.on('setup', () => {
-  cube = object.get('Cube_collider')
+  cube = object.get('Cube')
 })
 
 object.on('update', delta => {
@@ -141,4 +178,134 @@ object.on('setup', () => {
   object.add(action)
   action.position.y = 1
 })
+```
+
+## Fighter Pete (plane/jet)
+
+```jsx
+let action
+let box
+let control
+
+const LOOK_SPEED = 0.1
+const ZOOM_SPEED = 2
+const MIN_ZOOM = 2
+const MAX_ZOOM = 100
+
+const input = {
+  lookActive: false,
+  lookDelta: new Vector3(),
+  zoomDelta: 0,
+  throttle: false,
+}
+
+function setup() {
+  action = object.create({
+    type: 'action',
+    name: 'action',
+    text: 'Enter',
+    onComplete() {
+      object.remove(action)
+      enter()
+    },
+  })
+  action.position.y = 2
+  action.position.z = -1
+  object.add(action)
+  box = object.create({
+    type: 'box',
+    name: 'box',
+    size: [2, 1.5, 5],
+    physics: 'dynamic',
+  })
+  box.position.y = 0.75
+  object.add(box)
+}
+
+function start() {
+  box.detach()
+}
+
+function enter() {
+  // bind control
+  control = object.control({
+    btnDown: code => {
+      switch (code) {
+        case 'MouseRight':
+          control.lockPointer()
+          input.lookActive = true
+          break
+        case 'KeyW':
+          input.throttle = true
+          break
+        case 'KeyE':
+          control.release()
+          break
+      }
+      return true
+    },
+    btnUp: code => {
+      switch (code) {
+        case 'MouseRight':
+          control.unlockPointer()
+          input.lookActive = false
+          break
+        case 'KeyW':
+          input.throttle = false
+          break
+      }
+      return true
+    },
+    pointer: info => {
+      if (input.lookActive) {
+        input.lookDelta.add(info.delta)
+      }
+    },
+    zoom: delta => {
+      input.zoomDelta += delta
+    },
+    release: () => {
+      leave()
+    },
+  })
+  // intialize camera
+  control.camera.position.copy(object.position)
+  control.camera.rotation.copy(object.rotation)
+  control.camera.zoom = 4
+  control.camera.active = true
+  // watch updates
+  object.on('update', update)
+}
+
+// object.on('update', () => {
+//   console.log('obj pos', object.position.toArray())
+// })
+
+function update(delta) {
+  control.camera.rotation.y += -input.lookDelta.x * LOOK_SPEED * delta
+  control.camera.rotation.x += -input.lookDelta.y * LOOK_SPEED * delta
+  control.camera.rotation.reorder('YXZ')
+  input.lookDelta.set(0, 0, 0)
+
+  control.camera.position.copy(object.position)
+  control.camera.position.y += 2
+
+  control.camera.zoom += -input.zoomDelta * ZOOM_SPEED * delta
+  control.camera.zoom = clamp(control.camera.zoom, MIN_ZOOM, MAX_ZOOM)
+  input.zoomDelta = 0
+
+  if (input.throttle) {
+    object.position.z += 10 * delta
+    object.dirty()
+  }
+}
+
+function leave() {
+  console.log('leave')
+  object.off('update', update)
+  object.add(action)
+}
+
+object.on('setup', setup)
+object.on('start', start)
 ```

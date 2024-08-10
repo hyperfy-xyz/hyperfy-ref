@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 
 import { System } from './System'
+import { bindRotations } from './extras/bindRotations'
 
 const LMB = 1 // bitmask
 const RMB = 2 // bitmask
@@ -9,7 +10,7 @@ export class Input extends System {
   constructor(world) {
     super(world)
 
-    this.handlers = []
+    this.controls = []
 
     this.pointer = {
       locked: false,
@@ -33,20 +34,62 @@ export class Input extends System {
     this.viewport.addEventListener('pointerup', this.onPointerUp)
     this.viewport.addEventListener('wheel', this.onWheel, { passive: false }) // prettier-ignore
     this.viewport.addEventListener('contextmenu', this.onContextMenu)
+    window.addEventListener('blur', this.onBlur)
   }
 
-  register(handler) {
-    const idx = this.handlers.findIndex(h => h.priority < handler.priority)
+  update(delta) {
+    // retrieve and update cam
+    for (const control of this.controls) {
+      if (control.camera.active) {
+        this.world.cam.target.position.copy(control.camera.position)
+        this.world.cam.target.quaternion.copy(control.camera.quaternion)
+        this.world.cam.target.zoom = control.camera.zoom
+        break
+      }
+    }
+  }
+
+  bind(handler = {}) {
+    const object = handler.object
+    delete handler.object
+    const control = {
+      handler,
+      camera: {
+        position: new THREE.Vector3(),
+        quaternion: new THREE.Quaternion(),
+        rotation: new THREE.Euler(0, 0, 0, 'YXZ'),
+        zoom: 0,
+        active: false,
+      },
+      setPlayerAnchor: (node, emote) => {
+        if (!object) return // anchors currently only work with object scripts
+        this.world.network.player.setAnchor(object.id, node.name, emote)
+      },
+      lockPointer: () => {
+        this.lockPointer()
+      },
+      unlockPointer: () => {
+        this.unlockPointer()
+      },
+      release: (notify = true) => {
+        const idx = this.controls.indexOf(control)
+        if (idx === -1) return
+        this.controls.splice(idx, 1)
+        if (notify) {
+          handler.release?.()
+        }
+        this.world.network.player.setAnchor(null)
+        this.unlockPointer()
+      },
+    }
+    bindRotations(control.camera.quaternion, control.camera.rotation)
+    const idx = this.controls.findIndex(h => h.handler.priority < control.handler.priority) // prettier-ignore
     if (idx === -1) {
-      this.handlers.push(handler)
+      this.controls.push(control)
     } else {
-      this.handlers.splice(idx, 0, handler)
+      this.controls.splice(idx, 0, control)
     }
-    return () => {
-      const idx = this.handlers.indexOf(handler)
-      if (idx === -1) return
-      this.handlers.splice(idx, 1)
-    }
+    return control
   }
 
   async lockPointer() {
@@ -75,8 +118,8 @@ export class Input extends System {
     const meta = e.metaKey
     const ctrl = e.ctrlKey
     const shift = e.shiftKey
-    for (const handler of this.handlers) {
-      if (handler.btnDown?.(code)) {
+    for (const control of this.controls) {
+      if (control.handler.btnDown?.(code)) {
         break
       }
     }
@@ -90,8 +133,8 @@ export class Input extends System {
     const meta = e.metaKey
     const ctrl = e.ctrlKey
     const shift = e.shiftKey
-    for (const handler of this.handlers) {
-      if (handler.btnUp?.(code)) {
+    for (const control of this.controls) {
+      if (control.handler.btnUp?.(code)) {
         break
       }
     }
@@ -115,8 +158,8 @@ export class Input extends System {
     this.pointer.position.y = offsetY
     this.pointer.delta.x = e.movementX
     this.pointer.delta.y = e.movementY
-    for (const handler of this.handlers) {
-      if (handler.pointer?.(this.pointer)) {
+    for (const control of this.controls) {
+      if (control.handler.pointer?.(this.pointer)) {
         break
       }
     }
@@ -131,8 +174,8 @@ export class Input extends System {
     // left mouse down
     if (!this.mouseLeftDown && lmb) {
       this.mouseLeftDown = true
-      for (const handler of this.handlers) {
-        if (handler.btnDown?.('MouseLeft')) {
+      for (const control of this.controls) {
+        if (control.handler.btnDown?.('MouseLeft')) {
           break
         }
       }
@@ -140,8 +183,8 @@ export class Input extends System {
     // left mouse up
     if (this.mouseLeftDown && !lmb) {
       this.mouseLeftDown = false
-      for (const handler of this.handlers) {
-        if (handler.btnUp?.('MouseLeft')) {
+      for (const control of this.controls) {
+        if (control.handler.btnUp?.('MouseLeft')) {
           break
         }
       }
@@ -150,8 +193,8 @@ export class Input extends System {
     // right mouse down
     if (!this.mouseRightDown && rmb) {
       this.mouseRightDown = true
-      for (const handler of this.handlers) {
-        if (handler.btnDown?.('MouseRight')) {
+      for (const control of this.controls) {
+        if (control.handler.btnDown?.('MouseRight')) {
           break
         }
       }
@@ -159,8 +202,8 @@ export class Input extends System {
     // right mouse up
     if (this.mouseRightDown && !rmb) {
       this.mouseRightDown = false
-      for (const handler of this.handlers) {
-        if (handler.btnUp?.('MouseRight')) {
+      for (const control of this.controls) {
+        if (control.handler.btnUp?.('MouseRight')) {
           break
         }
       }
@@ -169,8 +212,8 @@ export class Input extends System {
 
   onWheel = e => {
     e.preventDefault()
-    for (const handler of this.handlers) {
-      if (handler.zoom?.(e.deltaY)) {
+    for (const control of this.controls) {
+      if (control.handler.zoom?.(e.deltaY)) {
         break
       }
     }
@@ -199,6 +242,12 @@ export class Input extends System {
   onPointerLockEnd() {
     if (!this.pointer.locked) return
     this.pointer.locked = false
+  }
+
+  onBlur = () => {
+    for (const control of this.controls) {
+      control.handler.blur?.() // not cancellable
+    }
   }
 
   isInputFocused() {

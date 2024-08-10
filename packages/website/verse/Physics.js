@@ -138,7 +138,20 @@ export class Physics extends System {
       binding.node.position.copy(pose.p)
       binding.node.quaternion.copy(pose.q)
       binding.node.dirty()
+      // console.log('Physics.fixedUpdated sim node dirty')
     }
+    // ensure all dirty nodes are applied immediately
+    this.world.entities.project()
+  }
+
+  lateUpdate() {
+    // for (const binding of this.bindings) {
+    //   if (binding.body.isSleeping()) continue
+    //   const pose = binding.body.getGlobalPose()
+    //   binding.node.position.copy(pose.p)
+    //   binding.node.quaternion.copy(pose.q)
+    //   binding.node.dirty()
+    // }
   }
 
   raycast(origin, direction, maxDistance, ignoreGroups) {

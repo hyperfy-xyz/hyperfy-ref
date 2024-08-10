@@ -106,18 +106,19 @@ function createAction(world) {
 
   let node = null
   let cancelled = false
-  let unregisterInput
+  let control
   let btnDown = false
 
   return {
     start(_node) {
       if (node) console.error('erm node already set')
       node = _node
+      btnDown = false
       node.progress = 0
       draw(node.text, node.progress / node.duration)
       world.graphics.scene.add(mesh)
-      unregisterInput = world.input.register({
-        priority: 999,
+      control = world.input.bind({
+        priority: 100,
         btnDown(code) {
           if (code === 'KeyE') {
             btnDown = true
@@ -171,7 +172,8 @@ function createAction(world) {
     },
     stop() {
       node = null
-      unregisterInput?.()
+      control?.release()
+      control = null
       if (mesh.parent) {
         world.graphics.scene.remove(mesh)
       }
@@ -315,13 +317,14 @@ function createBoard(width, height, pxToMeters, world) {
       geometry.setIndex(new THREE.BufferAttribute(indices, 1))
       const material = new THREE.MeshBasicMaterial({ map: texture })
       material.toneMapped = false
+      // create mesh
+      mesh = new THREE.Mesh(geometry, material)
+      // console.log(mesh)
       // always on top
       material.depthTest = false
       material.depthWrite = false
       material.transparent = true
-      material.renderOrder = 999
-      mesh = new THREE.Mesh(geometry, material)
-      // console.log(mesh)
+      mesh.renderOrder = 999
       return mesh
     },
     commit() {

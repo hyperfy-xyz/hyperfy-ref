@@ -21,6 +21,7 @@ import { Physics } from './Physics'
 import { Entities } from './Entities'
 import { Graphics } from './Graphics'
 import { Stats } from './Stats'
+import { clamp } from './extras/utils'
 
 const FIXED_TIMESTEP = 1 / 60 // 60Hz
 const FIXED_TIME_MAX = FIXED_TIMESTEP * 20
@@ -52,9 +53,9 @@ export class World extends EventEmitter {
     this.environment = this.register(Environment)
     this.loader = this.register(Loader)
     this.network = this.register(Network)
-    this.cam = this.register(Cam)
     this.physics = this.register(Physics)
     this.entities = this.register(Entities)
+    this.cam = this.register(Cam)
     this.graphics = this.register(Graphics)
     this.stats = this.register(Stats)
 
@@ -106,28 +107,32 @@ export class World extends EventEmitter {
     const delta = this.time ? time - this.time : 0
     this.time = time
     this.frame++
-    this.update(delta)
     this.fixedUpdate(delta)
+    this.update(delta)
     this.lateUpdate(delta)
     this.stats.end()
+  }
+
+  fixedUpdate(delta) {
+    this.fixedTime += delta
+    if (delta > FIXED_TIME_MAX) {
+      delta = FIXED_TIME_MAX
+    }
+    // if (this.fixedTime > FIXED_TIME_MAX) {
+    //   this.fixedTime = FIXED_TIME_MAX // prevent huge build-up while tab is inactive
+    // }
+    // while (this.fixedTime >= FIXED_TIMESTEP) {
+    // this.fixedTime -= FIXED_TIMESTEP
+    for (const system of this.systems) {
+      // system.fixedUpdate(FIXED_TIMESTEP)
+      system.fixedUpdate(delta)
+    }
+    // }
   }
 
   update(delta) {
     for (const system of this.systems) {
       system.update(delta)
-    }
-  }
-
-  fixedUpdate(delta) {
-    this.fixedTime += delta
-    if (this.fixedTime > FIXED_TIME_MAX) {
-      this.fixedTime = FIXED_TIME_MAX // prevent huge build-up while tab is inactive
-    }
-    while (this.fixedTime >= FIXED_TIMESTEP) {
-      this.fixedTime -= FIXED_TIMESTEP
-      for (const system of this.systems) {
-        system.fixedUpdate(FIXED_TIMESTEP)
-      }
     }
   }
 

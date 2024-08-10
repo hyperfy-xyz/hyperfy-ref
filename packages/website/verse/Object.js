@@ -25,6 +25,7 @@ import {
 import { DEG2RAD } from './extras/general'
 import { num } from './extras/num'
 import { glbToNodes } from './extras/glbToNodes'
+import { bindRotations } from './extras/bindRotations'
 
 const MOVING_SEND_RATE = 1 / 5
 
@@ -209,6 +210,9 @@ export class Object extends Entity {
       node.deactivate()
     })
     this.nodes.clear()
+    // release script control
+    this.control?.release(false)
+    this.control = null
     // clear script events
     this.events = {}
     // clear script vars
@@ -425,7 +429,6 @@ export class Object extends Entity {
   kill() {
     this.blueprint = null
     this.script = null
-
     this.checkMode(true)
   }
 
@@ -451,15 +454,9 @@ export class Object extends Entity {
       isAuthority() {
         return entity.authority.value === world.network.client.id
       },
-      // requestControl() {
-      //   world.control.request(entity)
-      // },
-      // getControl() {
-      //   return world.control.get(entity)
-      // },
-      // releaseControl() {
-      //   return world.control.release(entity)
-      // },
+      takeAuthority() {
+        entity.authority.value = world.network.client.id
+      },
       getState() {
         return entity.state
       },
@@ -469,6 +466,16 @@ export class Object extends Entity {
       createNetworkProp(value, onChange) {
         const key = `__${entity.scriptVarIds++}`
         return entity.createNetworkProp(key, value, onChange)
+      },
+      control(options) {
+        // TODO: only allow on user interaction
+        // TODO: show UI with a button to release()
+        entity.control = world.input.bind({
+          ...options,
+          priority: 50,
+          object: entity,
+        })
+        return entity.control
       },
       ...this.root.getProxy(),
     }
@@ -746,5 +753,7 @@ export class Object extends Entity {
         node.unmount()
       }
     })
+    this.control?.release(false)
+    this.control = null
   }
 }

@@ -15,13 +15,15 @@ const v1 = new THREE.Vector3()
 export class Cam extends System {
   constructor(world) {
     super(world)
-    this.position = new THREE.Vector3()
-    this.quaternion = new THREE.Quaternion()
-    this.rotation = new THREE.Euler(0, 0, 0, 'YXZ')
-    this.zoom = 4
+    this.target = {
+      position: new THREE.Vector3(),
+      quaternion: new THREE.Quaternion(),
+      rotation: new THREE.Euler(0, 0, 0, 'YXZ'),
+      zoom: 4,
+    }
+    bindRotations(this.target.quaternion, this.target.rotation)
     this.zoomIgnoreGroups = null
     this.sweepGeometry = null
-    bindRotations(this.quaternion, this.rotation)
   }
 
   start() {
@@ -30,16 +32,16 @@ export class Cam extends System {
     this.sweepGeometry = new PHYSX.PxSphereGeometry(0.2)
   }
 
-  update(delta) {
+  lateUpdate(delta) {
     const cameraRig = this.world.graphics.cameraRig
     const camera = this.world.graphics.camera
 
     // interpolate camera rig to target transform with a slight lag
-    const distanceToTarget = cameraRig.position.distanceTo(this.position) // prettier-ignore
+    const distanceToTarget = cameraRig.position.distanceTo(this.target.position) // prettier-ignore
     const t = Math.min(distanceToTarget / CAM_MAX_DISTANCE, 1)
     const lerpFactor = CAM_MAX_FACTOR - (CAM_MAX_FACTOR - CAM_MIN_FACTOR) * (1 - Math.pow(t, 2)) // prettier-ignore
-    cameraRig.position.lerp(this.position, lerpFactor * delta)
-    cameraRig.quaternion.slerp(this.quaternion, 16 * delta)
+    cameraRig.position.lerp(this.target.position, lerpFactor * delta)
+    cameraRig.quaternion.slerp(this.target.quaternion, 16 * delta)
 
     // raycast backward to check for zoom collision
     const origin = cameraRig.position
@@ -53,12 +55,15 @@ export class Cam extends System {
     )
 
     // lerp to target zoom distance
-    let distance = this.zoom
+    let distance = this.target.zoom
     // but if we hit something snap it in so we don't end up in the wall
     if (hit && hit.distance < distance) {
       camera.position.z = hit.distance
     } else {
       camera.position.lerp(v1.set(0, 0, distance), 6 * delta)
     }
+
+    // force snap
+    // cameraRig.position.copy(this.target.position)
   }
 }

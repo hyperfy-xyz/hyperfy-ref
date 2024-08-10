@@ -29,8 +29,8 @@ export class Environment extends System {
   }
 
   start() {
-    this.unregisterInput = this.world.input.register({
-      priority: 999,
+    this.control = this.world.input.bind({
+      priority: 100,
       btnDown: code => {
         if (this.context) {
           this.closeContext()
@@ -55,7 +55,7 @@ export class Environment extends System {
         if (code === 'MouseRight') {
           const elapsed = performance.now() - this.mouseRightDownAt
           const travel = this.mouseRightDelta.length()
-          if (elapsed < 500 && travel < 10 && !this.moving) {
+          if (elapsed < 500 && travel < 30 && !this.moving) {
             this.openContext()
           }
         }
@@ -93,6 +93,7 @@ export class Environment extends System {
         const sync = this.moving.lastSend >= MOVE_SEND_RATE
         if (sync) this.moving.lastSend = 0
         this.moving.entity.position.value.copy(hit.point)
+        this.moving.entity.authority.value = this.world.network.client.id
         // this.moving.entity.applyLocalProps(
         //   {
         //     position: hit.point,
@@ -473,8 +474,8 @@ export class Environment extends System {
   }
 
   destroy() {
-    this.unregisterInput?.()
-    this.unregisterInput = null
+    this.control?.release()
+    this.control = null
     this.dnd.destroy()
   }
 }

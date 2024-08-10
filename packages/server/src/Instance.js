@@ -58,6 +58,14 @@ export class Instance {
     this.clients.forEach(client => {
       clients.push(client.serialize())
     })
+    // if we're the first client connecting we are authority for all objects
+    if (clients.length === 1) {
+      for (const entity of this.entities.values()) {
+        if (entity.type === 'object') {
+          entity.authority = client.id
+        }
+      }
+    }
     const schemas = Array.from(this.schemas.values())
     const entities = Array.from(this.entities.values())
     const snapshot = {
@@ -125,8 +133,8 @@ export class Instance {
       this.entities.delete(entity.id)
       this.broadcast(Events.ENTITY_REMOVED, entity.id)
     }
-    // if they were editing/moving an object, reactivate it
     this.entities.forEach(entity => {
+      // if they were editing/moving an object, reactivate it
       if (entity.type === 'object' && entity.modeClientId === client.id) {
         entity.mode = 'active'
         entity.modeClientId = null
@@ -134,6 +142,15 @@ export class Instance {
           id: entity.id,
           mode: entity.mode,
           modeClientId: entity.modeClientId,
+        })
+      }
+      // if they were authority, re-assign it
+      // if there isn't one, it will be assigned to the next client to connect
+      if (entity.type === 'object' && entity.authority === client.id) {
+        entity.authority = this.findAuthority()
+        this.broadcast(Events.ENTITY_UPDATED, {
+          id: entity.id,
+          authority: entity.authority,
         })
       }
     })
@@ -146,6 +163,12 @@ export class Instance {
       if (client === skipClient) return
       client.sock.send(event, data)
     })
+  }
+
+  findAuthority() {
+    for (const client of this.clients.values()) {
+      if (client.active) return client.id
+    }
   }
 
   checkConnections() {

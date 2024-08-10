@@ -17,7 +17,7 @@ export class SwordAction extends Action {
 
   check(avatar) {
     // TODO: rename LMB -> MouseLeft/LeftMouse
-    if (avatar.controls.use) {
+    if (avatar.input.use) {
       this.elapsed = 0
       this.complete = false
       return true

@@ -20,7 +20,7 @@ export class DoubleJumpAction extends Action {
     if (avatar.isGrounded && this.consumed) {
       this.consumed = false
     }
-    if (avatar.isJumping && avatar.controls.jump && !this.consumed) {
+    if (avatar.isJumping && avatar.input.jump && !this.consumed) {
       this.elapsed = 0
       this.consumed = true
       this.started = false

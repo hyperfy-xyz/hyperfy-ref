@@ -63,7 +63,7 @@ export class Box extends Node {
       this.mesh.matrix.copy(this.matrixWorld)
       this.mesh.matrixWorld.copy(this.matrixWorld)
       this.mesh.node = this
-      if (this.layer) this.mesh.layers.set(this.layer)
+      // if (this.layer) this.mesh.layers.set(this.layer)
       this.ctx.world.graphics.scene.add(this.mesh)
       this.sItem = {
         matrix: this.matrixWorld,
@@ -74,6 +74,13 @@ export class Box extends Node {
         },
       }
       this.ctx.world.spatial.octree.insert(this.sItem)
+
+      this.mesh.matrix.decompose(
+        this.mesh.position,
+        this.mesh.quaternion,
+        this.mesh.scale
+      )
+      // console.log('Box pos (mount)', this.mesh.position)
     }
     if (this.physics) {
       const geometry = new PHYSX.PxBoxGeometry(
@@ -81,38 +88,42 @@ export class Box extends Node {
         this.size[1] / 2,
         this.size[2] / 2
       )
-      const material = this.world.physics.physics.createMaterial(0.5, 0.5, 0.5)
+      const material = this.ctx.world.physics.physics.createMaterial(
+        0.5,
+        0.5,
+        0.5
+      )
       const flags = new PHYSX.PxShapeFlags(
         PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE |
           PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE
       )
-      const tmpFilterData = new PHYSX.PxFilterData(1, 1, 0, 0)
-      const shape = this.world.physics.physics.createShape(
+      const filterData = this.ctx.world.physics.layers.object
+      const shape = this.ctx.world.physics.physics.createShape(
         geometry,
         material,
         true,
         flags
       )
-      shape.setSimulationFilterData(tmpFilterData)
-      this.mesh.matrixWorld.decompose(_v1, _q1, _v2)
-      const transform = new PHYSX.PxTransform()
-      _v1.toPxTransform(transform)
-      _q1.toPxTransform(transform)
+      shape.setSimulationFilterData(filterData)
+      this.transform = new PHYSX.PxTransform()
+      this.matrixWorld.decompose(_v1, _q1, _v2)
+      _v1.toPxTransform(this.transform)
+      _q1.toPxTransform(this.transform)
       if (this.physics === 'dynamic') {
-        this.body = this.world.physics.physics.createRigidDynamic(transform)
+        this.body = this.ctx.world.physics.physics.createRigidDynamic(this.transform) // prettier-ignore
         this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
         this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
       } else if (this.physics === 'kinematic') {
-        this.body = this.world.physics.physics.createRigidStatic(transform)
+        this.body = this.ctx.world.physics.physics.createRigidDynamic(this.transform) // prettier-ignore
         this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
         this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
       } else {
-        this.body = this.world.physics.physics.createRigidStatic(transform)
+        this.body = this.ctx.world.physics.physics.createRigidStatic(this.transform) // prettier-ignore
       }
       this.body.attachShape(shape)
-      this.world.physics.scene.addActor(this.body)
+      this.ctx.world.physics.scene.addActor(this.body)
       if (this.physics === 'dynamic') {
-        this.unbind = this.world.physics.bind(this.body, this)
+        this.unbind = this.ctx.world.physics.bind(this.body, this)
       }
     }
   }
@@ -120,8 +131,19 @@ export class Box extends Node {
   update() {
     if (this.mesh) {
       // this.matrixWorld.decompose(_v1, _q1, _v2)
+      this.mesh.matrix.copy(this.matrixWorld)
       this.mesh.matrixWorld.copy(this.matrixWorld)
+      this.mesh.matrix.decompose(
+        this.mesh.position,
+        this.mesh.quaternion,
+        this.mesh.scale
+      )
       this.ctx.world.spatial.octree.move(this.sItem)
+      // console.log('Box pos (update)', this.mesh.position.toArray())
+
+      // this.mesh.position.toPxTransform(this.transform)
+      // this.mesh.quaternion.toPxTransform(this.transform)
+      // this.body.setGlobalPose(this.transform)
     }
   }
 
@@ -136,13 +158,69 @@ export class Box extends Node {
     }
   }
 
+  addForce(force) {
+    if (!this.body) return
+    this.body.addForce(force.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
+  }
+
+  addTorque(torque) {
+    if (!this.body) return
+    this.body.addTorque(torque.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
+  }
+
+  getLinearVelocity() {
+    if (!this.body) return
+    return _v1.fromPxVec3(this.body.getLinearVelocity())
+  }
+
+  setLinearVelocity(vec3) {
+    if (!this.body) return
+    this.body.setLinearVelocity(vec3.toPxVec3())
+  }
+
+  getAngularVelocity() {
+    if (!this.body) return
+    return _v1.fromPxVec3(this.body.getAngularVelocity())
+  }
+
+  setAngularVelocity(vec3) {
+    if (!this.body) return
+    this.body.setAngularVelocity(vec3.toPxVec3())
+  }
+
+  setDynamic() {
+    if (!this.body) return
+    if (this.physics === 'dynamic') return
+    this.physics = 'dynamic'
+    this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
+    this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
+
+    // for some reason we need to re-set the global pose
+    // otherwise the physics system can report an older pose from when this was dynamic before
+    this.matrixWorld.decompose(_v1, _q1, _v2)
+    _v1.toPxTransform(this.transform)
+    _q1.toPxTransform(this.transform)
+    this.body.setGlobalPose(this.transform)
+
+    this.unbind = this.ctx.world.physics.bind(this.body, this)
+  }
+
+  setKinematic() {
+    if (!this.body) return
+    if (this.physics === 'kinematic') return
+    this.unbind?.()
+    this.physics = 'kinematic'
+    this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
+    this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
+  }
+
   setMode(mode) {
-    if (mode === 'moving') {
-      this.layer = Layers.MOVING
-    } else {
-      this.layer = Layers.DEFAULT
-    }
-    this.mesh?.layers.set(this.layer)
+    // if (mode === 'moving') {
+    //   this.layer = Layers.MOVING
+    // } else {
+    //   this.layer = Layers.DEFAULT
+    // }
+    // this.mesh?.layers.set(this.layer)
   }
 
   copy(source, recursive) {
@@ -155,8 +233,33 @@ export class Box extends Node {
   }
 
   getProxy() {
+    const self = this
     if (!this.proxy) {
       const proxy = {
+        addForce(force) {
+          self.addForce(force)
+        },
+        addTorque(torque) {
+          self.addTorque(torque)
+        },
+        getLinearVelocity() {
+          return self.getLinearVelocity()
+        },
+        setLinearVelocity(vec3) {
+          return self.setLinearVelocity(vec3)
+        },
+        getAngularVelocity() {
+          return self.getAngularVelocity()
+        },
+        setAngularVelocity(vec3) {
+          return self.setAngularVelocity(vec3)
+        },
+        setDynamic() {
+          self.setDynamic()
+        },
+        setKinematic() {
+          self.setKinematic()
+        },
         ...super.getProxy(),
       }
       this.proxy = proxy

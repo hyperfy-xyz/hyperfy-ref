@@ -101,14 +101,11 @@ export class Entities extends System {
     }
   }
 
-  update(delta) {
+  project() {
     for (const node of this.dirtyNodes) {
       node.apply()
     }
     this.dirtyNodes.clear()
-    for (const entity of this.activeEntities) {
-      entity.update(delta)
-    }
   }
 
   fixedUpdate(delta) {
@@ -117,10 +114,19 @@ export class Entities extends System {
     }
   }
 
+  update(delta) {
+    // this.project()
+    for (const entity of this.activeEntities) {
+      entity.update(delta)
+    }
+  }
+
   lateUpdate(delta) {
+    this.project()
     for (const entity of this.activeEntities) {
       entity.lateUpdate(delta)
     }
+    this.project()
   }
 
   log(...args) {
