@@ -1,7 +1,3 @@
-const _v1 = new Vector3()
-const _v2 = new Vector3()
-const _q1 = new Quaternion()
-
 const FORWARD = new Vector3(0, 0, -1)
 const BACKWARD = new Vector3(0, 0, 1)
 const UP = new Vector3(0, 1, 0)
@@ -17,12 +13,12 @@ const MAX_ZOOM = 100
 const THROTTLE_INCREMENT = 100
 const MAX_THRUST = 0.1
 
+const _v1 = new Vector3()
+const _v2 = new Vector3()
+const _q1 = new Quaternion()
+
 const networkPos = object.createNetworkProp(new Vector3())
 const networkQua = object.createNetworkProp(new Quaternion())
-
-let control
-let throttle = 0
-let isAuthority = object.isAuthority()
 
 const input = {
   lookActive: false,
@@ -55,8 +51,9 @@ const body = object.create({
   physics: isAuthority ? 'dynamic' : 'kinematic',
   visible: false,
 })
-body.position.y = 1
-object.add(body)
+body.position.copy(object.position)
+body.position.y += 1
+body.rotation.copy(object.rotation)
 
 // add seat
 const seat = object.create({
@@ -85,11 +82,13 @@ action.position.y = 2
 action.position.z = -1
 fighter.add(action)
 
+// add body to world space
 world.add(body)
 
-// object.on('mount', () => {
-//   body.detach()
-// })
+// variables
+let control
+let throttle = 0
+let isAuthority = object.isAuthority()
 
 function enter() {
   // take authority if needed
