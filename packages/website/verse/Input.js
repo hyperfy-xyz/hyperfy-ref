@@ -83,12 +83,16 @@ export class Input extends System {
       },
     }
     bindRotations(control.camera.quaternion, control.camera.rotation)
+    for (const control of this.controls) {
+      control.handler.change?.() // notify others
+    }
     const idx = this.controls.findIndex(h => h.handler.priority < control.handler.priority) // prettier-ignore
     if (idx === -1) {
       this.controls.push(control)
     } else {
       this.controls.splice(idx, 0, control)
     }
+
     return control
   }
 

@@ -43,6 +43,11 @@ function clearDownInput() {
   input.yawRight = false
 }
 
+// variables
+let control
+let throttle = 0
+let isAuthority = object.isAuthority()
+
 // create physics body
 const body = object.create({
   id: 'body',
@@ -74,9 +79,7 @@ const action = object.create({
   id: 'action',
   type: 'action',
   text: 'Enter',
-  onComplete() {
-    enter()
-  },
+  onTrigger: () => enter(),
 })
 action.position.y = 2
 action.position.z = -1
@@ -84,11 +87,6 @@ fighter.add(action)
 
 // add body to world space
 world.add(body)
-
-// variables
-let control
-let throttle = 0
-let isAuthority = object.isAuthority()
 
 function enter() {
   // take authority if needed
@@ -174,6 +172,7 @@ function enter() {
     },
     blur() {
       clearDownInput()
+      control.unlockPointer()
     },
     release: () => {
       clearDownInput()

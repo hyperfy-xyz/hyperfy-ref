@@ -151,9 +151,9 @@ function createAction(world) {
         if (node.progress === node.duration) {
           node.progress = 0
           try {
-            node.onComplete()
+            node.onTrigger()
           } catch (err) {
-            console.error('action.onComplete:', err)
+            console.error('action.onTrigger:', err)
           }
         }
       } else if (node.progress > 0) {

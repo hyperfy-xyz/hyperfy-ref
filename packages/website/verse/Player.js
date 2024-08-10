@@ -188,6 +188,20 @@ export class Player extends Entity {
       use: false,
       dodge: false,
     }
+    const clearDownKeys = () => {
+      // clear down keys so they don't get stuck
+      input.use = false
+      input.lookActive = false
+      input.lookDelta.set(0, 0, 0)
+      input.zoomDelta = 0
+      input.moveForward = false
+      input.moveBack = false
+      input.moveLeft = false
+      input.moveRight = false
+      input.jump = false
+      input.jumpDown = false
+      input.dodge = false
+    }
     this.input = input
     this.control = world.input.bind({
       priority: 0,
@@ -289,17 +303,11 @@ export class Player extends Entity {
       zoom: delta => {
         input.zoomDelta += delta
       },
-      blur() {
-        // clear down keys so they don't get stuck
-        input.use = false
-        input.lookActive = false
-        input.moveForward = false
-        input.moveBack = false
-        input.moveLeft = false
-        input.moveRight = false
-        input.jump = false
-        input.jumpDown = false
-        input.dodge = false
+      blur: () => {
+        clearDownKeys()
+      },
+      change() {
+        clearDownKeys()
       },
     })
     this.control.camera.active = true

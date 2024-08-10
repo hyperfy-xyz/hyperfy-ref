@@ -8,7 +8,7 @@ const defaults = {
   distance: 3,
   duration: 0.5,
   onStart: () => {},
-  onComplete: () => {},
+  onTrigger: () => {},
   onCancel: () => {},
 }
 
@@ -21,7 +21,7 @@ export class Action extends Node {
     this.distance = isNumber(data.distance) ? data.distance : defaults.distance
     this.duration = isNumber(data.duration) ? data.duration : defaults.duration
     this.onStart = data.onStart || defaults.onStart
-    this.onComplete = data.onComplete || defaults.onComplete
+    this.onTrigger = data.onTrigger || defaults.onTrigger
     this.onCancel = data.onCancel || defaults.onCancel
     this.worldPos = new THREE.Vector3()
     this.progress = 0
@@ -54,7 +54,7 @@ export class Action extends Node {
     this.distance = source.distance
     this.duration = source.duration
     this.onStart = source.onStart
-    this.onComplete = source.onComplete
+    this.onTrigger = source.onTrigger
     this.onCancel = source.onCancel
     return this
   }

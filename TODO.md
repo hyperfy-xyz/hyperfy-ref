@@ -158,7 +158,7 @@ const stump = object.get('stump')
 const action = object.create({
   type: 'action',
   text: 'Chop',
-  onComplete() {
+  onTrigger() {
     object.remove(trunk)
     object.remove(leaves)
     stump.setVisible(true)
