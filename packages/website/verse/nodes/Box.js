@@ -89,9 +89,9 @@ export class Box extends Node {
         this.size[2] / 2
       )
       const material = this.ctx.world.physics.physics.createMaterial(
-        0.5,
-        0.5,
-        0.5
+        0.6,
+        0.6,
+        0
       )
       const flags = new PHYSX.PxShapeFlags(
         PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE |
@@ -104,6 +104,7 @@ export class Box extends Node {
         true,
         flags
       )
+      shape.setQueryFilterData(filterData)
       shape.setSimulationFilterData(filterData)
       this.transform = new PHYSX.PxTransform()
       this.matrixWorld.decompose(_v1, _q1, _v2)

@@ -10,6 +10,9 @@ let errorCb
 let foundation
 
 const _v1 = new THREE.Vector3()
+const _q1 = new THREE.Quaternion()
+
+const defaultScale = new THREE.Vector3(1, 1, 1)
 
 const _hitResult = {
   point: new THREE.Vector3(),
@@ -132,15 +135,18 @@ export class Physics extends System {
   fixedUpdate(delta) {
     this.scene.simulate(delta)
     this.scene.fetchResults(true)
+    this.world.entities.project() // ensure all matrices are up to date
     for (const binding of this.bindings) {
       if (binding.body.isSleeping()) continue
       const pose = binding.body.getGlobalPose()
-      binding.node.position.copy(pose.p)
-      binding.node.quaternion.copy(pose.q)
+      const position = _v1.copy(pose.p)
+      const quaternion = _q1.copy(pose.q)
+      const scale = defaultScale
+      // note that this directly sets the WORLD transform so it doesn't matter if its a child of something etc
+      binding.node.setWorldTransform(position, quaternion, scale) // NOTE: scale issues?
       binding.node.dirty()
-      // console.log('Physics.fixedUpdated sim node dirty')
     }
-    // ensure all dirty nodes are applied immediately
+    // finalize any physics updates immediately
     this.world.entities.project()
   }
 

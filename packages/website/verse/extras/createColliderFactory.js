@@ -59,8 +59,8 @@ export function createColliderFactory(world, mesh) {
 
   const flags = new PHYSX.PxShapeFlags(
     PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE |
-      PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE |
-      PHYSX.PxShapeFlagEnum.eVISUALIZATION
+      PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE
+    // | PHYSX.PxShapeFlagEnum.eVISUALIZATION
   )
   const material = physics.createMaterial(0.5, 0.5, 0.5)
 

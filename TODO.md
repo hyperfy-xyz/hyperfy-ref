@@ -1,3 +1,17 @@
+# WOM (World Object Model)
+
+const box = object.create('box')
+box.id = 'foo' // throws if already used in object
+box.position.y = 5 // auto dirty, matrix syncs end of frame
+box.size = [2, 5, 4] // auto dirty, rebuild end of frame
+box.body = 'trigger' // ensure physics is set
+box.linearVelocity.y += 3 // auto apply to physics body
+
+- some actions are instant
+- some mark as matrix update needed
+- some mark as rebuild needed
+- id changes require reconciliation with entity map
+
 # Bigger Work
 
 - how are we gonna handle emotes for real? eg the plane having a custom sit emote scenario

@@ -9,6 +9,9 @@ const DEFAULT_SCALE = [1, 1, 1]
 const _v1 = new THREE.Vector3()
 const _v2 = new THREE.Vector3()
 const _q1 = new THREE.Quaternion()
+const _m1 = new THREE.Matrix4()
+const _m2 = new THREE.Matrix4()
+const _m3 = new THREE.Matrix4()
 
 let nodeIds = -1
 
@@ -173,6 +176,26 @@ export class Node {
       }
     }
     return this
+  }
+
+  setWorldTransform(position, quaternion, scale) {
+    if (this.parent) {
+      _m1.compose(position, quaternion, scale)
+      _m2.copy(this.parent.matrixWorld).invert()
+      _m3.multiplyMatrices(_m2, _m1)
+      _m3.decompose(this.position, this.quaternion, this.scale)
+      // _m1.compose(position, quaternion, scale)
+      // _m2.copy(this.parent.matrixWorld).invert()
+      // this.matrix.multiplyMatrices(_m2, _m1)
+      // this.matrix.decompose(this.position, this.quaternion, this.scale)
+      // this.matrixWorld.multiplyMatrices(this.parent.matrixWorld, this.matrix)
+    } else {
+      this.position.copy(position)
+      this.quaternion.copy(quaternion)
+      this.scale.copy(scale)
+      // this.matrix.compose(this.position, this.quaternion, this.scale)
+      // this.matrixWorld.copy(this.matrix)
+    }
   }
 
   // todo: getWorldQuaternion etc

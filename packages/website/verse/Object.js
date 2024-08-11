@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { Vector3, Quaternion } from 'three'
 import { createNoise2D } from 'simplex-noise'
 
-import { isEmpty } from 'lodash-es'
+import { cloneDeep, isEmpty } from 'lodash-es'
 
 import * as Nodes from './nodes'
 

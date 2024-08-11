@@ -145,14 +145,14 @@ export class Player extends Entity {
     desc.behaviorCallback = behaviorCallback
     this.controller = this.world.physics.controllerManager.createController(desc) // prettier-ignore
 
-    // const actor = this.controller.getActor()
-    // const shapes = new PHYSX.PxArray_PxShapePtr(1)
-    // actor.getShapes(shapes.begin(), 1, 0)
-    // const shape = shapes.get(0)
-    // const filterData = new PHYSX.PxFilterData(this.world.physics.groups.player, this.world.physics.masks.player, 0, 0) // prettier-ignore
-    // shape.setQueryFilterData(filterData)
-    // shape.setSimulationFilterData(filterData)
-    // PHYSX.destroy(shapes)
+    const actor = this.controller.getActor()
+    const shapes = new PHYSX.PxArray_PxShapePtr(1)
+    actor.getShapes(shapes.begin(), 1, 0)
+    const shape = shapes.get(0)
+    const filterData = this.world.physics.layers.player // new PHYSX.PxFilterData(this.world.physics.groups.player, this.world.physics.masks.player, 0, 0) // prettier-ignore
+    shape.setQueryFilterData(filterData)
+    shape.setSimulationFilterData(filterData)
+    PHYSX.destroy(shapes)
 
     // console.log('ctr', this.controller)
     PHYSX.destroy(desc)
