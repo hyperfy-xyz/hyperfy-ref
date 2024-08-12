@@ -25,6 +25,11 @@ const collisionMatrix = {
   player: ['environment', 'object'],
   environment: ['player', 'environment', 'object'],
   object: ['player', 'environment', 'object'],
+
+  // jet wont work without this because player and object hit
+  // player: ['environment'],
+  // environment: ['player', 'environment', 'object'],
+  // object: ['environment', 'object'],
 }
 
 export class Physics extends System {
@@ -40,11 +45,7 @@ export class Physics extends System {
     this.foundation = foundation
     this.tolerances = new PHYSX.PxTolerancesScale()
     this.cookingParams = new PHYSX.PxCookingParams(this.tolerances)
-    this.physics = PHYSX.CreatePhysics(
-      this.version,
-      this.foundation,
-      this.tolerances
-    )
+    this.physics = PHYSX.CreatePhysics(this.version, this.foundation, this.tolerances)
     this.defaultMaterial = this.physics.createMaterial(0.2, 0.2, 0.2)
     this.groups = {}
     this.masks = {}
@@ -65,10 +66,7 @@ export class Physics extends System {
       const filterData = PHYSX.wrapPointer(filterDataPtr, PHYSX.PxFilterData)
       const shape = PHYSX.wrapPointer(shapePtr, PHYSX.PxShape)
       const shapeFilterData = shape.getQueryFilterData()
-      if (
-        filterData.word0 & shapeFilterData.word1 &&
-        shapeFilterData.word0 & filterData.word1
-      ) {
+      if (filterData.word0 & shapeFilterData.word1 && shapeFilterData.word0 & filterData.word1) {
         return PHYSX.PxQueryHitType.eBLOCK
       }
       return PHYSX.PxQueryHitType.eNONE
@@ -114,7 +112,7 @@ export class Physics extends System {
     const material = this.physics.createMaterial(0.5, 0.5, 0.5)
     const flags = new PHYSX.PxShapeFlags(PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE | PHYSX.PxShapeFlagEnum.eVISUALIZATION) // prettier-ignore
     const shape = this.physics.createShape(geometry, material, true, flags)
-    const filterData = new PHYSX.PxFilterData(this.groups.environment, this.masks.environment, 0, 0) // prettier-ignore
+    const filterData = new PHYSX.PxFilterData(this.groups.object, ~0, 0, 0) // prettier-ignore
     shape.setSimulationFilterData(filterData)
     shape.setQueryFilterData(filterData)
     const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
@@ -135,7 +133,7 @@ export class Physics extends System {
   fixedUpdate(delta) {
     this.scene.simulate(delta)
     this.scene.fetchResults(true)
-    this.world.entities.project() // ensure all matrices are up to date
+    this.world.entities.clean() // ensure all matrices are up to date
     for (const binding of this.bindings) {
       if (binding.body.isSleeping()) continue
       const pose = binding.body.getGlobalPose()
@@ -144,10 +142,10 @@ export class Physics extends System {
       const scale = defaultScale
       // note that this directly sets the WORLD transform so it doesn't matter if its a child of something etc
       binding.node.setWorldTransform(position, quaternion, scale) // NOTE: scale issues?
-      binding.node.dirty()
+      // binding.node.setDirty()
     }
     // finalize any physics updates immediately
-    this.world.entities.project()
+    this.world.entities.clean()
   }
 
   lateUpdate() {

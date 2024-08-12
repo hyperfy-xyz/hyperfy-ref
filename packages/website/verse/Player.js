@@ -68,10 +68,10 @@ export class Player extends Entity {
     this.emote = this.createNetworkProp('emote', emotes.idle) // prettier-ignore
     this.itemIdx = this.createNetworkProp('itemIdx', null) // prettier-ignore
     this.itemIdx.onChange = idx => this.setItem(idx)
-    this.vrmUrl = this.createNetworkProp('vrmUrl', props.vrmUrl || defaults.vrmUrl) // prettier-ignore
+    this.vrmUrl = this.createNetworkProp('vrmUrl', props.vrmUrl || defaults.vrmUrl)
     this.vrmUrl.onChange = () => this.loadVRM(this)
-    this.teleportN = this.createNetworkProp('teleportN', props.teleportN || defaults.teleportN) // prettier-ignore
-    this.anchor = this.createNetworkProp('anchor', props.anchor || defaults.anchor) // prettier-ignore
+    this.teleportN = this.createNetworkProp('teleportN', props.teleportN || defaults.teleportN)
+    this.anchor = this.createNetworkProp('anchor', props.anchor || defaults.anchor)
 
     // ghost is just a container that controllers/vrms follow
     this.ghost = new THREE.Object3D()
@@ -89,14 +89,8 @@ export class Player extends Entity {
     this.targetEuler = new THREE.Euler(0, 0, 0, 'YXZ')
     this.targetQuaternion = new THREE.Quaternion()
 
-    this.networkPosition = new NetworkedVector3(
-      this.ghost.position,
-      this.world.network.sendRate
-    )
-    this.networkQuaternion = new NetworkedQuaternion(
-      this.ghost.quaternion,
-      this.world.network.sendRate
-    )
+    this.networkPosition = new NetworkedVector3(this.ghost.position, this.world.network.sendRate)
+    this.networkQuaternion = new NetworkedQuaternion(this.ghost.quaternion, this.world.network.sendRate)
 
     this.actions = [new DodgeAction(), new DoubleJumpAction()]
 
@@ -145,14 +139,14 @@ export class Player extends Entity {
     desc.behaviorCallback = behaviorCallback
     this.controller = this.world.physics.controllerManager.createController(desc) // prettier-ignore
 
-    const actor = this.controller.getActor()
-    const shapes = new PHYSX.PxArray_PxShapePtr(1)
-    actor.getShapes(shapes.begin(), 1, 0)
-    const shape = shapes.get(0)
-    const filterData = this.world.physics.layers.player // new PHYSX.PxFilterData(this.world.physics.groups.player, this.world.physics.masks.player, 0, 0) // prettier-ignore
-    shape.setQueryFilterData(filterData)
-    shape.setSimulationFilterData(filterData)
-    PHYSX.destroy(shapes)
+    // const actor = this.controller.getActor()
+    // const shapes = new PHYSX.PxArray_PxShapePtr(1)
+    // actor.getShapes(shapes.begin(), 1, 0)
+    // const shape = shapes.get(0)
+    // const filterData = this.world.physics.layers.player // new PHYSX.PxFilterData(this.world.physics.groups.player, this.world.physics.masks.player, 0, 0) // prettier-ignore
+    // shape.setQueryFilterData(filterData)
+    // shape.setSimulationFilterData(filterData)
+    // PHYSX.destroy(shapes)
 
     // console.log('ctr', this.controller)
     PHYSX.destroy(desc)
@@ -508,14 +502,10 @@ export class Player extends Entity {
     )
 
     // check if we're grounded
-    this.isGrounded = this.moveFlags.isSet(
-      PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN
-    )
+    this.isGrounded = this.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN)
 
     // check if we hit our head on something
-    this.isCeiling = this.moveFlags.isSet(
-      PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_UP
-    )
+    this.isCeiling = this.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_UP)
 
     // if we were jumping and now we're grounded, update our variable
     if (this.isJumping && this.isGrounded) {
@@ -535,11 +525,7 @@ export class Player extends Entity {
 
     // make camera follow our final position horizontally
     // and vertically at our vrm model height
-    camera.position.set(
-      ghost.position.x,
-      ghost.position.y + this.vrm.height,
-      ghost.position.z
-    )
+    camera.position.set(ghost.position.x, ghost.position.y + this.vrm.height, ghost.position.z)
 
     // if we're moving continually rotate ourselves toward the direction we are moving
     if (this.isMoving || this.action) {
@@ -554,11 +540,7 @@ export class Player extends Entity {
 
     // if we're anchored most of above doesn't matter because we're forcing our position
     if (anchorNode) {
-      anchorNode.matrixWorld.decompose(
-        this.ghost.position,
-        this.ghost.quaternion,
-        v1
-      )
+      anchorNode.matrixWorld.decompose(this.ghost.position, this.ghost.quaternion, v1)
       this.ghost.updateMatrix()
       this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
       this.vrm.move(this.ghost.matrix)
@@ -584,11 +566,7 @@ export class Player extends Entity {
       if (!entity) return
       anchorNode = entity.nodes.get(this.anchor.value.node)
       if (anchorNode) {
-        anchorNode.matrixWorld.decompose(
-          this.ghost.position,
-          this.ghost.quaternion,
-          v1
-        )
+        anchorNode.matrixWorld.decompose(this.ghost.position, this.ghost.quaternion, v1)
         // this.ghost.position.copy(anchorNode.position)
         // this.ghost.quaternion.copy(anchorNode.quaternion)
         anchorEmote = emotes[this.anchor.value.emote]
@@ -596,16 +574,8 @@ export class Player extends Entity {
     }
     // move
     if (!anchorNode) {
-      this.networkPosition.update(
-        this.position.value,
-        this.teleportN.value,
-        delta
-      )
-      this.networkQuaternion.update(
-        this.quaternion.value,
-        this.teleportN.value,
-        delta
-      )
+      this.networkPosition.update(this.position.value, this.teleportN.value, delta)
+      this.networkQuaternion.update(this.quaternion.value, this.teleportN.value, delta)
     }
     this.ghost.updateMatrix()
     this.vrm.move(this.ghost.matrix)
@@ -661,13 +631,13 @@ export class Player extends Entity {
     }
   }
 
-  fixedUpdate(delta) {
-    // ...
-  }
+  // fixedUpdate(delta) {
+  //   // ...
+  // }
 
-  lateUpdate(delta) {
-    // ...
-  }
+  // lateUpdate(delta) {
+  //   // ...
+  // }
 
   // getStats() {
   //   let triangles = 0

@@ -50,16 +50,14 @@ let isAuthority = object.isAuthority()
 
 // create physics body
 const body = object.create({
-  id: 'body',
   type: 'box',
-  size: [7, 1.1, 7],
-  physics: isAuthority ? 'dynamic' : 'kinematic',
   visible: false,
+  body: isAuthority ? 'dynamic' : 'kinematic',
 })
+body.setSize(7, 1.1, 7)
 body.position.copy(object.position)
 body.position.y += 1
 body.rotation.copy(object.rotation)
-body.setMass(1000)
 
 // add seat
 const seat = object.create({
@@ -93,7 +91,7 @@ function enter() {
   // take authority if needed
   if (!isAuthority) {
     object.takeAuthority()
-    body.setDynamic()
+    body.body = 'dynamic'
     isAuthority = true
   }
   // hide enter action
@@ -190,11 +188,7 @@ function fixedUpdate(delta) {
   const newAuthority = object.isAuthority()
   if (isAuthority !== newAuthority) {
     isAuthority = newAuthority
-    if (isAuthority) {
-      body.setDynamic()
-    } else {
-      body.setKinematic()
-    }
+    body.body = isAuthority ? 'dynamic' : 'kinematic'
   }
   if (isAuthority) {
     if (control) {
@@ -301,7 +295,7 @@ function lateUpdate(delta) {
   } else {
     body.position.lerp(networkPos.value, 6 * delta)
     body.quaternion.slerp(networkQua.value, 6 * delta)
-    body.dirty()
+    // body.dirty()
   }
 }
 

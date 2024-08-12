@@ -93,9 +93,9 @@ export class Entities extends System {
     }
   }
 
-  project() {
+  clean() {
     for (const node of this.dirtyNodes) {
-      node.apply()
+      node.clean()
     }
     this.dirtyNodes.clear()
   }
@@ -107,18 +107,18 @@ export class Entities extends System {
   }
 
   update(delta) {
-    // this.project()
+    // this.clean()
     for (const entity of this.hot) {
       entity.update(delta)
     }
   }
 
   lateUpdate(delta) {
-    this.project()
+    this.clean()
     for (const entity of this.hot) {
       entity.lateUpdate(delta)
     }
-    this.project()
+    this.clean()
   }
 
   log(...args) {

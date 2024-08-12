@@ -93,7 +93,6 @@ export const botScriptRaw = js`
   let direction = new Vector3()
 
   const ctrl = object.create({
-    id: 'ctrl',
     type: 'controller',
     radius: 0.4,
     height: 1,
@@ -137,8 +136,8 @@ export const botScriptRaw = js`
     if (action.time <= 0) {
       setNextAction()
     }
-    ctrl.dirty()
-    vrm.dirty()
+    // ctrl.dirty()
+    // vrm.dirty()
   })
 `
 

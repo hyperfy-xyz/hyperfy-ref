@@ -32,8 +32,10 @@ export class Action extends Node {
     this.worldPos.setFromMatrixPosition(this.matrixWorld)
   }
 
-  update() {
-    this.worldPos.setFromMatrixPosition(this.matrixWorld)
+  commit(didMove) {
+    if (didMove) {
+      this.worldPos.setFromMatrixPosition(this.matrixWorld)
+    }
   }
 
   unmount() {

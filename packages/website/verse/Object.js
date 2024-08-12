@@ -366,7 +366,7 @@ export class Object extends Entity {
       if (isMover) {
         this.root.position.copy(this.position.value)
         this.root.quaternion.copy(this.quaternion.value)
-        this.root.dirty()
+        // this.root.setDirty()
       } else {
         // this is broken because it modifes target (position.value) lol
         // smoothDamp(
@@ -377,7 +377,7 @@ export class Object extends Entity {
         // )
         this.root.position.lerp(this.position.value, 5 * delta)
         this.root.quaternion.slerp(this.quaternion.value, 5 * delta)
-        this.root.dirty()
+        // this.root.dirty()
       }
     }
   }

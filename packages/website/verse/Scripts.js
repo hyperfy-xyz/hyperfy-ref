@@ -9,6 +9,7 @@ import { wrapRawCode } from './extras/wrapRawCode'
 import { System } from './System'
 import { Vector3Enhanced } from './extras/Vector3Enhanced'
 import { clamp } from './extras/utils'
+import { Colliders } from './extras/Colliders'
 
 export class Scripts extends System {
   constructor(world) {
@@ -25,6 +26,7 @@ export class Scripts extends System {
       lockdown: undefined,
       num: num,
       clamp: clamp,
+      Colliders,
       Object3D: THREE.Object3D,
       Quaternion: THREE.Quaternion,
       Vector3: Vector3Enhanced,

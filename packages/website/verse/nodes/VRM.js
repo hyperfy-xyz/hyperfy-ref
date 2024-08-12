@@ -16,9 +16,9 @@ export class VRM extends Node {
     }
   }
 
-  update(delta) {
-    if (this.vrm) {
-      this.vrm.move(this.matrixWorld)
+  commit(didMove) {
+    if (didMove) {
+      this.vrm?.move(this.matrixWorld)
     }
   }
 

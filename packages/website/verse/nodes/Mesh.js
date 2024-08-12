@@ -30,9 +30,11 @@ export class Mesh extends Node {
     }
   }
 
-  update() {
-    this.mesh?.move(this.matrixWorld)
-    this.collider?.move(this.matrixWorld)
+  commit(didMove) {
+    if (didMove) {
+      this.mesh?.move(this.matrixWorld)
+      this.collider?.move(this.matrixWorld)
+    }
   }
 
   unmount() {

@@ -51,10 +51,10 @@ export class Controller extends Node {
     this.controller.setFootPosition(worldPosition.toPxExtVec3())
   }
 
-  update() {
-    if (this.mesh) {
-      this.mesh.matrix.copy(this.matrix)
-      this.mesh.matrixWorld.copy(this.matrixWorld)
+  commit(didMove) {
+    if (didMove) {
+      this.mesh?.matrix.copy(this.matrix)
+      this.mesh?.matrixWorld.copy(this.matrixWorld)
     }
     // if (this.didMove) {
     //   console.log('character position change without move() ????')
