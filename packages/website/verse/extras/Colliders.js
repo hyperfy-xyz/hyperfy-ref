@@ -8,4 +8,7 @@ export const Colliders = {
   get OBJECT() {
     return 1 << 2
   },
+  get ALL() {
+    return ~0
+  },
 }

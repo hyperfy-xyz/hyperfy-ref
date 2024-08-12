@@ -40,10 +40,7 @@ export function createColliderFactory(world, mesh) {
 
   const physics = world.physics.physics
   const cookingParams = physics.cookingParams
-  const pmesh = PHYSX.PxTopLevelFunctions.prototype.CreateTriangleMesh(
-    cookingParams,
-    desc
-  )
+  const pmesh = PHYSX.PxTopLevelFunctions.prototype.CreateTriangleMesh(cookingParams, desc)
   // console.log('pmesh', pmesh)
 
   const meshPos = new THREE.Vector3()
@@ -51,15 +48,11 @@ export function createColliderFactory(world, mesh) {
   const meshSca = new THREE.Vector3()
   mesh.matrixWorld.decompose(meshPos, meshQuat, meshSca)
 
-  const scale = new PHYSX.PxMeshScale(
-    new PHYSX.PxVec3(meshSca.x, meshSca.y, meshSca.z),
-    new PHYSX.PxQuat(0, 0, 0, 1)
-  )
+  const scale = new PHYSX.PxMeshScale(new PHYSX.PxVec3(meshSca.x, meshSca.y, meshSca.z), new PHYSX.PxQuat(0, 0, 0, 1))
   const geometry = new PHYSX.PxTriangleMeshGeometry(pmesh, scale)
 
   const flags = new PHYSX.PxShapeFlags(
-    PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE |
-      PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE
+    PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE
     // | PHYSX.PxShapeFlagEnum.eVISUALIZATION
   )
   const material = physics.createMaterial(0.5, 0.5, 0.5)
@@ -74,7 +67,7 @@ export function createColliderFactory(world, mesh) {
   return {
     create(node, matrix, layer) {
       const shape = physics.createShape(geometry, material, true, flags)
-      const filterData = world.physics.layers[layer] || world.physics.layers.environment // prettier-ignore
+      const filterData = new PHYSX.PxFilterData(Colliders.OBJECT, Colliders.ALL, 0, 0) // world.physics.layers[layer] || world.physics.layers.environment // prettier-ignore
       shape.setQueryFilterData(filterData)
       shape.setSimulationFilterData(filterData)
 

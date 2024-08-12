@@ -49,21 +49,17 @@ let throttle = 0
 let isAuthority = object.isAuthority()
 
 // create physics body
-const body = object.create({
-  type: 'box',
-  visible: false,
-  body: isAuthority ? 'dynamic' : 'kinematic',
-})
+const body = object.create({ type: 'box' })
+body.visible = false
+body.collision = isAuthority ? 'dynamic' : 'kinematic'
+body.collisionMask = Colliders.OBJECT
 body.setSize(7, 1.1, 7)
 body.position.copy(object.position)
 body.position.y += 1
 body.rotation.copy(object.rotation)
 
 // add seat
-const seat = object.create({
-  id: 'seat',
-  type: 'group',
-})
+const seat = object.create({ type: 'group' })
 seat.position.z = -0.6
 seat.position.y = -0.4
 body.add(seat)
@@ -75,7 +71,6 @@ body.add(fighter)
 
 // create enter action
 const action = object.create({
-  id: 'action',
   type: 'action',
   text: 'Enter',
   onTrigger: () => enter(),
@@ -91,7 +86,7 @@ function enter() {
   // take authority if needed
   if (!isAuthority) {
     object.takeAuthority()
-    body.body = 'dynamic'
+    body.collision = 'dynamic'
     isAuthority = true
   }
   // hide enter action
@@ -188,7 +183,7 @@ function fixedUpdate(delta) {
   const newAuthority = object.isAuthority()
   if (isAuthority !== newAuthority) {
     isAuthority = newAuthority
-    body.body = isAuthority ? 'dynamic' : 'kinematic'
+    body.collision = isAuthority ? 'dynamic' : 'kinematic'
   }
   if (isAuthority) {
     if (control) {

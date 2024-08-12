@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { System } from './System'
 
 import { bindRotations } from './extras/bindRotations'
+import { Colliders } from './extras/Colliders'
 
 const CAM_MAX_DISTANCE = 2 // max distance between camera and target
 const CAM_MIN_FACTOR = 5 // min lerp factor (slowest speed)
@@ -22,13 +23,10 @@ export class Cam extends System {
       zoom: 4,
     }
     bindRotations(this.target.quaternion, this.target.rotation)
-    this.zoomIgnoreGroups = null
     this.sweepGeometry = null
   }
 
   start() {
-    const groups = this.world.physics.groups
-    this.zoomIgnoreGroups = groups.player | groups.object
     this.sweepGeometry = new PHYSX.PxSphereGeometry(0.2)
   }
 
@@ -46,13 +44,7 @@ export class Cam extends System {
     // raycast backward to check for zoom collision
     const origin = cameraRig.position
     const direction = v1.copy(BACKWARD).applyQuaternion(cameraRig.quaternion)
-    const hit = this.world.physics.sweep(
-      this.sweepGeometry,
-      origin,
-      direction,
-      200,
-      this.zoomIgnoreGroups
-    )
+    const hit = this.world.physics.sweep(this.sweepGeometry, origin, direction, 200, Colliders.CAMERA)
 
     // lerp to target zoom distance
     let distance = this.target.zoom

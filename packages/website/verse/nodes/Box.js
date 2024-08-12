@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { isBoolean, isNumber } from 'lodash-es'
 
 import { Node } from './Node'
+import { Colliders } from '../extras/Colliders'
 
 // WIP batch mesh - has issues, eg no per-mesh layers and stuff
 // const batchGroups = {} // [key] [...batches]
@@ -36,8 +37,8 @@ const defaults = {
   castShadow: true,
   receiveShadow: true,
   visible: true,
-  collider: null,
-  collidesWith: ~0, // everything
+  collision: null,
+  collisionMask: Colliders.ALL, // everything
 }
 
 export class Box extends Node {
@@ -56,8 +57,8 @@ export class Box extends Node {
     this.receiveShadow = isBoolean(data.receiveShadow) ? data.receiveShadow : defaults.receiveShadow
     this.visible = isBoolean(data.visible) ? data.visible : defaults.visible
 
-    this.collider = data.collider || defaults.collider
-    this.collidesWith = data.collidesWith || defaults.collidesWith
+    this.collision = data.collision || defaults.collision
+    this.collisionMask = data.collisionMask || defaults.collisionMask
 
     this.needsRebuild = false
   }
@@ -96,12 +97,12 @@ export class Box extends Node {
       //   this.mesh.scale
       // )
     }
-    if (this.collider) {
+    if (this.collision) {
       const geometry = new PHYSX.PxBoxGeometry(this.width / 2, this.height / 2, this.depth / 2)
       const material = this.ctx.world.physics.physics.createMaterial(0.6, 0.6, 0)
       const flags = new PHYSX.PxShapeFlags(PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE) // prettier-ignore
-      const filterData = this.ctx.world.physics.layers.object
-      // const filterData = new PHYSX.PxFilterData(this.ctx.world.physics.groups.object, this.collidesWith, 0, 0)
+      // const filterData = this.ctx.world.physics.layers.object
+      const filterData = new PHYSX.PxFilterData(Colliders.OBJECT, this.collisionMask, 0, 0)
       const shape = this.ctx.world.physics.physics.createShape(geometry, material, true, flags)
       shape.setQueryFilterData(filterData)
       shape.setSimulationFilterData(filterData)
@@ -109,11 +110,11 @@ export class Box extends Node {
       this.matrixWorld.decompose(_v1, _q1, _v2)
       _v1.toPxTransform(this.transform)
       _q1.toPxTransform(this.transform)
-      if (this.collider === 'dynamic') {
+      if (this.collision === 'dynamic') {
         this.actor = this.ctx.world.physics.physics.createRigidDynamic(this.transform)
         this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
         this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
-      } else if (this.collider === 'kinematic') {
+      } else if (this.collision === 'kinematic') {
         this.actor = this.ctx.world.physics.physics.createRigidDynamic(this.transform)
         this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
         this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
@@ -123,7 +124,7 @@ export class Box extends Node {
       // this.actor.setMass(1)
       this.actor.attachShape(shape)
       this.ctx.world.physics.scene.addActor(this.actor)
-      if (this.collider === 'dynamic') {
+      if (this.collision === 'dynamic') {
         this.unbind = this.ctx.world.physics.bind(this.actor, this)
       }
     }
@@ -183,8 +184,8 @@ export class Box extends Node {
     this.castShadow = source.castShadow
     this.receiveShadow = source.receiveShadow
     this.visible = source.visible
-    this.collider = source.collider
-    this.collidesWith = source.collidesWith
+    this.collision = source.collision
+    this.collisionMask = source.collisionMask
     return this
   }
 
@@ -288,13 +289,13 @@ export class Box extends Node {
           self.needsRebuild = true
           self.setDirty()
         },
-        get collider() {
-          return self.collider
+        get collision() {
+          return self.collision
         },
-        set collider(value) {
-          if (self.collider === value) return
-          const prev = self.collider
-          self.collider = value
+        set collision(value) {
+          if (self.collision === value) return
+          const prev = self.collision
+          self.collision = value
           if (self.actor) {
             if (value === 'dynamic') {
               self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
@@ -320,11 +321,11 @@ export class Box extends Node {
             self.setDirty()
           }
         },
-        get collidesWith() {
-          return self.collidesWith
+        get collisionMask() {
+          return self.collisionMask
         },
-        set collidesWith(value) {
-          self.collidesWith = value
+        set collisionMask(value) {
+          self.collisionMask = value
           if (self.actor) {
             // todo: we could just update the PxFilterData tbh
             self.needsRebuild = true

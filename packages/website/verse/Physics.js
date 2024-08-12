@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { extendThreePhysX } from './extras/extendThreePhysX'
 
 import { System } from './System'
+import { Colliders } from './extras/Colliders'
 
 let version
 let allocator
@@ -47,10 +48,6 @@ export class Physics extends System {
     this.cookingParams = new PHYSX.PxCookingParams(this.tolerances)
     this.physics = PHYSX.CreatePhysics(this.version, this.foundation, this.tolerances)
     this.defaultMaterial = this.physics.createMaterial(0.2, 0.2, 0.2)
-    this.groups = {}
-    this.masks = {}
-    this.layers = {}
-    this.setupCollisionMatrix()
     const tmpVec = new PHYSX.PxVec3(0, -9.81, 0)
     const sceneDesc = new PHYSX.PxSceneDesc(this.tolerances)
     sceneDesc.gravity = tmpVec
@@ -60,7 +57,7 @@ export class Physics extends System {
     this.bindings = new Set()
     this.controllerManager = PHYSX.PxTopLevelFunctions.prototype.CreateControllerManager(this.scene) // prettier-ignore
     this.controllerFilters = new PHYSX.PxControllerFilters()
-    this.controllerFilters.mFilterData = new PHYSX.PxFilterData(this.groups.player, this.masks.player, 0, 0) // prettier-ignore
+    this.controllerFilters.mFilterData = new PHYSX.PxFilterData(Colliders.PLAYER, ~Colliders.CAMERA, 0, 0) // prettier-ignore
     const filterCallback = new PHYSX.PxQueryFilterCallbackImpl()
     filterCallback.simplePreFilter = (filterDataPtr, shapePtr, actor) => {
       const filterData = PHYSX.wrapPointer(filterDataPtr, PHYSX.PxFilterData)
@@ -80,29 +77,11 @@ export class Physics extends System {
     }
     this.controllerFilters.mCCTFilterCallback = cctFilterCallback
     this.rayBuffer = new PHYSX.PxRaycastBuffer10()
+    this.sweepPose = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
     this.queryFilterData = new PHYSX.PxQueryFilterData()
     extendThreePhysX()
     this._pv1 = new PHYSX.PxVec3()
     this._pv2 = new PHYSX.PxVec3()
-  }
-
-  setupCollisionMatrix() {
-    // groups
-    let n = 0
-    for (const name in collisionMatrix) {
-      this.groups[name] = 1 << n
-      n++
-    }
-    // masks
-    for (const name in collisionMatrix) {
-      this.masks[name] = collisionMatrix[name].reduce((acc, name2) => {
-        return acc | this.groups[name2]
-      }, 0)
-    }
-    // layers
-    for (const name in collisionMatrix) {
-      this.layers[name] = new PHYSX.PxFilterData(this.groups[name], this.masks[name], 0, 0) // prettier-ignore
-    }
   }
 
   start() {
@@ -110,11 +89,16 @@ export class Physics extends System {
     const size = 1000
     const geometry = new PHYSX.PxBoxGeometry(size / 2, 1 / 2, size / 2)
     const material = this.physics.createMaterial(0.5, 0.5, 0.5)
-    const flags = new PHYSX.PxShapeFlags(PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE | PHYSX.PxShapeFlagEnum.eVISUALIZATION) // prettier-ignore
+    const flags = new PHYSX.PxShapeFlags(PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE) // prettier-ignore
     const shape = this.physics.createShape(geometry, material, true, flags)
-    const filterData = new PHYSX.PxFilterData(this.groups.object, ~0, 0, 0) // prettier-ignore
-    shape.setSimulationFilterData(filterData)
+    const filterData = new PHYSX.PxFilterData(
+      Colliders.OBJECT,
+      Colliders.OBJECT | Colliders.PLAYER | Colliders.CAMERA,
+      0,
+      0
+    )
     shape.setQueryFilterData(filterData)
+    shape.setSimulationFilterData(filterData)
     const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
     transform.p.y = -0.5
     const body = this.physics.createRigidStatic(transform)
@@ -158,12 +142,12 @@ export class Physics extends System {
     // }
   }
 
-  raycast(origin, direction, maxDistance, ignoreGroups) {
+  raycast(origin, direction, maxDistance, mask = Colliders.ALL) {
     origin = origin.toPxVec3(this._pv1)
     direction = direction.toPxVec3(this._pv2)
     // this.queryFilterData.flags |= PHYSX.PxQueryFlagEnum.ePREFILTER | PHYSX.PxQueryFlagEnum.ePOSTFILTER // prettier-ignore
-    this.queryFilterData.data.word0 = ~ignoreGroups
-    this.queryFilterData.data.word1 = 0
+    this.queryFilterData.data.word0 = 0
+    this.queryFilterData.data.word1 = mask
     const didHit = this.scene.raycast(
       origin,
       direction,
@@ -181,16 +165,11 @@ export class Physics extends System {
     // TODO: this.rayBuffer.destroy() on this.destroy()
   }
 
-  sweep(geometry, origin, direction, maxDistance, ignoreGroups) {
-    if (!this.sweepPose) {
-      // TODO: setup once above
-      this.sweepPose = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
-    }
+  sweep(geometry, origin, direction, maxDistance, mask = Colliders.ALL) {
     origin.toPxVec3(this.sweepPose.p)
     direction = direction.toPxVec3(this._pv2)
-    // this.queryFilterData.flags |= PHYSX.PxQueryFlagEnum.ePREFILTER | PHYSX.PxQueryFlagEnum.ePOSTFILTER // prettier-ignore
-    this.queryFilterData.data.word0 = ~ignoreGroups
-    this.queryFilterData.data.word1 = 0
+    this.queryFilterData.data.word0 = 0
+    this.queryFilterData.data.word1 = mask
     const didHit = this.scene.sweep(
       geometry,
       this.sweepPose,

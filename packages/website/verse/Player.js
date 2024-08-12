@@ -166,7 +166,6 @@ export class Player extends Entity {
   }
 
   bindControls() {
-    console.log('bindControls')
     const world = this.world
     const input = {
       lookActive: false,
