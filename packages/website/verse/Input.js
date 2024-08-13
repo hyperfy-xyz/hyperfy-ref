@@ -37,7 +37,7 @@ export class Input extends System {
     window.addEventListener('blur', this.onBlur)
   }
 
-  update(delta) {
+  finalize(delta) {
     // retrieve and update cam
     for (const control of this.controls) {
       if (control.camera.active) {
@@ -255,10 +255,7 @@ export class Input extends System {
   }
 
   isInputFocused() {
-    return (
-      document.activeElement?.tagName === 'INPUT' ||
-      document.activeElement?.tagName === 'TEXTAREA'
-    )
+    return document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA'
   }
 
   destroy() {

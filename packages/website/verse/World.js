@@ -21,10 +21,9 @@ import { Physics } from './Physics'
 import { Entities } from './Entities'
 import { Graphics } from './Graphics'
 import { Stats } from './Stats'
-import { clamp } from './extras/utils'
 
-const FIXED_TIMESTEP = 1 / 60 // 60Hz
-const FIXED_TIME_MAX = FIXED_TIMESTEP * 20
+const MAX_DELTA_TIME = 1 / 3 // 0.33333
+const FIXED_DELTA_TIME = 1 / 50 //  0.01666
 
 export class World extends EventEmitter {
   constructor({ id, auth }) {
@@ -33,9 +32,9 @@ export class World extends EventEmitter {
     this.auth = auth
 
     this.systems = []
-    this.time = 0
-    this.fixedTime = 0
     this.frame = 0
+    this.time = 0
+    this.accumulator = 0
 
     this.spatial = this.register(Spatial)
     // this.terrain = this.register(Terrain)
@@ -53,8 +52,8 @@ export class World extends EventEmitter {
     this.environment = this.register(Environment)
     this.loader = this.register(Loader)
     this.network = this.register(Network)
-    this.physics = this.register(Physics)
     this.entities = this.register(Entities)
+    this.physics = this.register(Physics)
     this.cam = this.register(Cam)
     this.graphics = this.register(Graphics)
     this.stats = this.register(Stats)
@@ -104,30 +103,38 @@ export class World extends EventEmitter {
   tick = time => {
     this.stats.begin()
     time /= 1000
-    const delta = this.time ? time - this.time : 0
-    this.time = time
+    let delta = time - this.time
+    if (delta > MAX_DELTA_TIME) {
+      delta = MAX_DELTA_TIME
+    }
     this.frame++
-    this.fixedUpdate(delta)
+    this.time = time
+    this.accumulator += delta
+    // run as many fixed updates as we can for this delta
+    while (this.accumulator >= FIXED_DELTA_TIME) {
+      // trigger fixedUpdate
+      this.fixedUpdate(FIXED_DELTA_TIME)
+      // simulate the physics step + read in actor changes for later
+      this.physics.step(FIXED_DELTA_TIME)
+      this.accumulator -= FIXED_DELTA_TIME
+    }
+    // interpolate and apply physics changes
+    const alpha = this.accumulator / FIXED_DELTA_TIME
+    this.physics.finalize(alpha)
+    // trigger updates
     this.update(delta)
+    this.entities.clean()
+    // trigger lateUpdates
     this.lateUpdate(delta)
+    this.entities.clean()
+    // update the camera target for active camera
+    this.input.finalize(delta)
+    // interpolate or snap to final camera target
+    this.cam.finalize(delta)
+    // finally render
+    this.graphics.render()
+    // end stats
     this.stats.end()
-  }
-
-  fixedUpdate(delta) {
-    this.fixedTime += delta
-    if (delta > FIXED_TIME_MAX) {
-      delta = FIXED_TIME_MAX
-    }
-    // if (this.fixedTime > FIXED_TIME_MAX) {
-    //   this.fixedTime = FIXED_TIME_MAX // prevent huge build-up while tab is inactive
-    // }
-    // while (this.fixedTime >= FIXED_TIMESTEP) {
-    // this.fixedTime -= FIXED_TIMESTEP
-    for (const system of this.systems) {
-      // system.fixedUpdate(FIXED_TIMESTEP)
-      system.fixedUpdate(delta)
-    }
-    // }
   }
 
   update(delta) {
@@ -136,10 +143,29 @@ export class World extends EventEmitter {
     }
   }
 
+  fixedUpdate(delta) {
+    for (const system of this.systems) {
+      system.fixedUpdate(delta)
+    }
+  }
+
   lateUpdate(delta) {
     for (const system of this.systems) {
       system.lateUpdate(delta)
     }
+  }
+
+  pause() {
+    this.graphics.renderer.setAnimationLoop(null)
+  }
+
+  step() {
+    const time = this.time * 1000 + 16.6666
+    this.tick(time)
+  }
+
+  resume() {
+    this.graphics.renderer.setAnimationLoop(this.tick)
   }
 
   destroy() {

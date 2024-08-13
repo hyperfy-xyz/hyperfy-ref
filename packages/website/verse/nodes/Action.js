@@ -65,6 +65,42 @@ export class Action extends Node {
     var self = this
     if (!this.proxy) {
       const proxy = {
+        get text() {
+          return self.text
+        },
+        set text(value) {
+          self.text = value
+        },
+        get distance() {
+          return self.distance
+        },
+        set distance(value) {
+          self.distance = value
+        },
+        get duration() {
+          return self.duration
+        },
+        set duration(value) {
+          self.duration = value
+        },
+        get onStart() {
+          return self.onStart
+        },
+        set onStart(value) {
+          self.onStart = value
+        },
+        get onTrigger() {
+          return self.onTrigger
+        },
+        set onTrigger(value) {
+          self.onTrigger = value
+        },
+        get onCancel() {
+          return self.onCancel
+        },
+        set onCancel(value) {
+          self.onCancel = value
+        },
         ...super.getProxy(),
       }
       this.proxy = proxy

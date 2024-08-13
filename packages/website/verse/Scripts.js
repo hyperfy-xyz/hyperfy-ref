@@ -36,6 +36,7 @@ export class Scripts extends System {
       QuaternionLerp: QuaternionLerp,
       DEG2RAD: DEG2RAD,
       RAD2DEG: RAD2DEG,
+      // pause: () => this.world.pause(),
     })
     this.scripts = new Map()
     this.raw = new Map() // id -> String

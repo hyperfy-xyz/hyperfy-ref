@@ -10,11 +10,7 @@ import {
   ToneMappingMode,
 } from 'postprocessing'
 
-import {
-  computeBoundsTree,
-  disposeBoundsTree,
-  acceleratedRaycast,
-} from 'three-mesh-bvh'
+import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh'
 import { N8AOPass, N8AOPostPass } from 'n8ao'
 
 import { Layers } from './extras/Layers'
@@ -114,9 +110,7 @@ export class Graphics extends System {
     })
     this.csm.fade = true // must be set after!
     this.sunPosition = new THREE.Vector3(200, 400, 200)
-    this.csm.lightDirection
-      .subVectors(v1.set(0, 0, 0), this.sunPosition)
-      .normalize() // directional vector from sun position to location
+    this.csm.lightDirection.subVectors(v1.set(0, 0, 0), this.sunPosition).normalize() // directional vector from sun position to location
 
     this.composer = new EffectComposer(this.renderer, {
       frameBufferType: THREE.HalfFloatType,
@@ -125,12 +119,7 @@ export class Graphics extends System {
     this.renderPass = new RenderPass(this.scene, this.camera)
     this.composer.addPass(this.renderPass)
 
-    this.aoPass = new N8AOPostPass(
-      this.scene,
-      this.camera,
-      this.width,
-      this.height
-    )
+    this.aoPass = new N8AOPostPass(this.scene, this.camera, this.width, this.height)
     this.aoPass.configuration.screenSpaceRadius = true
     this.aoPass.configuration.aoRadius = 64
     this.aoPass.configuration.distanceFalloff = 0.2
@@ -291,16 +280,16 @@ export class Graphics extends System {
     this.render()
   }
 
-  update(delta) {
-    // ...
-  }
+  // update(delta) {
+  //   // ...
+  // }
 
-  lateUpdate(delta) {
-    this.csm.update()
-    this.render()
-  }
+  // lateUpdate(delta) {
+  //   // ...
+  // }
 
   render() {
+    this.csm.update()
     this.composer.render()
     // this.renderer.render(this.scene, this.camera)
   }
@@ -351,9 +340,7 @@ export class Graphics extends System {
     const camera = this.camera
     const vFov = (camera.fov * Math.PI) / 180 // Convert vertical FOV from degrees to radians
     const screenHeight = this.height // Get the actual screen height in pixels
-    const distance = object3d.position.distanceTo(
-      v1.setFromMatrixPosition(camera.matrixWorld)
-    ) // Calculate distance from camera to object
+    const distance = object3d.position.distanceTo(v1.setFromMatrixPosition(camera.matrixWorld)) // Calculate distance from camera to object
     const heightAtDistance = 2 * Math.tan(vFov / 2) * distance // Calculate the visible height at the distance of the object
     const worldUnitsPerPixel = heightAtDistance / screenHeight // Calculate world units per screen pixel vertically
     const desiredWorldHeight = heightPx * worldUnitsPerPixel // Desired world height for 'height' pixels

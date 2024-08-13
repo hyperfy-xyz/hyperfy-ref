@@ -335,256 +335,260 @@ export class Player extends Entity {
   }
 
   update(delta) {
-    if (this.isOwner()) {
-      this.updateLocal(delta)
-    } else {
-      this.updateRemote(delta)
-    }
-  }
+    const isOwner = this.isOwner()
 
-  updateLocal(delta) {
-    const input = this.input
-    const camera = this.control.camera
-    const ghost = this.ghost
+    //
+    // Owner
+    //
 
-    // anchor node
-    let anchorNode
-    let anchorEmote
-    if (this.anchor.value) {
-      const entity = this.world.entities.getEntity(this.anchor.value.objectId)
-      if (!entity) return
-      anchorNode = entity.nodes.get(this.anchor.value.node)
-      if (anchorNode) anchorEmote = emotes[this.anchor.value.emote]
-    }
+    if (isOwner) {
+      const input = this.input
+      const camera = this.control.camera
+      const ghost = this.ghost
 
-    // rotate camera when looking (holding right mouse + dragging)
-    camera.rotation.y += -input.lookDelta.x * LOOK_SPEED * delta
-    camera.rotation.x += -input.lookDelta.y * LOOK_SPEED * delta
-    input.lookDelta.set(0, 0, 0)
+      // rotate camera when looking (holding right mouse + dragging)
+      camera.rotation.y += -input.lookDelta.x * LOOK_SPEED * delta
+      camera.rotation.x += -input.lookDelta.y * LOOK_SPEED * delta
+      input.lookDelta.set(0, 0, 0)
 
-    // zoom camera if scrolling wheel (and not moving an object)
-    this.zoom += -input.zoomDelta * ZOOM_SPEED * delta
-    this.zoom = clamp(this.zoom, MIN_ZOOM, MAX_ZOOM)
-    camera.zoom = this.zoom
-    input.zoomDelta = 0
+      // zoom camera if scrolling wheel (and not moving an object)
+      this.zoom += -input.zoomDelta * ZOOM_SPEED * delta
+      this.zoom = clamp(this.zoom, MIN_ZOOM, MAX_ZOOM)
+      camera.zoom = this.zoom
+      input.zoomDelta = 0
 
-    // switch items (if not performing an action)
-    if (!this.action && input.nextItem !== null) {
-      this.itemIdx.value = input.nextItem
-      input.nextItem = null
-    }
+      // anchor node
+      let anchorNode
+      let anchorEmote
+      if (this.anchor.value) {
+        const entity = this.world.entities.getEntity(this.anchor.value.objectId)
+        if (!entity) return
+        anchorNode = entity.nodes.get(this.anchor.value.node)
+        if (anchorNode) anchorEmote = emotes[this.anchor.value.emote]
+      }
 
-    // if not performing an action, check if we should start one
-    if (!this.action) {
-      if (this.item?.action?.check(this)) {
-        this.action = this.item.action
-      } else {
-        for (const action of this.actions) {
-          if (action.check(this)) {
-            this.action = action
-            break
+      // switch items (if not performing an action)
+      if (!this.action && input.nextItem !== null) {
+        this.itemIdx.value = input.nextItem
+        input.nextItem = null
+      }
+
+      // if not performing an action, check if we should start one
+      if (!this.action) {
+        if (this.item?.action?.check(this)) {
+          this.action = this.item.action
+        } else {
+          for (const action of this.actions) {
+            if (action.check(this)) {
+              this.action = action
+              break
+            }
           }
         }
       }
-    }
 
-    // initialize displacement
-    this.displacement.set(0, 0, 0)
+      // initialize displacement
+      this.displacement.set(0, 0, 0)
 
-    // if we're not performing an action, use directional input displacement
-    if (!this.action || this.action.moveFreedom) {
-      // copy input axis
-      if (input.moveForward) this.displacement.z -= 1
-      if (input.moveBack) this.displacement.z += 1
-      if (input.moveLeft) this.displacement.x -= 1
-      if (input.moveRight) this.displacement.x += 1
+      // if we're not performing an action, use directional input displacement
+      if (!this.action || this.action.moveFreedom) {
+        // copy input axis
+        if (input.moveForward) this.displacement.z -= 1
+        if (input.moveBack) this.displacement.z += 1
+        if (input.moveLeft) this.displacement.x -= 1
+        if (input.moveRight) this.displacement.x += 1
 
-      // we're moving if any keys are down
-      this.isMoving = this.displacement.length() > 0
+        // we're moving if any keys are down
+        this.isMoving = this.displacement.length() > 0
 
-      // normalize displacement for non-joystick (disables surfing)
-      this.displacement.normalize()
+        // normalize displacement for non-joystick (disables surfing)
+        this.displacement.normalize()
 
-      // rotate displacement by camera Y-rotation
-      const yRigQuaternion = q1.setFromAxisAngle(UP, camera.rotation.y)
-      this.displacement.applyQuaternion(yRigQuaternion)
+        // rotate displacement by camera Y-rotation
+        const yRigQuaternion = q1.setFromAxisAngle(UP, camera.rotation.y)
+        this.displacement.applyQuaternion(yRigQuaternion)
 
-      // get a quaternion that faces the direction we are moving
-      if (this.isMoving) {
-        this.targetQuaternion.setFromUnitVectors(FORWARD, this.displacement)
-        // console.log('foo2')
+        // get a quaternion that faces the direction we are moving
+        if (this.isMoving) {
+          this.targetQuaternion.setFromUnitVectors(FORWARD, this.displacement)
+          // console.log('foo2')
+        }
+
+        // multiply our displacement direction by our movement speed
+        this.displacement.multiplyScalar(MOVE_SPEED * delta)
+
+        if (this.action) {
+          this.displacement.multiplyScalar(this.action.moveFreedom)
+        }
       }
 
-      // multiply our displacement direction by our movement speed
-      this.displacement.multiplyScalar(MOVE_SPEED * delta)
-
+      // progress our action if any
       if (this.action) {
-        this.displacement.multiplyScalar(this.action.moveFreedom)
+        this.action.update(delta, this)
+
+        v1.copy(this.action.displacement)
+
+        // rotate displacement by player Y-rotation
+        v1.applyQuaternion(this.targetQuaternion)
+
+        // multiply our displacement direction by our movement speed
+        v1.multiplyScalar(this.action.speed * delta)
+
+        this.displacement.add(v1)
+
+        this.isMoving = false
+
+        // lock on (face camera)
+        if (this.action.lockOn) {
+          this.targetEuler.set(0, camera.rotation.y, 0)
+          this.targetQuaternion.setFromEuler(this.targetEuler)
+        }
       }
-    }
 
-    // progress our action if any
-    if (this.action) {
-      this.action.update(delta, this)
-
-      v1.copy(this.action.displacement)
-
-      // rotate displacement by player Y-rotation
-      v1.applyQuaternion(this.targetQuaternion)
-
-      // multiply our displacement direction by our movement speed
-      v1.multiplyScalar(this.action.speed * delta)
-
-      this.displacement.add(v1)
-
-      this.isMoving = false
-
-      // lock on (face camera)
-      if (this.action.lockOn) {
-        this.targetEuler.set(0, camera.rotation.y, 0)
-        this.targetQuaternion.setFromEuler(this.targetEuler)
+      // apply a natural gravity
+      // don't accrue it while anchored
+      if (!this.isGrounded && !anchorNode) {
+        this.velocity.y -= this.gravity * delta
       }
-    }
 
-    // apply a natural gravity
-    // don't accrue it while anchored
-    if (!this.isGrounded && !anchorNode) {
-      this.velocity.y -= this.gravity * delta
-    }
+      // determine if we're airborn
+      // this is used to negate walking down slopes where you come off the ground
+      if (this.isGrounded) {
+        this.airtime = 0
+      } else {
+        this.airtime += delta
+      }
+      this.isAirborn = this.airtime > 0.3
 
-    // determine if we're airborn
-    // this is used to negate walking down slopes where you come off the ground
-    if (this.isGrounded) {
-      this.airtime = 0
-    } else {
-      this.airtime += delta
-    }
-    this.isAirborn = this.airtime > 0.3
+      // if we're grounded and we want to jump, apply jump velocity
+      if (this.isGrounded && input.jump && !this.action) {
+        this.velocity.y = Math.sqrt(2 * this.gravity * this.jumpHeight)
+        this.isJumping = true
+        input.jump = false // consume
+      }
+      // HACK: temp flying
+      if (input.jumpDown) {
+        this.velocity.y += 1
+      }
 
-    // if we're grounded and we want to jump, apply jump velocity
-    if (this.isGrounded && input.jump && !this.action) {
-      this.velocity.y = Math.sqrt(2 * this.gravity * this.jumpHeight)
-      this.isJumping = true
-      input.jump = false // consume
-    }
-    // HACK: temp flying
-    if (input.jumpDown) {
-      this.velocity.y += 1
-    }
+      // apply emote
+      let emote
+      if (anchorEmote) {
+        emote = anchorEmote
+      } else if (this.action) {
+        emote = this.action.emote
+      } else if (this.isAirborn || this.isJumping) {
+        emote = emotes.float
+      } else if (this.isMoving) {
+        emote = emotes.run
+      } else {
+        emote = emotes.idle
+      }
+      this.vrm.setEmote(emote)
+      this.emote.value = emote
 
-    // apply emote
-    let emote
-    if (anchorEmote) {
-      emote = anchorEmote
-    } else if (this.action) {
-      emote = this.action.emote
-    } else if (this.isAirborn || this.isJumping) {
-      emote = emotes.float
-    } else if (this.isMoving) {
-      emote = emotes.run
-    } else {
-      emote = emotes.idle
-    }
-    this.vrm.setEmote(emote)
-    this.emote.value = emote
+      // apply the velocity (for this frame) to our displacement
+      const velocity = v1.copy(this.velocity).multiplyScalar(delta)
+      this.displacement.add(velocity)
 
-    // apply the velocity (for this frame) to our displacement
-    const velocity = v1.copy(this.velocity).multiplyScalar(delta)
-    this.displacement.add(velocity)
+      // finally apply displacement to our controller
+      this.moveFlags = this.controller.move(
+        this.displacement.toPxVec3(),
+        0,
+        FIXED_TIMESTEP,
+        this.world.physics.controllerFilters
+      )
 
-    // finally apply displacement to our controller
-    this.moveFlags = this.controller.move(
-      this.displacement.toPxVec3(),
-      0,
-      FIXED_TIMESTEP,
-      this.world.physics.controllerFilters
-    )
+      // check if we're grounded
+      this.isGrounded = this.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN)
 
-    // check if we're grounded
-    this.isGrounded = this.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN)
+      // check if we hit our head on something
+      this.isCeiling = this.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_UP)
 
-    // check if we hit our head on something
-    this.isCeiling = this.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_UP)
+      // if we were jumping and now we're grounded, update our variable
+      if (this.isJumping && this.isGrounded) {
+        this.isJumping = false
+      }
 
-    // if we were jumping and now we're grounded, update our variable
-    if (this.isJumping && this.isGrounded) {
-      this.isJumping = false
-    }
+      // if we did hit our head, cancel any jump velocity
+      if (this.isCeiling && this.velocity.y > 0) {
+        this.velocity.y = -this.gravity * delta
+      }
 
-    // if we did hit our head, cancel any jump velocity
-    if (this.isCeiling && this.velocity.y > 0) {
-      this.velocity.y = -this.gravity * delta
-    }
+      // read back controller position and apply to ghost & vrm
+      const pos = this.controller.getFootPosition()
+      ghost.position.copy(pos)
+      ghost.updateMatrix()
+      this.vrm.move(ghost.matrix)
 
-    // read back controller position and apply to ghost & vrm
-    const pos = this.controller.getFootPosition()
-    ghost.position.copy(pos)
-    ghost.updateMatrix()
-    this.vrm.move(ghost.matrix)
+      // make camera follow our final position horizontally
+      // and vertically at our vrm model height
+      camera.position.set(ghost.position.x, ghost.position.y + this.vrm.height, ghost.position.z)
 
-    // make camera follow our final position horizontally
-    // and vertically at our vrm model height
-    camera.position.set(ghost.position.x, ghost.position.y + this.vrm.height, ghost.position.z)
+      // if we're moving continually rotate ourselves toward the direction we are moving
+      if (this.isMoving || this.action) {
+        const alpha = 1 - Math.pow(0.00000001, delta)
+        ghost.quaternion.slerp(this.targetQuaternion, alpha)
+      }
 
-    // if we're moving continually rotate ourselves toward the direction we are moving
-    if (this.isMoving || this.action) {
-      const alpha = 1 - Math.pow(0.00000001, delta)
-      ghost.quaternion.slerp(this.targetQuaternion, alpha)
-    }
+      // clear the action when its complete
+      if (this.action?.complete) {
+        this.action = null
+      }
 
-    // clear the action when its complete
-    if (this.action?.complete) {
-      this.action = null
-    }
-
-    // if we're anchored most of above doesn't matter because we're forcing our position
-    if (anchorNode) {
-      anchorNode.matrixWorld.decompose(this.ghost.position, this.ghost.quaternion, v1)
-      this.ghost.updateMatrix()
-      this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
-      this.vrm.move(this.ghost.matrix)
-    }
-
-    // attach any item to bone
-    if (this.item?.model) {
-      this.vrm.applyBoneMatrixWorld(this.item.boneName, this.item.model.matrix)
-      this.item.model.matrixWorld.copy(this.item.model.matrix)
-    }
-
-    // network
-    this.position.value.copy(ghost.position)
-    this.quaternion.value.copy(ghost.quaternion)
-  }
-
-  updateRemote(delta) {
-    // anchor
-    let anchorNode
-    let anchorEmote
-    if (this.anchor.value) {
-      const entity = this.world.entities.getEntity(this.anchor.value.objectId)
-      if (!entity) return
-      anchorNode = entity.nodes.get(this.anchor.value.node)
+      // if we're anchored most of above doesn't matter because we're forcing our position
       if (anchorNode) {
         anchorNode.matrixWorld.decompose(this.ghost.position, this.ghost.quaternion, v1)
-        // this.ghost.position.copy(anchorNode.position)
-        // this.ghost.quaternion.copy(anchorNode.quaternion)
-        anchorEmote = emotes[this.anchor.value.emote]
+        this.ghost.updateMatrix()
+        this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
+        this.vrm.move(this.ghost.matrix)
       }
+
+      // attach any item to bone
+      if (this.item?.model) {
+        this.vrm.applyBoneMatrixWorld(this.item.boneName, this.item.model.matrix)
+        this.item.model.matrixWorld.copy(this.item.model.matrix)
+      }
+
+      // network
+      this.position.value.copy(ghost.position)
+      this.quaternion.value.copy(ghost.quaternion)
     }
-    // move
-    if (!anchorNode) {
-      this.networkPosition.update(this.position.value, this.teleportN.value, delta)
-      this.networkQuaternion.update(this.quaternion.value, this.teleportN.value, delta)
-    }
-    this.ghost.updateMatrix()
-    this.vrm.move(this.ghost.matrix)
-    this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
-    // emote
-    this.vrm.setEmote(anchorEmote || this.emote.value)
-    // item attachment
-    if (this.item?.model) {
-      this.vrm.applyBoneMatrixWorld(this.item.boneName, this.item.model.matrix)
-      this.item.model.matrixWorld.copy(this.item.model.matrix)
+
+    //
+    // Not Owner
+    //
+
+    if (!isOwner) {
+      // anchor
+      let anchorNode
+      let anchorEmote
+      if (this.anchor.value) {
+        const entity = this.world.entities.getEntity(this.anchor.value.objectId)
+        if (!entity) return
+        anchorNode = entity.nodes.get(this.anchor.value.node)
+        if (anchorNode) {
+          anchorNode.matrixWorld.decompose(this.ghost.position, this.ghost.quaternion, v1)
+          // this.ghost.position.copy(anchorNode.position)
+          // this.ghost.quaternion.copy(anchorNode.quaternion)
+          anchorEmote = emotes[this.anchor.value.emote]
+        }
+      }
+      // move
+      if (!anchorNode) {
+        this.networkPosition.update(this.position.value, this.teleportN.value, delta)
+        this.networkQuaternion.update(this.quaternion.value, this.teleportN.value, delta)
+      }
+      this.ghost.updateMatrix()
+      this.vrm.move(this.ghost.matrix)
+      this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
+      // emote
+      this.vrm.setEmote(anchorEmote || this.emote.value)
+      // item attachment
+      if (this.item?.model) {
+        this.vrm.applyBoneMatrixWorld(this.item.boneName, this.item.model.matrix)
+        this.item.model.matrixWorld.copy(this.item.model.matrix)
+      }
     }
   }
 

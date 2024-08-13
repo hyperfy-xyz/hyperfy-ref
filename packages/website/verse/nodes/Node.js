@@ -13,6 +13,8 @@ const _m1 = new THREE.Matrix4()
 const _m2 = new THREE.Matrix4()
 const _m3 = new THREE.Matrix4()
 
+const defaultScale = new THREE.Vector3(1, 1, 1)
+
 let nodeIds = -1
 
 export class Node {
@@ -113,7 +115,6 @@ export class Node {
     // - ensure this is marked as transformed
     // - ensure this and all descendants are dirty
     // - ensure only this node is tracked dirty
-    if (this.isSilentTransform) return
     if (this.isTransformed) return
     this.traverse(node => {
       if (node === this) {
@@ -210,21 +211,17 @@ export class Node {
     return this
   }
 
-  setWorldTransform(position, quaternion, scale) {
+  setFromPhysics(position, quaternion) {
     if (this.parent) {
-      _m1.compose(position, quaternion, scale)
+      _m1.compose(position, quaternion, defaultScale)
       _m2.copy(this.parent.matrixWorld).invert()
       _m3.multiplyMatrices(_m2, _m1)
       _m3.decompose(this.position, this.quaternion, this.scale)
-      // _m1.compose(position, quaternion, scale)
-      // _m2.copy(this.parent.matrixWorld).invert()
-      // this.matrix.multiplyMatrices(_m2, _m1)
-      // this.matrix.decompose(this.position, this.quaternion, this.scale)
-      // this.matrixWorld.multiplyMatrices(this.parent.matrixWorld, this.matrix)
+      // this.matrix.copy(_m3)
+      // this.matrixWorld.copy(_m1)
     } else {
       this.position.copy(position)
       this.quaternion.copy(quaternion)
-      this.scale.copy(scale)
       // this.matrix.compose(this.position, this.quaternion, this.scale)
       // this.matrixWorld.copy(this.matrix)
     }

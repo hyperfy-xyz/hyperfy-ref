@@ -100,8 +100,8 @@ export function createColliderFactory(world, mesh) {
           }
         },
         move(matrix) {
-          matrix.toPxTransform(transform)
-          actor.setGlobalPose(transform)
+          // get physics to update as some of these are ignored
+          world.physics.setGlobalPose(actor, matrix)
         },
         destroy() {
           if (active) {

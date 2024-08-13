@@ -7,7 +7,7 @@ import { Colliders } from './extras/Colliders'
 
 const CAM_MAX_DISTANCE = 2 // max distance between camera and target
 const CAM_MIN_FACTOR = 5 // min lerp factor (slowest speed)
-const CAM_MAX_FACTOR = 50 // max lerp factor (fastest speed)
+const CAM_MAX_FACTOR = 16 // max lerp factor (fastest speed) note: it gets jittery for some reason when higher
 
 const BACKWARD = new THREE.Vector3(0, 0, 1)
 
@@ -30,7 +30,7 @@ export class Cam extends System {
     this.sweepGeometry = new PHYSX.PxSphereGeometry(0.2)
   }
 
-  lateUpdate(delta) {
+  finalize(delta) {
     const cameraRig = this.world.graphics.cameraRig
     const camera = this.world.graphics.camera
 
@@ -55,7 +55,11 @@ export class Cam extends System {
       camera.position.lerp(v1.set(0, 0, distance), 6 * delta)
     }
 
+    // console.log('Cam target', cameraRig.position.toArray())
     // force snap
     // cameraRig.position.copy(this.target.position)
+    // cameraRig.quaternion.copy(this.target.quaternion)
+    // camera.position.z = distance
+    // console.log('Cam snap to target', cameraRig.position.toArray())
   }
 }

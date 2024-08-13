@@ -234,7 +234,8 @@ function fixedUpdate(delta) {
       body.addForce(_v1)
 
       // apply angular damping
-      const angularDamping = 0.95 // how quickly rolling stops
+      const angularFactor = 0.95 // how quickly it stops rolling
+      const angularDamping = Math.pow(0.95, delta * 60) // adjust damping for variable timestep
       const angularVelocity = body.getAngularVelocity()
       body.setAngularVelocity(angularVelocity.multiplyScalar(angularDamping))
     }

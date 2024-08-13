@@ -21,17 +21,13 @@ export class Mesh extends Node {
         this.mesh = this.model.createMesh(this, this.matrixWorld)
       }
       if (this.collision) {
-        this.collider = this.model.createCollider(
-          this,
-          this.matrixWorld,
-          this.collisionLayer
-        )
+        this.collider = this.model.createCollider(this, this.matrixWorld, this.collisionLayer)
       }
     }
   }
 
-  commit(didMove) {
-    if (didMove) {
+  commit(didTransform) {
+    if (didTransform) {
       this.mesh?.move(this.matrixWorld)
       this.collider?.move(this.matrixWorld)
     }

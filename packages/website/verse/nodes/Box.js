@@ -149,10 +149,8 @@ export class Box extends Node {
         this.ctx.world.spatial.octree.move(this.sItem)
       }
       if (this.actor) {
-        this.matrixWorld.decompose(_v1, _q1, _v2)
-        _v1.toPxTransform(this.transform)
-        _q1.toPxTransform(this.transform)
-        this.actor.setGlobalPose(this.transform, true)
+        // set via physics system as sometimes these are ignored
+        this.ctx.world.physics.setGlobalPose(this.actor, this.matrixWorld)
       }
     }
   }

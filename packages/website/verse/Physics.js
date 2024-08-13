@@ -11,6 +11,7 @@ let errorCb
 let foundation
 
 const _v1 = new THREE.Vector3()
+const _v2 = new THREE.Vector3()
 const _q1 = new THREE.Quaternion()
 
 const defaultScale = new THREE.Vector3(1, 1, 1)
@@ -82,6 +83,7 @@ export class Physics extends System {
     extendThreePhysX()
     this._pv1 = new PHYSX.PxVec3()
     this._pv2 = new PHYSX.PxVec3()
+    this.transform = new PHYSX.PxTransform()
   }
 
   start() {
@@ -107,40 +109,66 @@ export class Physics extends System {
   }
 
   bind(body, node) {
-    const binding = { body, node }
+    const binding = {
+      body,
+      node,
+      prev: {
+        position: new THREE.Vector3(),
+        quaternion: new THREE.Quaternion(),
+      },
+      curr: {
+        position: new THREE.Vector3(),
+        quaternion: new THREE.Quaternion(),
+      },
+    }
+    const pose = body.getGlobalPose()
+    binding.prev.position.copy(pose.p)
+    binding.prev.quaternion.copy(pose.q)
+    binding.curr.position.copy(pose.p)
+    binding.curr.quaternion.copy(pose.q)
     this.bindings.add(binding)
     return () => {
       this.bindings.delete(binding)
     }
   }
 
-  fixedUpdate(delta) {
+  step(delta) {
+    // this.world.entities.clean()
     this.scene.simulate(delta)
     this.scene.fetchResults(true)
-    this.world.entities.clean() // ensure all matrices are up to date
+    // this.world.entities.clean() // ensure we're all up to date
     for (const binding of this.bindings) {
-      if (binding.body.isSleeping()) continue
+      // if (binding.body.isSleeping()) continue
+      binding.prev.position.copy(binding.curr.position)
+      binding.prev.quaternion.copy(binding.curr.quaternion)
       const pose = binding.body.getGlobalPose()
-      const position = _v1.copy(pose.p)
-      const quaternion = _q1.copy(pose.q)
-      const scale = defaultScale
-      // note that this directly sets the WORLD transform so it doesn't matter if its a child of something etc
-      binding.node.setWorldTransform(position, quaternion, scale) // NOTE: scale issues?
-      // binding.node.setDirty()
+      binding.curr.position.copy(pose.p)
+      binding.curr.quaternion.copy(pose.q)
     }
-    // finalize any physics updates immediately
-    this.world.entities.clean()
   }
 
-  lateUpdate() {
-    // for (const binding of this.bindings) {
-    //   if (binding.body.isSleeping()) continue
-    //   const pose = binding.body.getGlobalPose()
-    //   binding.node.position.copy(pose.p)
-    //   binding.node.quaternion.copy(pose.q)
-    //   binding.node.dirty()
-    // }
+  finalize(alpha) {
+    for (const binding of this.bindings) {
+      _v1.lerpVectors(binding.prev.position, binding.curr.position, alpha)
+      _q1.slerpQuaternions(binding.prev.quaternion, binding.curr.quaternion, alpha)
+      binding.node.setFromPhysics(_v1, _q1, defaultScale)
+    }
+    // finalize any physics updates immediately
+    // but don't listen to any loopback commits from those actor moves
+    this.ignoreSetGlobalPose = true
+    this.world.entities.clean()
+    this.ignoreSetGlobalPose = false
   }
+
+  setGlobalPose(actor, matrix) {
+    if (this.ignoreSetGlobalPose) return
+    matrix.toPxTransform(this.transform)
+    actor.setGlobalPose(this.transform, true)
+  }
+
+  // lateUpdate() {
+  //   // ...
+  // }
 
   raycast(origin, direction, maxDistance, mask = Colliders.ALL) {
     origin = origin.toPxVec3(this._pv1)

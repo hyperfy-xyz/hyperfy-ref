@@ -12,16 +12,7 @@ import { Events } from './extras/Events'
 import { smoothDamp } from './extras/smoothDamp'
 
 import { Entity } from './Entity'
-import {
-  BombIcon,
-  CopyIcon,
-  EyeIcon,
-  GrabIcon,
-  HandIcon,
-  PencilRulerIcon,
-  Trash2Icon,
-  UnlinkIcon,
-} from 'lucide-react'
+import { BombIcon, CopyIcon, EyeIcon, GrabIcon, HandIcon, PencilRulerIcon, Trash2Icon, UnlinkIcon } from 'lucide-react'
 import { DEG2RAD } from './extras/general'
 import { num } from './extras/num'
 import { glbToNodes } from './extras/glbToNodes'
@@ -140,16 +131,10 @@ export class Object extends Entity {
 
   isUploading() {
     if (!this.uploading.value) return false
-    if (
-      this.schema.modelType === 'glb' &&
-      this.world.loader.hasGLB(this.schema.model)
-    ) {
+    if (this.schema.modelType === 'glb' && this.world.loader.hasGLB(this.schema.model)) {
       return false // we already have this locally lets go!
     }
-    if (
-      this.schema.modelType === 'vrm' &&
-      this.world.loader.hasVRM(this.schema.model)
-    ) {
+    if (this.schema.modelType === 'vrm' && this.world.loader.hasVRM(this.schema.model)) {
       return false // we already have this locally lets go!
     }
     return this.uploading.value !== this.world.network.client.id
@@ -730,6 +715,28 @@ export class Object extends Entity {
             // quaternion: [0, 0, 0, 1],
           })
         }
+
+        // bomb for physics cube stack test
+        // for (let i = 0; i < 1000; i++) {
+        //   e1.set(num(0, 360, 2) * DEG2RAD, num(0, 360, 2) * DEG2RAD, num(0, 360, 2) * DEG2RAD)
+        //   q1.setFromEuler(e1)
+        //   world.entities.addEntityLocal({
+        //     type: 'object',
+        //     id: world.network.makeId(),
+        //     schemaId: self.schema.id,
+        //     creator: world.network.client.user.id, // ???
+        //     authority: world.network.client.id,
+        //     mode: 'active',
+        //     modeClientId: null,
+
+        //     position: [num(-20, 20, 3), num(10, 100, 3), num(-20, 20, 3)], // ground
+        //     // position: [num(-50, 50, 3), 0, num(-50, 50, 3)], // ground-smaller
+        //     // position: [num(-200, 200, 3), num(0, 200, 3), num(-200, 200, 3)], // box
+        //     // position: [num(-100, 100, 3), num(0, 100, 3), num(-100, 100, 3)], // everywhere
+        //     quaternion: q1.toArray(),
+        //     // quaternion: [0, 0, 0, 1],
+        //   })
+        // }
 
         // ---------
         // minecraft (use 3d/supaverse/cube-grass)
