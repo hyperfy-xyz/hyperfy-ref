@@ -1,8 +1,19 @@
+/**
+ * Notes:
+ *
+ * Daves first person physics controller
+ * https://www.youtube.com/watch?v=f473C43s8nE
+ *
+ * Potato codes rigidbody controller
+ * https://www.youtube.com/watch?v=eNaTMUkNlwE
+ *
+ */
+
 import * as THREE from 'three'
 import { Vector3, Quaternion } from 'three'
 
 import { Entity } from './Entity'
-import { DEG2RAD } from './extras/general'
+import { DEG2RAD, RAD2DEG } from './extras/general'
 import { clamp } from './extras/utils'
 
 import { DodgeAction } from './actions/DodgeAction'
@@ -16,8 +27,10 @@ import { Vector3Enhanced } from './extras/Vector3Enhanced'
 import { NetworkedVector3 } from './extras/NetworkedVector3'
 import { NetworkedQuaternion } from './extras/NetworkedQuaternion'
 import { bindRotations } from './extras/bindRotations'
+import { Layers } from './extras/Layers'
 
 const UP = new THREE.Vector3(0, 1, 0)
+const DOWN = new THREE.Vector3(0, -1, 0)
 const FORWARD = new THREE.Vector3(0, 0, -1)
 
 const CAPSULE_RADIUS = 0.3
@@ -31,17 +44,29 @@ const MOVE_SPEED = 8
 // const MOVE_SPEED = 300 // debug
 const MIN_ZOOM = 2
 const MAX_ZOOM = 100 // 16
+const MAX_SLOPE = 60 // degrees
 
 // const MOVING_SEND_RATE = 1 / 5
 
 const v1 = new THREE.Vector3()
+const v2 = new THREE.Vector3()
+const v3 = new THREE.Vector3()
+const v4 = new THREE.Vector3()
+const v5 = new THREE.Vector3()
+const v6 = new THREE.Vector3()
+const v7 = new THREE.Vector3()
+const v8 = new THREE.Vector3()
 const e1 = new THREE.Euler(0, 0, 0, 'YXZ')
 const q1 = new THREE.Quaternion()
+const _v1 = new THREE.Vector3()
+const _q1 = new THREE.Quaternion()
+const _e1 = new THREE.Euler(0, 0, 0, 'YXZ')
 
 const emotes = {
   idle: 'avatar@idle.glb',
   run: 'avatar@run.glb',
   walk: 'avatar@walk.glb',
+  jump: 'avatar@jump.glb',
   float: 'avatar@float.glb',
   sit: 'avatar@sit.glb', // temp: used by fighter-pete
 }
@@ -78,11 +103,26 @@ export class Player extends Entity {
     this.ghost.position.copy(this.position.value)
     this.ghost.quaternion.copy(this.quaternion.value)
 
-    this.gravity = 20 // 9.81
+    this.gravity = 9.81
     this.jumpHeight = 1.5
 
     this.displacement = new THREE.Vector3()
     this.velocity = new THREE.Vector3()
+
+    this.moving = false
+    this.moveDir = new THREE.Vector3()
+
+    this.grounded = false
+    this.slipping = false
+    this.jumping = false
+    this.falling = false
+    this.airtime = 0
+
+    this.groundAngle = 0
+    this.groundNormal = new THREE.Vector3().copy(UP)
+    this.groundSweepRadius = CAPSULE_RADIUS - 0.01 // slighty smaller than player
+    this.groundSweepGeometry = new PHYSX.PxSphereGeometry(this.groundSweepRadius)
+    // this.groundCheckGeometry = new PHYSX.PxSphereGeometry(CAPSULE_RADIUS)
 
     this.zoom = 6
 
@@ -123,46 +163,65 @@ export class Player extends Entity {
   }
 
   async init() {
-    // controller
-    const desc = new PHYSX.PxCapsuleControllerDesc()
-    desc.height = 1
-    desc.radius = CAPSULE_RADIUS
-    desc.climbingMode = PHYSX.PxCapsuleClimbingModeEnum.eCONSTRAINED
-    desc.slopeLimit = Math.cos(60 * DEG2RAD) // 60 degrees
-    desc.material = this.world.physics.defaultMaterial
-    desc.contactOffset = 0.1 // PhysX default = 0.1
-    desc.stepOffset = 0.5 // PhysX default = 0.5m
-    const behaviorCallback = new PHYSX.PxControllerBehaviorCallbackImpl()
-    behaviorCallback.getShapeBehaviorFlags = (shape, actor) => PHYSX.PxControllerBehaviorFlagEnum.eCCT_CAN_RIDE_ON_OBJECT // prettier-ignore
-    behaviorCallback.getControllerBehaviorFlags = (controller) => PHYSX.PxControllerBehaviorFlagEnum.eCCT_CAN_RIDE_ON_OBJECT // prettier-ignore
-    behaviorCallback.getObstacleBehaviorFlags = (obstacle) => PHYSX.PxControllerBehaviorFlagEnum.eCCT_CAN_RIDE_ON_OBJECT // prettier-ignore
-    desc.behaviorCallback = behaviorCallback
-    this.controller = this.world.physics.controllerManager.createController(desc) // prettier-ignore
-
-    // const actor = this.controller.getActor()
-    // const shapes = new PHYSX.PxArray_PxShapePtr(1)
-    // actor.getShapes(shapes.begin(), 1, 0)
-    // const shape = shapes.get(0)
-    // const filterData = this.world.physics.layers.player // new PHYSX.PxFilterData(this.world.physics.groups.player, this.world.physics.masks.player, 0, 0) // prettier-ignore
-    // shape.setQueryFilterData(filterData)
-    // shape.setSimulationFilterData(filterData)
-    // PHYSX.destroy(shapes)
-
-    // console.log('ctr', this.controller)
-    PHYSX.destroy(desc)
-    this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
-
     // vrm
     await this.loadVRM()
 
+    // capsule
+    const radius = CAPSULE_RADIUS
+    const halfHeight = (this.vrm.height - radius - radius) / 2
+    // console.log(this.vrm.height)
+    // console.log({ radius, halfHeight })
+    const geometry = new PHYSX.PxCapsuleGeometry(radius, halfHeight)
+    // frictionless material (the combine mode ensures we always use out min=0 instead of avging)
+    const material = this.world.physics.physics.createMaterial(0, 0, 0)
+    material.setFrictionCombineMode(PHYSX.PxCombineModeEnum.eMIN)
+    material.setRestitutionCombineMode(PHYSX.PxCombineModeEnum.eMIN)
+    const flags = new PHYSX.PxShapeFlags(PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE) // prettier-ignore
+    const shape = this.world.physics.physics.createShape(geometry, material, true, flags)
+    const localPose = new PHYSX.PxTransform()
+    // rotate to stand up
+    _q1.set(0, 0, 0).setFromAxisAngle(v1.set(0, 0, 1), Math.PI / 2)
+    _q1.toPxTransform(localPose)
+    // move capsule up so its base is at 0,0,0
+    _v1.set(0, halfHeight + radius, 0)
+    _v1.toPxTransform(localPose)
+    shape.setLocalPose(localPose)
+    const filterData = new PHYSX.PxFilterData(Layers.player.group, Layers.player.mask, 0, 0)
+    shape.setQueryFilterData(filterData)
+    shape.setSimulationFilterData(filterData)
+    const transform = new PHYSX.PxTransform()
+    _v1.copy(this.ghost.position)
+    _v1.toPxTransform(transform)
+    _q1.set(0, 0, 0, 1).toPxTransform(transform)
+    this.actor = this.world.physics.physics.createRigidDynamic(transform)
+    // this.actor.setMass(0.1)
+    this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
+    this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
+    this.actor.setRigidDynamicLockFlag(PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_X, true)
+    this.actor.setRigidDynamicLockFlag(PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_Y, true)
+    this.actor.setRigidDynamicLockFlag(PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_Z, true)
+    this.actor.attachShape(shape)
+    this.world.physics.scene.addActor(this.actor)
+    this.unbind = this.world.physics.bind(this.actor, this)
+
     // start
-    // this.world.graphics.scene.add(this.vrm)
     this.world.entities.setHot(this, true)
 
     if (this.isOwner()) {
       this.bindControls()
       this.world.network.onCameraReady?.()
     }
+  }
+
+  setFromPhysics(position) {
+    // read back controller position and apply to ghost & vrm
+    // const radius = CAPSULE_RADIUS
+    // const halfHeight = (this.vrm.height - radius - radius) / 2
+    // console.log('Player.setFromPhysics', position.y, this.vrm.height, radius, halfHeight)
+    this.ghost.position.copy(position)
+    // this.ghost.position.y -= radius
+    this.ghost.updateMatrix()
+    this.vrm?.move(this.ghost.matrix)
   }
 
   bindControls() {
@@ -313,7 +372,8 @@ export class Player extends Entity {
     if (this.destroyed) return // stop if the player has been destroyed
     if (this.vrm) this.vrm.destroy()
     this.vrm = vrm.factory(this.ghost.matrix, null)
-    this.controller.resize(this.vrm.height - CAPSULE_RADIUS * 2)
+    // console.warn('TODO: controller.resize replacement')
+    // this.controller.resize(this.vrm.height - CAPSULE_RADIUS * 2)
 
     // debug capsule
     // {
@@ -334,7 +394,319 @@ export class Player extends Entity {
     return this.ownerId === this.world.network.client.id
   }
 
+  fixedUpdate(delta) {
+    const isOwner = this.isOwner()
+    if (isOwner) {
+      // sweep down to see if we hit ground
+      let sweepHit
+      {
+        const geometry = this.groundSweepGeometry
+        const origin = v1.copy(this.ghost.position)
+        origin.y += this.groundSweepRadius + 0.02 // move up inside player + a bit
+        const direction = DOWN
+        const maxDistance = 0.02 + 0.1 // outside player + a bit more
+        const hitMask = Layers.environment.group | Layers.prop.group | Layers.tool.group
+        sweepHit = this.world.physics.sweep(geometry, origin, direction, maxDistance, hitMask)
+      }
+
+      // update grounded info
+      if (sweepHit) {
+        this.justLeftGround = false
+        this.grounded = true
+        this.groundNormal.copy(sweepHit.normal)
+        this.groundAngle = UP.angleTo(this.groundNormal) * RAD2DEG
+      } else {
+        this.justLeftGround = !!this.grounded
+        this.grounded = false
+        this.groundNormal.copy(UP)
+        this.groundAngle = 0
+      }
+
+      // if we jumped and have now left the ground, progress to jumping
+      if (this.jumped && !this.grounded) {
+        this.jumped = false
+        this.jumping = true
+      }
+
+      // if jumping and we're now on the ground, clear
+      if (this.jumping && this.grounded) {
+        this.jumping = false
+      }
+
+      // if grounded and not jumping, disable gravity so we don't slide down slopes
+      if (this.grounded && !this.jumping) {
+        this.actor.setActorFlag(PHYSX.PxActorFlagEnum.eDISABLE_GRAVITY, true)
+      } else {
+        this.actor.setActorFlag(PHYSX.PxActorFlagEnum.eDISABLE_GRAVITY, false)
+      }
+
+      // if on a steep slope, unground and track slipping
+      if (this.grounded && this.groundAngle > 60) {
+        this.justLeftGround = false
+        this.grounded = false
+        this.groundNormal.copy(UP)
+        this.groundAngle = 0
+        this.slipping = true
+      } else {
+        this.slipping = false
+      }
+
+      // apply drag
+      const velocity = v1.copy(this.actor.getLinearVelocity())
+      const dragCoeff = 12
+      // prevent slip and slide
+      velocity.x *= 1 - dragCoeff * delta
+      velocity.z *= 1 - dragCoeff * delta
+      // prevent force from yeeting us upward when going up slopes
+      if (this.grounded && !this.jumped) {
+        velocity.y *= 1 - dragCoeff * delta
+      }
+      // when walking of an edge or over the top of a ramp, attempt to snap down to a surface
+      if (this.justLeftGround && !this.jumping) {
+        velocity.y = -5
+      }
+      // if slipping ensure we have a constant slip velocity
+      if (this.slipping) {
+        // force minimum slip velocity + increase if not trying to climb back up
+        if (velocity.y > -3.5) velocity.y = -3.5
+        velocity.y -= 0.5
+      }
+      this.actor.setLinearVelocity(velocity.toPxVec3())
+
+      // apply move force, projected onto ground normal
+      let moveSpeed = 10 // run
+      const slopeRotation = q1.setFromUnitVectors(UP, this.groundNormal)
+      const moveForce = v1.copy(this.moveDir).multiplyScalar(moveSpeed * 10).applyQuaternion(slopeRotation) // prettier-ignore
+      this.actor.addForce(moveForce.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
+
+      // apply jump
+      if (this.grounded && !this.jumping && this.input.jump) {
+        // calc velocity needed to reach jump height
+        const jumpVelocity = Math.sqrt(2 * this.gravity * this.jumpHeight)
+        // update velocity
+        const velocity = this.actor.getLinearVelocity()
+        velocity.y = jumpVelocity
+        this.actor.setLinearVelocity(velocity)
+        // set jumped (we haven't left the ground yet)
+        this.jumped = true
+      }
+    }
+  }
+
+  // fixedUpdate(delta) {
+  //   const isOwner = this.isOwner()
+  //   if (isOwner) {
+  //     // perform a sweep to find ground underneath us
+  //     let sweepHit
+  //     {
+  //       const geometry = this.groundSweepGeometry
+  //       const origin = v1.copy(this.ghost.position)
+  //       origin.y += CAPSULE_RADIUS + 0.02
+  //       const direction = DOWN
+  //       const maxDistance = 0.1
+  //       const hitMask = Layers.environment.group | Layers.prop.group | Layers.tool.group
+  //       sweepHit = this.world.physics.sweep(geometry, origin, direction, maxDistance, hitMask)
+  //     }
+  //     // console.log(!!sweepHit)
+  //     // console.log(sweepHit?.distance, sweepHit?.normal.toArray())
+
+  //     // raycast check for ground
+  //     // const inset = 0.1
+  //     // const origin = v1.copy(this.ghost.position)
+  //     // v1.y += inset // move up a bit
+  //     // const maxDistance = 0.4
+  //     // const hitMask = Layers.environment.group | Layers.prop.group | Layers.tool.group
+  //     // const hit = this.world.physics.raycast(origin, DOWN, maxDistance, hitMask)
+
+  //     // overlap test for ground
+  //     // const origin = v1.copy(this.ghost.position)
+  //     // v1.y -= CAPSULE_RADIUS
+  //     // v1.y += 0.1
+  //     // const hitMask = Layers.environment.group | Layers.prop.group | Layers.tool.group
+  //     // const hit = this.world.physics.overlap(this.groundCheckGeometry, origin, hitMask)
+
+  //     // update grounded info
+  //     if (sweepHit) {
+  //       this.grounded = true
+  //       this.groundNormal.copy(sweepHit.normal)
+  //       this.groundAngle = UP.angleTo(this.groundNormal) * RAD2DEG
+  //     } else {
+  //       this.grounded = false
+  //       this.groundAngle = 0
+  //       this.groundNormal.copy(UP)
+  //     }
+
+  //     let moveSpeed = 10 // run
+
+  //     // if we're on a steep slope, we're slipping
+  //     const maxSlope = 60 // deg
+  //     if (this.groundAngle > maxSlope) {
+  //       this.grounded = false
+  //       this.slipping = true
+  //       // can't move while slipping
+  //       moveSpeed = 0
+  //     } else {
+  //       this.slipping = false
+  //     }
+
+  //     // get velocity
+  //     const velocity = v1.copy(this.actor.getLinearVelocity())
+
+  //     // calc slope factor
+  //     // const slopeFactor = Math.max(this.groundNormal.dot(UP), 0) // 1=flat 0=vertical
+
+  //     // if we jumped and now we've left the ground, progress to jumping
+  //     if (this.jumped && !this.grounded) {
+  //       this.jumped = false
+  //       this.jumping = true
+  //     }
+
+  //     // if jumping and we land on a platform without falling first, cancel jumping
+  //     if (this.jumping && this.grounded) {
+  //       this.jumping = false
+  //     }
+
+  //     // if we're jumping and we start descending, progress to falling
+  //     if (this.jumping && velocity.y <= 0) {
+  //       this.jumping = false
+  //       this.airtime = 0.15 // force into falling time
+  //     }
+
+  //     // // if we're not grounded and we're descending, progress to falling
+  //     // console.log(velocity.y)
+  //     // if (!this.grounded && velocity.y <= 0) {
+  //     //   this.jumping = false // ensure no longer jumping
+  //     //   this.falling = true
+  //     // }
+
+  //     // // if were' falling and we hit ground, cancel falling
+  //     // if (this.falling && this.grounded) {
+  //     //   this.falling = false
+  //     // }
+
+  //     // track airtime
+  //     if (this.grounded) {
+  //       this.airtime = 0
+  //     } else {
+  //       this.airtime += delta
+  //     }
+
+  //     // we're falling if we've been in the air more than 0.15s
+  //     this.falling = this.airtime > 0.15
+
+  //     // if we're grounded on a slope and not jumping, disable gravity so we don't slide down the slope
+  //     if (this.grounded && this.groundAngle && !this.jumping) {
+  //       this.actor.setActorFlag(PHYSX.PxActorFlagEnum.eDISABLE_GRAVITY, true)
+  //     } else {
+  //       this.actor.setActorFlag(PHYSX.PxActorFlagEnum.eDISABLE_GRAVITY, false)
+  //     }
+
+  //     // if we're not slipping apply drag
+  //     if (!this.slipping) {
+  //       const dragCoeff = 12
+  //       // apply horizontal drag
+  //       velocity.x *= 1 - dragCoeff * delta
+  //       velocity.z *= 1 - dragCoeff * delta
+  //       // apply vertical drag
+  //       // note: we only do this to prevent being yeeted upward when moving up slopes
+  //       // console.log(this.grounded, this.groundAngle > 0, !this.jumping, velocity.y > 0)
+  //       if (this.grounded && this.groundAngle /*&& !this.jumping*/ && velocity.y > 0) {
+  //         velocity.y *= 1 - dragCoeff * delta
+  //       }
+  //     }
+
+  //     // update velocity
+  //     this.actor.setLinearVelocity(velocity.toPxVec3())
+
+  //     // this.actor.addForce(moveForce.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
+
+  //     // const adjustedMoveSpeed = moveSpeed * slopeFactor
+
+  //     // apply move force
+  //     const slopeRotation = q1.setFromUnitVectors(UP, this.groundNormal)
+  //     const moveForce = v1.copy(this.moveDir).multiplyScalar(moveSpeed * 10).applyQuaternion(slopeRotation) // prettier-ignore
+  //     this.actor.addForce(moveForce.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
+
+  //     // apply move force (alternative)
+  //     // const slopeMoveDir = v1.copy(this.moveDir).projectOnPlane(this.groundNormal).normalize()
+  //     // const moveForce = v2.copy(slopeMoveDir).multiplyScalar(moveSpeed * 10)
+  //     // this.actor.addForce(moveForce.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
+
+  //     // handle jump key
+  //     if (this.grounded && !this.jumping && this.input.jump) {
+  //       // calc initial velocity needed to reach our jump height
+  //       const initialVelocity = Math.sqrt(2 * this.gravity * this.jumpHeight)
+  //       // update velocity
+  //       const velocity = this.actor.getLinearVelocity()
+  //       velocity.y = initialVelocity
+  //       this.actor.setLinearVelocity(velocity)
+  //       // set jumped (we haven't left the ground yet)
+  //       this.jumped = true
+  //     }
+  //   }
+  // }
+
   update(delta) {
+    // rotate camera when looking (holding right mouse + dragging)
+    this.control.camera.rotation.y += -this.input.lookDelta.x * LOOK_SPEED * delta
+    this.control.camera.rotation.x += -this.input.lookDelta.y * LOOK_SPEED * delta
+    // ensure we can't look too far up/down
+    this.control.camera.rotation.x = clamp(this.control.camera.rotation.x, -90 * DEG2RAD, 90 * DEG2RAD)
+    // consume lookDelta
+    this.input.lookDelta.set(0, 0, 0)
+
+    // zoom camera if scrolling wheel (and not moving an object)
+    this.zoom += -this.input.zoomDelta * ZOOM_SPEED * delta
+    this.zoom = clamp(this.zoom, MIN_ZOOM, MAX_ZOOM)
+    this.control.camera.zoom = this.zoom
+    // consume zoomDelta
+    this.input.zoomDelta = 0
+
+    // get our movement direction
+    this.moveDir.set(0, 0, 0)
+    if (this.input.moveForward) this.moveDir.z -= 1
+    if (this.input.moveBack) this.moveDir.z += 1
+    if (this.input.moveLeft) this.moveDir.x -= 1
+    if (this.input.moveRight) this.moveDir.x += 1
+
+    // we're moving if any keys are down
+    this.moving = this.moveDir.length() > 0
+
+    // normalize direction for non-joystick (prevents surfing)
+    this.moveDir.normalize()
+
+    // rotate direction to face camera Y direction
+    const yQuaternion = q1.setFromAxisAngle(UP, this.control.camera.rotation.y)
+    this.moveDir.applyQuaternion(yQuaternion)
+
+    // if we're moving continually rotate ourselves toward the direction we are moving
+    if (this.moving) {
+      const alpha = 1 - Math.pow(0.00000001, delta)
+      q1.setFromUnitVectors(FORWARD, this.moveDir)
+      this.ghost.quaternion.slerp(q1, alpha)
+    }
+
+    // make camera follow our position horizontally
+    // and vertically at our vrm model height
+    this.control.camera.position.set(
+      this.ghost.position.x,
+      this.ghost.position.y + this.vrm.height,
+      this.ghost.position.z
+    )
+
+    // emote
+    if (this.jumping) {
+      this.vrm.setEmote(emotes.float) // todo: better jump anim
+    } else if (this.falling) {
+      this.vrm.setEmote(emotes.float)
+    } else if (this.moving) {
+      this.vrm.setEmote(emotes.run)
+    } else {
+      this.vrm.setEmote(emotes.idle)
+    }
+  }
+
+  _update(delta) {
     const isOwner = this.isOwner()
 
     //
@@ -357,16 +729,6 @@ export class Player extends Entity {
       camera.zoom = this.zoom
       input.zoomDelta = 0
 
-      // anchor node
-      let anchorNode
-      let anchorEmote
-      if (this.anchor.value) {
-        const entity = this.world.entities.getEntity(this.anchor.value.objectId)
-        if (!entity) return
-        anchorNode = entity.nodes.get(this.anchor.value.node)
-        if (anchorNode) anchorEmote = emotes[this.anchor.value.emote]
-      }
-
       // switch items (if not performing an action)
       if (!this.action && input.nextItem !== null) {
         this.itemIdx.value = input.nextItem
@@ -386,40 +748,80 @@ export class Player extends Entity {
           }
         }
       }
+    }
 
-      // initialize displacement
-      this.displacement.set(0, 0, 0)
+    // Not Owner
+
+    if (!isOwner) {
+      // ...
+    }
+  }
+
+  _fixedUpdate(delta) {
+    const isOwner = this.isOwner()
+
+    //
+    // Owner
+    //
+
+    if (isOwner) {
+      const input = this.input
+      const camera = this.control.camera
+      const ghost = this.ghost
+
+      // anchor node
+      let anchorNode
+      let anchorEmote
+      if (this.anchor.value) {
+        const entity = this.world.entities.getEntity(this.anchor.value.objectId)
+        if (!entity) return
+        anchorNode = entity.nodes.get(this.anchor.value.node)
+        if (anchorNode) anchorEmote = emotes[this.anchor.value.emote]
+      }
+
+      // initialize moveDir
+      this.moveDir.set(0, 0, 0)
 
       // if we're not performing an action, use directional input displacement
       if (!this.action || this.action.moveFreedom) {
         // copy input axis
-        if (input.moveForward) this.displacement.z -= 1
-        if (input.moveBack) this.displacement.z += 1
-        if (input.moveLeft) this.displacement.x -= 1
-        if (input.moveRight) this.displacement.x += 1
+        if (input.moveForward) this.moveDir.z -= 1
+        if (input.moveBack) this.moveDir.z += 1
+        if (input.moveLeft) this.moveDir.x -= 1
+        if (input.moveRight) this.moveDir.x += 1
 
         // we're moving if any keys are down
-        this.isMoving = this.displacement.length() > 0
+        this.isMoving = this.moveDir.length() > 0
 
-        // normalize displacement for non-joystick (disables surfing)
-        this.displacement.normalize()
+        // normalize direction for non-joystick (disables surfing)
+        this.moveDir.normalize()
 
-        // rotate displacement by camera Y-rotation
+        // rotate direction to face camera Y direction
         const yRigQuaternion = q1.setFromAxisAngle(UP, camera.rotation.y)
-        this.displacement.applyQuaternion(yRigQuaternion)
+        this.moveDir.applyQuaternion(yRigQuaternion)
 
         // get a quaternion that faces the direction we are moving
         if (this.isMoving) {
-          this.targetQuaternion.setFromUnitVectors(FORWARD, this.displacement)
+          this.targetQuaternion.setFromUnitVectors(FORWARD, this.moveDir)
           // console.log('foo2')
         }
 
-        // multiply our displacement direction by our movement speed
-        this.displacement.multiplyScalar(MOVE_SPEED * delta)
+        // apply damping manually (can't use actor.setLinearDamping(10) as it also applies to Y)
+        const lvel = this.actor.getLinearVelocity()
+        const dampingCoefficient = 12
+        lvel.x *= 1 - dampingCoefficient * delta
+        lvel.z *= 1 - dampingCoefficient * delta
+        this.actor.setLinearVelocity(lvel)
 
         if (this.action) {
-          this.displacement.multiplyScalar(this.action.moveFreedom)
+          this.moveDir.multiplyScalar(this.action.moveFreedom)
         }
+
+        const moveForce = 80
+        const force = v3.copy(this.moveDir).multiplyScalar(moveForce)
+
+        // apply move force
+        this.actor.addForce(force.toPxVec3(), PHYSX.PxForceModeEnum.eIMPULSE * delta, true)
       }
 
       // progress our action if any
@@ -445,11 +847,11 @@ export class Player extends Entity {
         }
       }
 
-      // apply a natural gravity
-      // don't accrue it while anchored
-      if (!this.isGrounded && !anchorNode) {
-        this.velocity.y -= this.gravity * delta
-      }
+      // // apply a natural gravity
+      // // don't accrue it while anchored
+      // if (!this.isGrounded && !anchorNode) {
+      //   this.velocity.y -= this.gravity * delta
+      // }
 
       // determine if we're airborn
       // this is used to negate walking down slopes where you come off the ground
@@ -462,14 +864,16 @@ export class Player extends Entity {
 
       // if we're grounded and we want to jump, apply jump velocity
       if (this.isGrounded && input.jump && !this.action) {
-        this.velocity.y = Math.sqrt(2 * this.gravity * this.jumpHeight)
+        // this.velocity.y = Math.sqrt(2 * this.gravity * this.jumpHeight)
+        v4.set(0, Math.sqrt(2 * this.gravity * this.jumpHeight), 0).multiplyScalar(50) // WHY 50!?!?!?
+        this.actor.addForce(v4.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
         this.isJumping = true
         input.jump = false // consume
       }
-      // HACK: temp flying
-      if (input.jumpDown) {
-        this.velocity.y += 1
-      }
+      // // HACK: temp flying
+      // if (input.jumpDown) {
+      //   this.velocity.y += 1
+      // }
 
       // apply emote
       let emote
@@ -487,39 +891,93 @@ export class Player extends Entity {
       this.vrm.setEmote(emote)
       this.emote.value = emote
 
-      // apply the velocity (for this frame) to our displacement
-      const velocity = v1.copy(this.velocity).multiplyScalar(delta)
-      this.displacement.add(velocity)
+      // // apply the velocity (for this frame) to our displacement
+      // const velocity = v1.copy(this.velocity).multiplyScalar(delta)
+      // this.displacement.add(velocity)
 
-      // finally apply displacement to our controller
-      this.moveFlags = this.controller.move(
-        this.displacement.toPxVec3(),
-        0,
-        FIXED_TIMESTEP,
-        this.world.physics.controllerFilters
+      // ===
+
+      // ===
+      // ===
+      // ===
+      // ===
+      // ===
+      // ===
+      // ===
+
+      v1.copy(this.ghost.position)
+      v1.y += 0.1
+      const hit = this.world.physics.raycast(
+        v1,
+        DOWN,
+        0.3,
+        Layers.environment.group | Layers.prop.group | Layers.tool.group
       )
+      this.isGrounded = !!hit
 
-      // check if we're grounded
-      this.isGrounded = this.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN)
+      this.isCeiling = false // TODO: can we remove?
 
-      // check if we hit our head on something
-      this.isCeiling = this.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_UP)
+      // const moveDir = v1.set(0, 0, 0)
+      // if (input.moveForward) moveDir.z -= 1
+      // if (input.moveBack) moveDir.z += 1
+      // if (input.moveLeft) moveDir.x -= 1
+      // if (input.moveRight) moveDir.x += 1
+      // moveDir.normalize()
+      // const yRigQuaternion = q1.setFromAxisAngle(UP, camera.rotation.y)
+      // moveDir.applyQuaternion(yRigQuaternion)
+
+      // const moveForce = 80
+      // const force = v3.copy(this.moveDir).multiplyScalar(moveForce)
+
+      // // apply damping manually (can't use actor.setLinearDamping(10) as it also applies to Y)
+      // const lvel = this.actor.getLinearVelocity()
+      // const dampingCoefficient = 12
+      // lvel.x *= 1 - dampingCoefficient * delta
+      // lvel.z *= 1 - dampingCoefficient * delta
+      // this.actor.setLinearVelocity(lvel)
+
+      // // // if we're grounded and we want to jump, apply jump velocity
+      // // if (input.jump && !this.action) {
+      // //   v4.set(0, Math.sqrt(2 * this.gravity * this.jumpHeight), 0).multiplyScalar(50)
+      // //   this.actor.addForce(v4.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
+      // //   this.isJumping = true
+      // //   input.jump = false // consume
+      // // }
+
+      // // apply our force
+      // this.actor.addForce(force.toPxVec3(), PHYSX.PxForceModeEnum.eIMPULSE * delta, true) // PHYSX.PxForceModeEnum.eIMPULSE
+
+      // ===
+
+      // // finally apply displacement to our controller
+      // this.moveFlags = this.controller.move(
+      //   this.displacement.toPxVec3(),
+      //   0,
+      //   FIXED_TIMESTEP,
+      //   this.world.physics.controllerFilters
+      // )
+
+      // // check if we're grounded
+      // this.isGrounded = this.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN)
+
+      // // check if we hit our head on something
+      // this.isCeiling = this.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_UP)
 
       // if we were jumping and now we're grounded, update our variable
       if (this.isJumping && this.isGrounded) {
         this.isJumping = false
       }
 
-      // if we did hit our head, cancel any jump velocity
-      if (this.isCeiling && this.velocity.y > 0) {
-        this.velocity.y = -this.gravity * delta
-      }
+      // // if we did hit our head, cancel any jump velocity
+      // if (this.isCeiling && this.velocity.y > 0) {
+      //   this.velocity.y = -this.gravity * delta
+      // }
 
-      // read back controller position and apply to ghost & vrm
-      const pos = this.controller.getFootPosition()
-      ghost.position.copy(pos)
-      ghost.updateMatrix()
-      this.vrm.move(ghost.matrix)
+      // // read back controller position and apply to ghost & vrm
+      // const pos = this.controller.getFootPosition()
+      // ghost.position.copy(pos)
+      // ghost.updateMatrix()
+      // this.vrm.move(ghost.matrix)
 
       // make camera follow our final position horizontally
       // and vertically at our vrm model height

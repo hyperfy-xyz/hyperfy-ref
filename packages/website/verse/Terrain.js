@@ -8,6 +8,7 @@ import CustomShaderMaterial from './libs/three-custom-shader-material'
 import { createSurface } from './extras/SurfaceNets'
 import { createColliderFactory } from './extras/createColliderFactory'
 import { clamp } from './extras/utils'
+import { Layers } from './extras/Layers'
 
 const MODIFY_RATE = 1 / 30
 
@@ -57,27 +58,19 @@ export class Terrain extends System {
   }
 
   start() {
-    const layer1Map = this.world.loader.texLoader.load(
-      '/static/terrain/Grass1.png'
-    )
+    const layer1Map = this.world.loader.texLoader.load('/static/terrain/Grass1.png')
     layer1Map.wrapS = THREE.RepeatWrapping
     layer1Map.wrapT = THREE.RepeatWrapping
     layer1Map.colorSpace = THREE.SRGBColorSpace
-    const layer2Map = this.world.loader.texLoader.load(
-      '/static/terrain/Sand3.png'
-    )
+    const layer2Map = this.world.loader.texLoader.load('/static/terrain/Sand3.png')
     layer2Map.wrapS = THREE.RepeatWrapping
     layer2Map.wrapT = THREE.RepeatWrapping
     layer2Map.colorSpace = THREE.SRGBColorSpace
-    const layer3Map = this.world.loader.texLoader.load(
-      '/static/terrain/Cliffs2_1.png'
-    )
+    const layer3Map = this.world.loader.texLoader.load('/static/terrain/Cliffs2_1.png')
     layer3Map.wrapS = THREE.RepeatWrapping
     layer3Map.wrapT = THREE.RepeatWrapping
     layer3Map.colorSpace = THREE.SRGBColorSpace
-    const noiseTexture = this.world.loader.texLoader.load(
-      '/static/terrain/noise.png'
-    )
+    const noiseTexture = this.world.loader.texLoader.load('/static/terrain/noise.png')
     // const noiseTexture = generateNoiseTexture()
     noiseTexture.wrapS = THREE.RepeatWrapping
     noiseTexture.wrapT = THREE.RepeatWrapping
@@ -642,10 +635,7 @@ class Chunk {
           // regular height
           const heightAmp = maxHeight - seaLevel
           const heightNoiseScale = 0.02
-          let heightNoise = noise2D(
-            w.x * heightNoiseScale,
-            w.z * heightNoiseScale
-          )
+          let heightNoise = noise2D(w.x * heightNoiseScale, w.z * heightNoiseScale)
           heightNoise = sinToAlpha(heightNoise)
 
           // const baseHeight = seaLevel + heightNoise * (maxHeight - seaLevel);
@@ -666,11 +656,7 @@ class Chunk {
 
           const surfaceDistance = height - w.y
           const smoothStrength = 0.3
-          let density = smoothstep(
-            smoothStrength * seaLevel,
-            -smoothStrength * seaLevel,
-            surfaceDistance
-          )
+          let density = smoothstep(smoothStrength * seaLevel, -smoothStrength * seaLevel, surfaceDistance)
           density = alphaToSin(density)
 
           // const surfaceDistance = height - w.y;
@@ -1390,11 +1376,9 @@ class Chunk {
     const mesh = new THREE.Mesh(geometry, material)
     // mesh.scale.setScalar(scale)
     mesh.position.set(
-      this.coords.x * gridSize.x * scale -
-        this.coords.x * (gridBorder * 2) * scale, // xz overlap
+      this.coords.x * gridSize.x * scale - this.coords.x * (gridBorder * 2) * scale, // xz overlap
       this.coords.y * gridSize.y * scale,
-      this.coords.z * gridSize.z * scale -
-        this.coords.z * (gridBorder * 2) * scale // xz overlap
+      this.coords.z * gridSize.z * scale - this.coords.z * (gridBorder * 2) * scale // xz overlap
     )
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -1420,7 +1404,7 @@ class Chunk {
     const colliderFactory = createColliderFactory(this.world, mesh)
     console.timeEnd('chunk:collider1')
     console.time('chunk:collider2')
-    const collider = colliderFactory.create(null, mesh.matrixWorld)
+    const collider = colliderFactory.create(null, mesh.matrixWorld, 'static', Layers.environment)
     console.timeEnd('chunk:collider2')
 
     this.mesh = mesh
@@ -1505,10 +1489,7 @@ class Chunk {
 
     center.copy(point).sub(this.mesh.position).divideScalar(scale).round()
 
-    this.world.terrain.point.position
-      .copy(center)
-      .multiplyScalar(scale)
-      .add(this.mesh.position)
+    this.world.terrain.point.position.copy(center).multiplyScalar(scale).add(this.mesh.position)
 
     console.log('center', center.toArray())
 
@@ -2086,14 +2067,8 @@ function tileableNoise(x, y) {
 }
 
 function smoothNoise(x, y) {
-  const corners =
-    (noise(x - 1, y - 1) +
-      noise(x + 1, y - 1) +
-      noise(x - 1, y + 1) +
-      noise(x + 1, y + 1)) /
-    16
-  const sides =
-    (noise(x - 1, y) + noise(x + 1, y) + noise(x, y - 1) + noise(x, y + 1)) / 8
+  const corners = (noise(x - 1, y - 1) + noise(x + 1, y - 1) + noise(x - 1, y + 1) + noise(x + 1, y + 1)) / 16
+  const sides = (noise(x - 1, y) + noise(x + 1, y) + noise(x, y - 1) + noise(x, y + 1)) / 8
   const center = noise(x, y) / 4
   return corners + sides + center
 }

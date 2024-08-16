@@ -13,7 +13,6 @@ import {
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh'
 import { N8AOPass, N8AOPostPass } from 'n8ao'
 
-import { Layers } from './extras/Layers'
 import { Vector3Enhanced } from './extras/Vector3Enhanced'
 
 // import { CSM } from './libs/csm/CSM'
@@ -150,7 +149,7 @@ export class Graphics extends System {
     this.maskNone.enableAll()
     this.maskMoving = new THREE.Layers()
     this.maskMoving.enableAll()
-    this.maskMoving.disable(Layers.MOVING)
+    // this.maskMoving.disable(Layers.MOVING)
 
     window.THREE = THREE
   }

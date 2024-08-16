@@ -2,15 +2,24 @@ import { isBoolean } from 'lodash-es'
 
 import { Node } from './Node'
 
+const defaults = {
+  visible: true,
+  collision: null,
+  collisionLayer: 'environment',
+}
+
 export class Mesh extends Node {
   constructor(data = {}) {
     super(data)
     this.type = 'mesh'
     this.isMesh = true
+
     this.model = data.model
-    this.visible = isBoolean(data.visible) ? data.visible : true
-    this.collision = isBoolean(data.collision) ? data.collision : false
-    this.collisionLayer = data.collisionLayer
+
+    this.visible = isBoolean(data.visible) ? data.visible : defaults.visible
+    this.collision = data.collision || defaults.collision
+    this.collisionLayer = data.collisionLayer || defaults.collisionLayer
+
     this.mesh = null
     this.collider = null
   }
@@ -21,7 +30,7 @@ export class Mesh extends Node {
         this.mesh = this.model.createMesh(this, this.matrixWorld)
       }
       if (this.collision) {
-        this.collider = this.model.createCollider(this, this.matrixWorld, this.collisionLayer)
+        this.collider = this.model.createCollider(this, this.matrixWorld, this.collision, this.collisionLayer)
       }
     }
   }

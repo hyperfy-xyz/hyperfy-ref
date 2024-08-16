@@ -52,7 +52,7 @@ let isAuthority = object.isAuthority()
 const body = object.create({ type: 'box' })
 body.visible = false
 body.collision = isAuthority ? 'dynamic' : 'kinematic'
-body.collisionMask = Colliders.OBJECT
+body.collisionLayer = 'environment'
 body.setSize(7, 1.1, 7)
 body.position.copy(object.position)
 body.position.y += 1

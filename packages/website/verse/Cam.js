@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { System } from './System'
 
 import { bindRotations } from './extras/bindRotations'
-import { Colliders } from './extras/Colliders'
+import { Layers } from './extras/Layers'
 
 const CAM_MAX_DISTANCE = 2 // max distance between camera and target
 const CAM_MIN_FACTOR = 5 // min lerp factor (slowest speed)
@@ -44,7 +44,8 @@ export class Cam extends System {
     // raycast backward to check for zoom collision
     const origin = cameraRig.position
     const direction = v1.copy(BACKWARD).applyQuaternion(cameraRig.quaternion)
-    const hit = this.world.physics.sweep(this.sweepGeometry, origin, direction, 200, Colliders.CAMERA)
+    const layerMask = Layers.camera.mask // hit everything the camera should hit
+    const hit = this.world.physics.sweep(this.sweepGeometry, origin, direction, 200, layerMask)
 
     // lerp to target zoom distance
     let distance = this.target.zoom

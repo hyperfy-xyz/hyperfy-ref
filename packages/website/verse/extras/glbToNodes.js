@@ -38,9 +38,7 @@ export function glbToNodes(glb, world) {
   //   return [baseName, isHidden, isCollider, isLod, maxDistance]
   // }
   function hasLods(children) {
-    return !!children.find(
-      child => child.isMesh && child.userData.lodMaxDistance
-    )
+    return !!children.find(child => child.isMesh && child.userData.lodMaxDistance)
   }
   function parse(object3ds, parentNode) {
     for (const object3d of object3ds) {

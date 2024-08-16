@@ -135,11 +135,11 @@ class Model {
     return this.items[instanceId]?.node.entity
   }
 
-  createCollider(node, matrix, layer) {
+  createCollider(node, matrix, collision, collisionLayer) {
     if (!this.colliders) {
       this.colliders = createColliderFactory(this.world, this.mesh)
     }
-    return this.colliders.create(node, matrix, layer)
+    return this.colliders.create(node, matrix, collision, collisionLayer)
   }
 
   getTriangles() {

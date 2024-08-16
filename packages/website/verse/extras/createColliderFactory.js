@@ -1,5 +1,7 @@
-import { isBoolean } from 'lodash-es'
 import * as THREE from 'three'
+import { isBoolean } from 'lodash-es'
+
+import { Layers } from './Layers'
 
 export function createColliderFactory(world, mesh) {
   const positionAttribute = mesh.geometry.getAttribute('position')
@@ -65,9 +67,9 @@ export function createColliderFactory(world, mesh) {
   PHYSX.destroy(triangles)
 
   return {
-    create(node, matrix, layer) {
+    create(node, matrix, collision, collisionLayer) {
       const shape = physics.createShape(geometry, material, true, flags)
-      const filterData = new PHYSX.PxFilterData(Colliders.OBJECT, Colliders.ALL, 0, 0) // world.physics.layers[layer] || world.physics.layers.environment // prettier-ignore
+      const filterData = new PHYSX.PxFilterData(collisionLayer.group, collisionLayer.mask, 0, 0)
       shape.setQueryFilterData(filterData)
       shape.setSimulationFilterData(filterData)
 
@@ -80,11 +82,30 @@ export function createColliderFactory(world, mesh) {
       qua.toPxTransform(transform)
 
       // create actor and add to scene
-      const actor = physics.createRigidDynamic(transform)
-      actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
-      actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
+      let actor
+      if (collision === 'dynamic') {
+        actor = world.physics.physics.createRigidDynamic(transform)
+        actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
+        actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
+      } else if (collision === 'kinematic') {
+        actor = world.physics.physics.createRigidDynamic(transform)
+        actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
+        actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
+      } else {
+        actor = world.physics.physics.createRigidStatic(transform)
+      }
       actor.attachShape(shape)
       world.physics.scene.addActor(actor)
+
+      let unbind
+      if (collision !== 'static') {
+        unbind = world.physics.bind(actor, {
+          setFromPhysics(position, quaternion) {
+            console.warn('colliderFactory setFromPhysics')
+            // TODO: i think this somehow needs to update the visual counterpart :sweat:
+          },
+        })
+      }
 
       let active = true
 
@@ -109,6 +130,7 @@ export function createColliderFactory(world, mesh) {
           }
           shape.release()
           actor.release()
+          unbind?.()
         },
       }
     },

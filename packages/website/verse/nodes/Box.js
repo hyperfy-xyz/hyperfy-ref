@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { isBoolean, isNumber } from 'lodash-es'
 
 import { Node } from './Node'
-import { Colliders } from '../extras/Colliders'
+import { Layers } from '../extras/Layers'
 
 // WIP batch mesh - has issues, eg no per-mesh layers and stuff
 // const batchGroups = {} // [key] [...batches]
@@ -38,7 +38,10 @@ const defaults = {
   receiveShadow: true,
   visible: true,
   collision: null,
-  collisionMask: Colliders.ALL, // everything
+  collisionLayer: 'environment',
+  staticFriction: 0.6,
+  dynamicFriction: 0.6,
+  restitution: 0.1,
 }
 
 export class Box extends Node {
@@ -58,9 +61,14 @@ export class Box extends Node {
     this.visible = isBoolean(data.visible) ? data.visible : defaults.visible
 
     this.collision = data.collision || defaults.collision
-    this.collisionMask = data.collisionMask || defaults.collisionMask
+    this.collisionLayer = data.collisionLayer || defaults.collisionLayer
+    this.staticFriction = isNumber(data.staticFriction) ? data.staticFriction : defaults.staticFriction
+    this.dynamicFriction = isNumber(data.dynamicFriction) ? data.dynamicFriction : defaults.dynamicFriction
+    this.restitution = isNumber(data.restitution) ? data.restitution : defaults.restitution
 
     this.needsRebuild = false
+
+    this._tm = new PHYSX.PxTransform()
   }
 
   mount() {
@@ -99,10 +107,15 @@ export class Box extends Node {
     }
     if (this.collision) {
       const geometry = new PHYSX.PxBoxGeometry(this.width / 2, this.height / 2, this.depth / 2)
-      const material = this.ctx.world.physics.physics.createMaterial(0.6, 0.6, 0)
+      const material = this.ctx.world.physics.physics.createMaterial(
+        this.staticFriction,
+        this.dynamicFriction,
+        this.restitution
+      )
       const flags = new PHYSX.PxShapeFlags(PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE) // prettier-ignore
       // const filterData = this.ctx.world.physics.layers.object
-      const filterData = new PHYSX.PxFilterData(Colliders.OBJECT, this.collisionMask, 0, 0)
+      const layer = Layers[this.collisionLayer]
+      const filterData = new PHYSX.PxFilterData(layer.group, layer.mask, 0, 0)
       const shape = this.ctx.world.physics.physics.createShape(geometry, material, true, flags)
       shape.setQueryFilterData(filterData)
       shape.setSimulationFilterData(filterData)
@@ -124,7 +137,7 @@ export class Box extends Node {
       // this.actor.setMass(1)
       this.actor.attachShape(shape)
       this.ctx.world.physics.scene.addActor(this.actor)
-      if (this.collision === 'dynamic') {
+      if (this.collision !== 'static') {
         this.unbind = this.ctx.world.physics.bind(this.actor, this)
       }
     }
@@ -183,7 +196,10 @@ export class Box extends Node {
     this.receiveShadow = source.receiveShadow
     this.visible = source.visible
     this.collision = source.collision
-    this.collisionMask = source.collisionMask
+    this.collisionLayer = source.collisionLayer
+    this.staticFriction = source.staticFriction
+    this.dynamicFriction = source.dynamicFriction
+    this.restitution = source.restitution
     return this
   }
 
@@ -319,13 +335,56 @@ export class Box extends Node {
             self.setDirty()
           }
         },
-        get collisionMask() {
-          return self.collisionMask
+        get collisionLayer() {
+          return self.collisionLayer
         },
-        set collisionMask(value) {
-          self.collisionMask = value
+        set collisionLayer(value) {
+          self.collisionLayer = value
           if (self.actor) {
             // todo: we could just update the PxFilterData tbh
+            self.needsRebuild = true
+            self.setDirty()
+          }
+        },
+        get staticFriction() {
+          return self.staticFriction
+        },
+        set staticFriction(value) {
+          self.staticFriction = value
+          if (self.actor) {
+            // todo: we could probably just update the PxMaterial tbh
+            self.needsRebuild = true
+            self.setDirty()
+          }
+        },
+        get dynamicFriction() {
+          return self.dynamicFriction
+        },
+        set dynamicFriction(value) {
+          self.dynamicFriction = value
+          if (self.actor) {
+            // todo: we could probably just update the PxMaterial tbh
+            self.needsRebuild = true
+            self.setDirty()
+          }
+        },
+        get restitution() {
+          return self.restitution
+        },
+        set restitution(value) {
+          self.restitution = value
+          if (self.actor) {
+            // todo: we could probably just update the PxMaterial tbh
+            self.needsRebuild = true
+            self.setDirty()
+          }
+        },
+        setMaterial(staticFriction, dynamicFriction, restitution) {
+          self.staticFriction = staticFriction
+          self.dynamicFriction = dynamicFriction
+          self.restitution = restitution
+          if (self.actor) {
+            // todo: we could probably just update the PxMaterial tbh
             self.needsRebuild = true
             self.setDirty()
           }
@@ -349,6 +408,14 @@ export class Box extends Node {
         },
         setAngularVelocity(vec3) {
           self.actor?.setAngularVelocity(vec3.toPxVec3())
+        },
+        setKinematicTarget(position, quaternion) {
+          if (self.collision !== 'kinematic') {
+            throw new Error('setKinematicTarget failed (box is not kinematic)')
+          }
+          position.toPxTransform(self._tm)
+          quaternion.toPxTransform(self._tm)
+          self.actor?.setKinematicTarget(self._tm)
         },
         ...super.getProxy(),
       }

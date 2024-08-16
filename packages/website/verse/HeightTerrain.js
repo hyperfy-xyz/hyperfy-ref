@@ -4,6 +4,7 @@ import { createNoise2D, createNoise3D } from 'simplex-noise'
 import { System } from './System'
 import { createColliderFactory } from './extras/createColliderFactory'
 import { getRandomColorHex } from './extras/utils'
+import { Layers } from './extras/Layers'
 
 const v1 = new THREE.Vector3()
 
@@ -225,10 +226,7 @@ class Chunk {
         // hill detail
         const hillDetailAmp = 10
         const hillDetailNoiseScale = 0.04
-        let hillDetailNoise = noise2D(
-          w.x * hillDetailNoiseScale,
-          w.z * hillDetailNoiseScale
-        )
+        let hillDetailNoise = noise2D(w.x * hillDetailNoiseScale, w.z * hillDetailNoiseScale)
         hillDetailNoise = sinToAlpha(hillDetailNoise)
 
         // modulate hills inside their zones
@@ -421,11 +419,7 @@ class Chunk {
     this.mesh.receiveShadow = true
     this.mesh.matrixAutoUpdate = false
     this.mesh.matrixWorldAutoUpdate = false
-    this.mesh.matrixWorld.compose(
-      this.mesh.position,
-      this.mesh.quaternion,
-      this.mesh.scale
-    )
+    this.mesh.matrixWorld.compose(this.mesh.position, this.mesh.quaternion, this.mesh.scale)
     this.world.graphics.scene.add(this.mesh)
 
     // octree
@@ -443,7 +437,7 @@ class Chunk {
 
     // collider
     this.colliderFactory = createColliderFactory(this.world, this.mesh)
-    this.collider = this.colliderFactory.create(null, this.mesh.matrixWorld)
+    this.collider = this.colliderFactory.create(null, this.mesh.matrixWorld, 'static', Layers.environment)
   }
 
   unbuild() {
