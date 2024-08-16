@@ -97,14 +97,9 @@ export function createColliderFactory(world, mesh) {
       actor.attachShape(shape)
       world.physics.scene.addActor(actor)
 
-      let unbind
+      let untrack
       if (collision !== 'static') {
-        unbind = world.physics.bind(actor, {
-          setFromPhysics(position, quaternion) {
-            console.warn('colliderFactory setFromPhysics')
-            // TODO: i think this somehow needs to update the visual counterpart :sweat:
-          },
-        })
+        untrack = world.physics.track(actor, node?.onPhysicsMovement)
       }
 
       let active = true
@@ -130,7 +125,7 @@ export function createColliderFactory(world, mesh) {
           }
           shape.release()
           actor.release()
-          unbind?.()
+          untrack?.()
         },
       }
     },

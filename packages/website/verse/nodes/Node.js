@@ -211,7 +211,7 @@ export class Node {
     return this
   }
 
-  setFromPhysics(position, quaternion) {
+  onPhysicsMovement = (position, quaternion) => {
     if (this.parent) {
       _m1.compose(position, quaternion, defaultScale)
       _m2.copy(this.parent.matrixWorld).invert()

@@ -35,16 +35,10 @@ export class Capsule extends Node {
       const geometry = new PHYSX.PxCapsuleGeometry(this.radius, this.height / 2)
       const material = this.world.physics.physics.createMaterial(0.5, 0.5, 0.5)
       const flags = new PHYSX.PxShapeFlags(
-        PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE |
-          PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE
+        PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE
       )
       const tmpFilterData = new PHYSX.PxFilterData(1, 1, 0, 0)
-      const shape = this.world.physics.physics.createShape(
-        geometry,
-        material,
-        true,
-        flags
-      )
+      const shape = this.world.physics.physics.createShape(geometry, material, true, flags)
       shape.setSimulationFilterData(tmpFilterData)
       fixCapsule(shape)
       this.mesh.matrixWorld.decompose(_v1, _q1, _v2)
@@ -61,22 +55,13 @@ export class Capsule extends Node {
         this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
         this.body.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
         if (this.physicsAngularLock[0]) {
-          this.body.setRigidDynamicLockFlag(
-            PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_X,
-            true
-          )
+          this.body.setRigidDynamicLockFlag(PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_X, true)
         }
         if (this.physicsAngularLock[1]) {
-          this.body.setRigidDynamicLockFlag(
-            PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_Y,
-            true
-          )
+          this.body.setRigidDynamicLockFlag(PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_Y, true)
         }
         if (this.physicsAngularLock[2]) {
-          this.body.setRigidDynamicLockFlag(
-            PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_Z,
-            true
-          )
+          this.body.setRigidDynamicLockFlag(PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_Z, true)
         }
         // this.body.setMass(50) // todo: data.mass
       } else if (this.physics === 'kinematic') {
@@ -89,7 +74,7 @@ export class Capsule extends Node {
       this.body.attachShape(shape)
       this.world.physics.scene.addActor(this.body)
       if (this.physics === 'dynamic') {
-        this.unbind = this.world.physics.bind(this.body, this)
+        this.untrack = this.world.physics.track(this.body, this.onPhysicsMovement)
       }
     }
   }
@@ -119,7 +104,7 @@ export class Capsule extends Node {
       this.world.graphics.scene.remove(this.mesh)
     }
     if (this.body) {
-      this.unbind()
+      this.untrack()
     }
   }
 
@@ -143,10 +128,7 @@ const fixCapsule = shape => {
   // capsules are X axis in physx, rotate up
   // see: https://gameworksdocs.nvidia.com/PhysX/4.1/documentation/physxguide/Manual/Geometry.html?highlight=capsule
   if (!offset) {
-    const rotation = new THREE.Quaternion().setFromAxisAngle(
-      new THREE.Vector3(0, 0, 1),
-      Math.PI / 2
-    )
+    const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2)
     offset = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
     offset.q.x = rotation.x
     offset.q.y = rotation.y

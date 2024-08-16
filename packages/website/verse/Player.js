@@ -202,7 +202,7 @@ export class Player extends Entity {
     this.actor.setRigidDynamicLockFlag(PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_Z, true)
     this.actor.attachShape(shape)
     this.world.physics.scene.addActor(this.actor)
-    this.unbind = this.world.physics.bind(this.actor, this)
+    this.untrack = this.world.physics.track(this.actor, this.onPhysicsMovement)
 
     // start
     this.world.entities.setHot(this, true)
@@ -213,11 +213,11 @@ export class Player extends Entity {
     }
   }
 
-  setFromPhysics(position) {
+  onPhysicsMovement = position => {
     // read back controller position and apply to ghost & vrm
     // const radius = CAPSULE_RADIUS
     // const halfHeight = (this.vrm.height - radius - radius) / 2
-    // console.log('Player.setFromPhysics', position.y, this.vrm.height, radius, halfHeight)
+    // console.log('Player.onPhysicsMovement', position.y, this.vrm.height, radius, halfHeight)
     this.ghost.position.copy(position)
     // this.ghost.position.y -= radius
     this.ghost.updateMatrix()

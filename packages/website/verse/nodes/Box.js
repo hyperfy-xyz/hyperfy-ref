@@ -138,7 +138,7 @@ export class Box extends Node {
       this.actor.attachShape(shape)
       this.ctx.world.physics.scene.addActor(this.actor)
       if (this.collision !== 'static') {
-        this.unbind = this.ctx.world.physics.bind(this.actor, this)
+        this.untrack = this.ctx.world.physics.track(this.actor, this.onPhysicsMovement)
       }
     }
   }
@@ -179,7 +179,7 @@ export class Box extends Node {
     }
     if (this.actor) {
       this.ctx.world.physics.scene.removeActor(this.actor)
-      this.unbind?.()
+      this.untrack?.()
       // TODO: destroy physics things
     }
   }
@@ -322,11 +322,11 @@ export class Box extends Node {
               _q1.toPxTransform(self.transform)
               self.actor.setGlobalPose(self.transform)
 
-              self.unbind = self.ctx.world.physics.bind(self.actor, self)
+              self.untrack = self.ctx.world.physics.track(self.actor, self.onPhysicsMovement)
             }
             if (value === 'kinematic') {
-              self.unbind?.()
-              self.unbind = null
+              self.untrack?.()
+              self.untrack = null
               self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
               self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
             }

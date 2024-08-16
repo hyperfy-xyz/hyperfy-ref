@@ -67,7 +67,7 @@ export class Physics extends System {
     sceneDesc.filterShader = PHYSX.DefaultFilterShader()
     // sceneDesc.flags |= PHYSX.PxSceneFlagEnum.eENABLE_CCD
     this.scene = this.physics.createScene(sceneDesc)
-    this.bindings = new Set()
+    this.tracking = new Set()
     this.controllerManager = PHYSX.PxTopLevelFunctions.prototype.CreateControllerManager(this.scene) // prettier-ignore
     this.controllerFilters = new PHYSX.PxControllerFilters()
     this.controllerFilters.mFilterData = new PHYSX.PxFilterData(Layers.player.group, Layers.player.mask, 0, 0) // prettier-ignore
@@ -123,10 +123,10 @@ export class Physics extends System {
     this.scene.addActor(body)
   }
 
-  bind(body, node) {
-    const binding = {
-      body,
-      node,
+  track(actor, onPhysicsMovement) {
+    const item = {
+      actor,
+      onPhysicsMovement,
       prev: {
         position: new THREE.Vector3(),
         quaternion: new THREE.Quaternion(),
@@ -136,14 +136,14 @@ export class Physics extends System {
         quaternion: new THREE.Quaternion(),
       },
     }
-    const pose = body.getGlobalPose()
-    binding.prev.position.copy(pose.p)
-    binding.prev.quaternion.copy(pose.q)
-    binding.curr.position.copy(pose.p)
-    binding.curr.quaternion.copy(pose.q)
-    this.bindings.add(binding)
+    const pose = actor.getGlobalPose()
+    item.prev.position.copy(pose.p)
+    item.prev.quaternion.copy(pose.q)
+    item.curr.position.copy(pose.p)
+    item.curr.quaternion.copy(pose.q)
+    this.tracking.add(item)
     return () => {
-      this.bindings.delete(binding)
+      this.tracking.delete(item)
     }
   }
 
@@ -152,21 +152,21 @@ export class Physics extends System {
     this.scene.simulate(delta)
     this.scene.fetchResults(true)
     // this.world.entities.clean() // ensure we're all up to date
-    for (const binding of this.bindings) {
-      // if (binding.body.isSleeping()) continue
-      binding.prev.position.copy(binding.curr.position)
-      binding.prev.quaternion.copy(binding.curr.quaternion)
-      const pose = binding.body.getGlobalPose()
-      binding.curr.position.copy(pose.p)
-      binding.curr.quaternion.copy(pose.q)
+    for (const item of this.tracking) {
+      // if (item.actor.isSleeping()) continue
+      item.prev.position.copy(item.curr.position)
+      item.prev.quaternion.copy(item.curr.quaternion)
+      const pose = item.actor.getGlobalPose()
+      item.curr.position.copy(pose.p)
+      item.curr.quaternion.copy(pose.q)
     }
   }
 
   finalize(alpha) {
-    for (const binding of this.bindings) {
-      _v1.lerpVectors(binding.prev.position, binding.curr.position, alpha)
-      _q1.slerpQuaternions(binding.prev.quaternion, binding.curr.quaternion, alpha)
-      binding.node.setFromPhysics(_v1, _q1, defaultScale)
+    for (const item of this.tracking) {
+      _v1.lerpVectors(item.prev.position, item.curr.position, alpha)
+      _q1.slerpQuaternions(item.prev.quaternion, item.curr.quaternion, alpha)
+      item.onPhysicsMovement?.(_v1, _q1)
     }
     // finalize any physics updates immediately
     // but don't listen to any loopback commits from those actor moves
