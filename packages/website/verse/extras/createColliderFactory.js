@@ -91,14 +91,14 @@ export function createColliderFactory(world, mesh) {
         actor = world.physics.physics.createRigidDynamic(transform)
         actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
         actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
-      } else {
+      } else if (collision === 'static') {
         actor = world.physics.physics.createRigidStatic(transform)
       }
       actor.attachShape(shape)
       world.physics.scene.addActor(actor)
 
       let untrack
-      if (collision !== 'static') {
+      if (collision === 'dynamic') {
         untrack = world.physics.track(actor, node?.onPhysicsMovement)
       }
 

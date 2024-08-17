@@ -2,6 +2,8 @@ import { isBoolean } from 'lodash-es'
 
 import { Node } from './Node'
 
+const collisionTypes = ['static', 'kinematic', 'dynamic']
+
 const defaults = {
   visible: true,
   collision: null,
@@ -17,7 +19,13 @@ export class Mesh extends Node {
     this.model = data.model
 
     this.visible = isBoolean(data.visible) ? data.visible : defaults.visible
-    this.collision = data.collision || defaults.collision
+
+    // todo: we should validate all options because the old collision=true does weird shit now
+    // its best to only set if valid
+    this.collision = defaults.collision
+    if (collisionTypes.includes(data.collision)) {
+      this.collision = data.collision
+    }
     this.collisionLayer = data.collisionLayer || defaults.collisionLayer
 
     this.mesh = null

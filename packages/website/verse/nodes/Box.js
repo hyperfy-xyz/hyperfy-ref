@@ -131,13 +131,13 @@ export class Box extends Node {
         this.actor = this.ctx.world.physics.physics.createRigidDynamic(this.transform)
         this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
         this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
-      } else {
+      } else if (this.collision === 'static') {
         this.actor = this.ctx.world.physics.physics.createRigidStatic(this.transform)
       }
       // this.actor.setMass(1)
       this.actor.attachShape(shape)
       this.ctx.world.physics.scene.addActor(this.actor)
-      if (this.collision !== 'static') {
+      if (this.collision === 'dynamic') {
         this.untrack = this.ctx.world.physics.track(this.actor, this.onPhysicsMovement)
       }
     }

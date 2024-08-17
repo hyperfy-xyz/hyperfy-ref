@@ -131,6 +131,8 @@ export class Node {
   }
 
   setDirty() {
+    // if we haven't mounted no track
+    if (!this.mounted) return
     // if already dirty, either this or a parent is being tracked so we're good
     if (this.isDirty) return
     this.isDirty = true

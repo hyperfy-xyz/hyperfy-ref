@@ -48,9 +48,7 @@ export class Object extends Entity {
     this.quaternion = this.createNetworkProp('quaternion', new Quaternion().fromArray(props.quaternion || defaultQuaternion)) // prettier-ignore
     // this.quaternion.onChange = this.onQuaternionChange.bind(this)
 
-    this.root = new Nodes.group({
-      id: '$root',
-    })
+    this.root = new Nodes.group({ id: '$root' })
     this.root.position.copy(this.position.value)
     this.root.quaternion.copy(this.quaternion.value)
 
@@ -477,8 +475,8 @@ export class Object extends Entity {
         if (!node) return null
         return node.getProxy()
       },
-      create(data) {
-        const node = entity.createNode(data)
+      create(type) {
+        const node = entity.createNode({ type })
         return node.getProxy()
       },
       isAuthority() {
@@ -801,9 +799,7 @@ export class Object extends Entity {
     super.destroy()
     this.world.entities.setHot(this, false)
     this.nodes.forEach(node => {
-      if (node.mounted) {
-        node.unmount()
-      }
+      node.deactivate()
     })
     this.control?.release(false)
     this.control = null
