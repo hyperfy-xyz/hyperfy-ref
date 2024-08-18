@@ -169,8 +169,6 @@ export class Player extends Entity {
     // capsule
     const radius = CAPSULE_RADIUS
     const halfHeight = (this.vrm.height - radius - radius) / 2
-    // console.log(this.vrm.height)
-    // console.log({ radius, halfHeight })
     const geometry = new PHYSX.PxCapsuleGeometry(radius, halfHeight)
     // frictionless material (the combine mode ensures we always use out min=0 instead of avging)
     const material = this.world.physics.physics.createMaterial(0, 0, 0)
@@ -178,7 +176,7 @@ export class Player extends Entity {
     material.setRestitutionCombineMode(PHYSX.PxCombineModeEnum.eMIN)
     const flags = new PHYSX.PxShapeFlags(PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE) // prettier-ignore
     const shape = this.world.physics.physics.createShape(geometry, material, true, flags)
-    const localPose = new PHYSX.PxTransform()
+    const localPose = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
     // rotate to stand up
     _q1.set(0, 0, 0).setFromAxisAngle(v1.set(0, 0, 1), Math.PI / 2)
     _q1.toPxTransform(localPose)
@@ -186,21 +184,46 @@ export class Player extends Entity {
     _v1.set(0, halfHeight + radius, 0)
     _v1.toPxTransform(localPose)
     shape.setLocalPose(localPose)
-    const filterData = new PHYSX.PxFilterData(Layers.player.group, Layers.player.mask, 0, 0)
+    const filterData = new PHYSX.PxFilterData(
+      Layers.player.group,
+      Layers.player.mask,
+      PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_FOUND |
+        PHYSX.PxPairFlagEnum.eDETECT_CCD_CONTACT |
+        PHYSX.PxPairFlagEnum.eSOLVE_CONTACT |
+        PHYSX.PxPairFlagEnum.eDETECT_DISCRETE_CONTACT,
+      0
+    )
+    // shape.setFlag(PHYSX.PxShapeFlagEnum.eUSE_SWEPT_BOUNDS, true)
     shape.setQueryFilterData(filterData)
     shape.setSimulationFilterData(filterData)
-    const transform = new PHYSX.PxTransform()
-    _v1.copy(this.ghost.position)
-    _v1.toPxTransform(transform)
+    const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
+    _v1.copy(this.ghost.position).toPxTransform(transform)
     _q1.set(0, 0, 0, 1).toPxTransform(transform)
     this.actor = this.world.physics.physics.createRigidDynamic(transform)
     // this.actor.setMass(0.1)
-    this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
+    // this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
     this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
+
     this.actor.setRigidDynamicLockFlag(PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_X, true)
     this.actor.setRigidDynamicLockFlag(PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_Y, true)
     this.actor.setRigidDynamicLockFlag(PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_Z, true)
     this.actor.attachShape(shape)
+
+    // There's a weird issue where running directly at a wall the capsule won't generate contacts and instead
+    // go straight through it. It has to be almost perfectly head on, a slight angle and everything works fine.
+    // I spent days trying to figure out why, it's not CCD, it's not contact offsets, its just straight up bugged.
+    // For now the best solution is to just add a sphere right in the center of our capsule to keep that problem at bay.
+    {
+      const geometry = new PHYSX.PxSphereGeometry(CAPSULE_RADIUS)
+      const shape = this.world.physics.physics.createShape(geometry, material, true, flags)
+      shape.setQueryFilterData(filterData)
+      shape.setSimulationFilterData(filterData)
+      const pose = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
+      _v1.set(0, halfHeight + radius, 0).toPxTransform(pose)
+      shape.setLocalPose(pose)
+      this.actor.attachShape(shape)
+    }
+
     this.world.physics.scene.addActor(this.actor)
     this.untrack = this.world.physics.track(this.actor, this.onPhysicsMovement)
 
@@ -451,7 +474,7 @@ export class Player extends Entity {
         this.slipping = false
       }
 
-      // apply drag
+      // // apply drag
       const velocity = v1.copy(this.actor.getLinearVelocity())
       const dragCoeff = 12
       // prevent slip and slide
@@ -465,7 +488,7 @@ export class Player extends Entity {
       if (this.justLeftGround && !this.jumping) {
         velocity.y = -5
       }
-      // if slipping ensure we have a constant slip velocity
+      // if slipping ensure we can't gain upward velocity
       if (this.slipping) {
         // force minimum slip velocity + increase if not trying to climb back up
         if (velocity.y > -3.5) velocity.y = -3.5

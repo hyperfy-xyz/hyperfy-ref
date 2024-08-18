@@ -49,7 +49,7 @@ let throttle = 0
 let isAuthority = object.isAuthority()
 
 // create physics body
-const body = object.create({ type: 'box' })
+const body = object.create('box')
 body.visible = false
 body.collision = isAuthority ? 'dynamic' : 'kinematic'
 body.collisionLayer = 'environment'
@@ -59,7 +59,7 @@ body.position.y += 1
 body.rotation.copy(object.rotation)
 
 // add seat
-const seat = object.create({ type: 'group' })
+const seat = object.create('group')
 seat.position.z = -0.6
 seat.position.y = -0.4
 body.add(seat)
@@ -70,11 +70,9 @@ fighter.position.y -= 1.5 / 2
 body.add(fighter)
 
 // create enter action
-const action = object.create({
-  type: 'action',
-  text: 'Enter',
-  onTrigger: () => enter(),
-})
+const action = object.create('action')
+action.text = 'Enter'
+action.onTrigger = () => enter()
 action.position.y = 2
 action.position.z = -1
 fighter.add(action)

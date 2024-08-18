@@ -52,6 +52,8 @@ export class Physics extends System {
 
   async init() {
     await loadPhysX()
+    extendThreePhysX()
+
     this.version = version
     this.allocator = allocator
     this.errorCb = errorCb
@@ -60,14 +62,39 @@ export class Physics extends System {
     this.cookingParams = new PHYSX.PxCookingParams(this.tolerances)
     this.physics = PHYSX.CreatePhysics(this.version, this.foundation, this.tolerances)
     this.defaultMaterial = this.physics.createMaterial(0.2, 0.2, 0.2)
-    const tmpVec = new PHYSX.PxVec3(0, -9.81, 0)
+
+    const simulationEventCallback = new PHYSX.PxSimulationEventCallbackImpl()
+    simulationEventCallback.onContact = () => {} // TODO
+
     const sceneDesc = new PHYSX.PxSceneDesc(this.tolerances)
-    sceneDesc.gravity = tmpVec
+    sceneDesc.gravity = new PHYSX.PxVec3(0, -9.81, 0)
     sceneDesc.cpuDispatcher = PHYSX.DefaultCpuDispatcherCreate(0)
     sceneDesc.filterShader = PHYSX.DefaultFilterShader()
-    // sceneDesc.flags |= PHYSX.PxSceneFlagEnum.eENABLE_CCD
+    sceneDesc.flags.raise(PHYSX.PxSceneFlagEnum.eENABLE_CCD, true)
+    sceneDesc.flags.raise(PHYSX.PxSceneFlagEnum.eENABLE_ACTIVE_ACTORS, true)
+    sceneDesc.solverType = PHYSX.PxSolverTypeEnum.eTGS // recommened, default is PGS still
+    sceneDesc.simulationEventCallback = simulationEventCallback
+    sceneDesc.broadPhaseType = PHYSX.PxBroadPhaseTypeEnum.eGPU
     this.scene = this.physics.createScene(sceneDesc)
-    this.tracking = new Set()
+
+    this.tracking = new Map()
+    this.active = new Set()
+
+    this.raycastResult = new PHYSX.PxRaycastResult()
+    this.sweepPose = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
+    this.sweepResult = new PHYSX.PxSweepResult()
+    this.overlapPose = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
+    this.overlapResult = new PHYSX.PxOverlapResult()
+    this.queryFilterData = new PHYSX.PxQueryFilterData()
+
+    this._pv1 = new PHYSX.PxVec3()
+    this._pv2 = new PHYSX.PxVec3()
+    this.transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
+
+    this.setupControllerManager()
+  }
+
+  setupControllerManager() {
     this.controllerManager = PHYSX.PxTopLevelFunctions.prototype.CreateControllerManager(this.scene) // prettier-ignore
     this.controllerFilters = new PHYSX.PxControllerFilters()
     this.controllerFilters.mFilterData = new PHYSX.PxFilterData(Layers.player.group, Layers.player.mask, 0, 0) // prettier-ignore
@@ -93,16 +120,6 @@ export class Physics extends System {
       return true // for now ALL cct's collide
     }
     this.controllerFilters.mCCTFilterCallback = cctFilterCallback
-    this.raycastResult = new PHYSX.PxRaycastResult()
-    this.sweepPose = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
-    this.sweepResult = new PHYSX.PxSweepResult()
-    this.overlapPose = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
-    this.overlapResult = new PHYSX.PxOverlapResult()
-    this.queryFilterData = new PHYSX.PxQueryFilterData()
-    extendThreePhysX()
-    this._pv1 = new PHYSX.PxVec3()
-    this._pv2 = new PHYSX.PxVec3()
-    this.transform = new PHYSX.PxTransform()
   }
 
   start() {
@@ -113,7 +130,7 @@ export class Physics extends System {
     const flags = new PHYSX.PxShapeFlags(PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE) // prettier-ignore
     const shape = this.physics.createShape(geometry, material, true, flags)
     const layer = Layers.environment
-    const filterData = new PHYSX.PxFilterData(layer.group, layer.mask, 0, 0)
+    const filterData = new PHYSX.PxFilterData(layer.group, layer.mask, 0, 0) // prettier-ignore
     shape.setQueryFilterData(filterData)
     shape.setSimulationFilterData(filterData)
     const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
@@ -141,33 +158,49 @@ export class Physics extends System {
     item.prev.quaternion.copy(pose.q)
     item.curr.position.copy(pose.p)
     item.curr.quaternion.copy(pose.q)
-    this.tracking.add(item)
+    this.tracking.set(actor.ptr, item)
     return () => {
-      this.tracking.delete(item)
+      this.tracking.delete(actor.ptr)
+    }
+  }
+
+  prepare(willStep) {
+    if (willStep) {
+      // if physics will step, clear active actors
+      // so we can repopulate.
+      // this.active.clear()
     }
   }
 
   step(delta) {
-    // this.world.entities.clean()
     this.scene.simulate(delta)
     this.scene.fetchResults(true)
-    // this.world.entities.clean() // ensure we're all up to date
-    for (const item of this.tracking) {
-      // if (item.actor.isSleeping()) continue
+    const activeActors = PHYSX.SupportFunctions.prototype.PxScene_getActiveActors(this.scene)
+    const size = activeActors.size()
+    for (let i = 0; i < size; i++) {
+      const actorPtr = activeActors.get(i).ptr
+      const item = this.tracking.get(actorPtr)
+      if (!item) {
+        // todo: addBot vrms do this
+        // console.warn('active actor not found?', actorPtr)
+        continue
+      }
       item.prev.position.copy(item.curr.position)
       item.prev.quaternion.copy(item.curr.quaternion)
       const pose = item.actor.getGlobalPose()
       item.curr.position.copy(pose.p)
       item.curr.quaternion.copy(pose.q)
+      this.active.add(item)
     }
   }
 
   finalize(alpha) {
-    for (const item of this.tracking) {
+    for (const item of this.active) {
       _v1.lerpVectors(item.prev.position, item.curr.position, alpha)
       _q1.slerpQuaternions(item.prev.quaternion, item.curr.quaternion, alpha)
       item.onPhysicsMovement?.(_v1, _q1)
     }
+
     // finalize any physics updates immediately
     // but don't listen to any loopback commits from those actor moves
     this.ignoreSetGlobalPose = true

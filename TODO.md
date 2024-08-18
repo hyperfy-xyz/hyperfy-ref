@@ -1,3 +1,45 @@
+# Test Lab
+
+- ramps: 20, 40, 50, 60, 70, 80, 90, 100 degrees
+- stairs
+- quater pipes: different radius
+- smooth terrain: some steep
+- jagged terrain: some steep
+- rubble
+- divets and bumps in a row
+- platforms
+  - spinning + dynamic block on it
+  - spinning + kinematic block on it
+  - horizontal moving
+  - vertical moving
+  - horizontal AND vertical moving
+  - rotators (like a spinning door)
+
+# Bigger Work
+
+- physics sweep use PxSweepResult, can we use PxRaycastResult and PxOverlapResult for the others for consistency>?
+
+- fighter jet uses an object/environment but collides with the player so we need a better way to handle collision
+- how are we gonna handle emotes for real? eg the plane having a custom sit emote scenario
+- Box
+  - trigger type
+  - new collision paradigm (collide or not with player/camera/object + all objects are object layer)
+
+const position = object.synced(new Vector3())
+
+Freeze Rotation
+
+- setRigidDynamicLockFlag
+- "PxRigidDynamicLockFlagEnum::eLOCK_ANGULAR_X",
+  "PxRigidDynamicLockFlagEnum::eLOCK_ANGULAR_Y",
+  "PxRigidDynamicLockFlagEnum::eLOCK_ANGULAR_Z"
+
+# Syncs
+
+- if you change a transform all descendants need to be re-synced
+- if you change something node specific only that one needs a re-sync
+- dirty means it needs a sync, but this could either or both of transform or node-specific
+
 # WOM (World Object Model)
 
 const box = object.create('box')
@@ -11,10 +53,6 @@ box.linearVelocity.y += 3 // auto apply to physics body
 - some mark as matrix update needed
 - some mark as rebuild needed
 - id changes require reconciliation with entity map
-
-# Bigger Work
-
-- how are we gonna handle emotes for real? eg the plane having a custom sit emote scenario
 
 # Little Work
 
@@ -169,16 +207,14 @@ object.on('update', delta => {
 const trunk = object.get('trunk')
 const leaves = object.get('leaves')
 const stump = object.get('stump')
-const action = object.create({
-  type: 'action',
-  text: 'Chop',
-  onTrigger() {
-    object.remove(trunk)
-    object.remove(leaves)
-    stump.setVisible(true)
-    object.remove(action)
-  },
-})
+const action = object.create('action')
+action.text = 'Chop'
+action.onTrigger = () => {
+  object.remove(trunk)
+  object.remove(leaves)
+  stump.setVisible(true)
+  object.remove(action)
+}
 action.position.y = 1
 object.add(action)
 ```

@@ -68,7 +68,7 @@ export class Box extends Node {
 
     this.needsRebuild = false
 
-    this._tm = new PHYSX.PxTransform()
+    this._tm = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
   }
 
   mount() {
@@ -119,25 +119,25 @@ export class Box extends Node {
       const shape = this.ctx.world.physics.physics.createShape(geometry, material, true, flags)
       shape.setQueryFilterData(filterData)
       shape.setSimulationFilterData(filterData)
-      this.transform = new PHYSX.PxTransform()
+      this.transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
       this.matrixWorld.decompose(_v1, _q1, _v2)
       _v1.toPxTransform(this.transform)
       _q1.toPxTransform(this.transform)
       if (this.collision === 'dynamic') {
         this.actor = this.ctx.world.physics.physics.createRigidDynamic(this.transform)
-        this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
-        this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
+        // this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
+        // this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
       } else if (this.collision === 'kinematic') {
         this.actor = this.ctx.world.physics.physics.createRigidDynamic(this.transform)
         this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
-        this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
+        // this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
       } else if (this.collision === 'static') {
         this.actor = this.ctx.world.physics.physics.createRigidStatic(this.transform)
       }
       // this.actor.setMass(1)
       this.actor.attachShape(shape)
       this.ctx.world.physics.scene.addActor(this.actor)
-      if (this.collision === 'dynamic') {
+      if (this.collision === 'kinematic' || this.collision === 'dynamic') {
         this.untrack = this.ctx.world.physics.track(this.actor, this.onPhysicsMovement)
       }
     }
@@ -313,7 +313,7 @@ export class Box extends Node {
           if (self.actor) {
             if (value === 'dynamic') {
               self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
-              self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
+              // self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
 
               // for some reason we need to re-set the global pose
               // otherwise the physics system can report an older pose from when this was dynamic before
@@ -327,7 +327,7 @@ export class Box extends Node {
             if (value === 'kinematic') {
               self.untrack?.()
               self.untrack = null
-              self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
+              // self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
               self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
             }
           } else {

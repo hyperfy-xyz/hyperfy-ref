@@ -5,9 +5,7 @@
 const cube = object.get('Cube')
 object.remove(cube)
 
-const box = object.create({
-  type: 'box',
-})
+const box = object.create('box')
 // box.setMaterial(1,1,1)
 box.position.y += 0.5
 box.color = 'black'
@@ -24,9 +22,7 @@ object.add(box)
 const cube = object.get('Cube')
 object.remove(cube)
 
-const box = object.create({
-  type: 'box',
-})
+const box = object.create('box')
 box.setSize(5, 8, 1)
 box.position.y += 1
 box.rotation.x = 70 * DEG2RAD // 90-70 = 20deg slope
@@ -47,9 +43,7 @@ object.add(box)
 const cube = object.get('Cube')
 object.remove(cube)
 
-const box = object.create({
-  type: 'box',
-})
+const box = object.create('box')
 box.setSize(5, 8, 1)
 box.position.y += 4
 box.color = 'black'
@@ -66,9 +60,7 @@ object.add(box)
 const cube = object.get('Cube')
 object.remove(cube)
 
-const box = object.create({
-  type: 'box',
-})
+const box = object.create('box')
 box.setSize(3, 1, 3)
 box.position.y += 0.5
 box.color = 'green'

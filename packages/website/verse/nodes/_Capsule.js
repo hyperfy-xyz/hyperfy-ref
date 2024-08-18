@@ -42,7 +42,7 @@ export class Capsule extends Node {
       shape.setSimulationFilterData(tmpFilterData)
       fixCapsule(shape)
       this.mesh.matrixWorld.decompose(_v1, _q1, _v2)
-      const transform = new PHYSX.PxTransform()
+      const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
       transform.p.x = _v1.x
       transform.p.y = _v1.y
       transform.p.z = _v1.z

@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { Vector3, Quaternion } from 'three'
 import { createNoise2D } from 'simplex-noise'
 
-import { cloneDeep, isEmpty } from 'lodash-es'
+import { cloneDeep, isEmpty, isString } from 'lodash-es'
 
 import * as Nodes from './nodes'
 
@@ -476,8 +476,14 @@ export class Object extends Entity {
         return node.getProxy()
       },
       create(type) {
-        const node = entity.createNode({ type })
-        return node.getProxy()
+        if (isString(type)) {
+          const node = entity.createNode({ type })
+          return node.getProxy()
+        } else {
+          console.warn('TODO: migrate script to create(String)')
+          const node = entity.createNode(type)
+          return node.getProxy()
+        }
       },
       isAuthority() {
         return entity.authority.value === world.network.client.id

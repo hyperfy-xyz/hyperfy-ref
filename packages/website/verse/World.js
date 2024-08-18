@@ -110,6 +110,8 @@ export class World extends EventEmitter {
     this.frame++
     this.time = time
     this.accumulator += delta
+    // prepare physics, letting it know if we will step
+    this.physics.prepare(this.accumulator >= FIXED_DELTA_TIME)
     // run as many fixed updates as we can for this delta
     while (this.accumulator >= FIXED_DELTA_TIME) {
       // trigger fixedUpdate
@@ -118,7 +120,7 @@ export class World extends EventEmitter {
       this.physics.step(FIXED_DELTA_TIME)
       this.accumulator -= FIXED_DELTA_TIME
     }
-    // interpolate and apply physics changes
+    // interpolate and apply physics for active actors
     const alpha = this.accumulator / FIXED_DELTA_TIME
     this.physics.finalize(alpha)
     // trigger updates

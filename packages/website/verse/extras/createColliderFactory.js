@@ -86,11 +86,11 @@ export function createColliderFactory(world, mesh) {
       if (collision === 'dynamic') {
         actor = world.physics.physics.createRigidDynamic(transform)
         actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
-        actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
+        // actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
       } else if (collision === 'kinematic') {
         actor = world.physics.physics.createRigidDynamic(transform)
         actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
-        actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
+        // actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
       } else if (collision === 'static') {
         actor = world.physics.physics.createRigidStatic(transform)
       }
@@ -98,7 +98,7 @@ export function createColliderFactory(world, mesh) {
       world.physics.scene.addActor(actor)
 
       let untrack
-      if (collision === 'dynamic') {
+      if (collision === 'kinematic' || collision === 'dynamic') {
         untrack = world.physics.track(actor, node?.onPhysicsMovement)
       }
 

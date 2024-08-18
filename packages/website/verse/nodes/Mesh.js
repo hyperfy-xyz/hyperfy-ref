@@ -1,6 +1,7 @@
 import { isBoolean } from 'lodash-es'
 
 import { Node } from './Node'
+import { Layers } from '../extras/Layers'
 
 const collisionTypes = ['static', 'kinematic', 'dynamic']
 
@@ -38,7 +39,7 @@ export class Mesh extends Node {
         this.mesh = this.model.createMesh(this, this.matrixWorld)
       }
       if (this.collision) {
-        this.collider = this.model.createCollider(this, this.matrixWorld, this.collision, this.collisionLayer)
+        this.collider = this.model.createCollider(this, this.matrixWorld, this.collision, Layers[this.collisionLayer])
       }
     }
   }
