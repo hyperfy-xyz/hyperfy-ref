@@ -58,6 +58,7 @@ export class World extends EventEmitter {
     this.graphics = this.register(Graphics)
     this.stats = this.register(Stats)
 
+    this.paused = false
     this.started = new Promise(resolve => {
       this.startComplete = resolve
     })
@@ -120,14 +121,14 @@ export class World extends EventEmitter {
       this.physics.step(FIXED_DELTA_TIME)
       this.accumulator -= FIXED_DELTA_TIME
     }
-    // interpolate and apply physics for active actors
+    // interpolate active actors for remaining delta time
     const alpha = this.accumulator / FIXED_DELTA_TIME
-    this.physics.finalize(alpha)
+    this.physics.interpolate(alpha)
     // trigger updates
-    this.update(delta)
+    this.update(delta, alpha)
     this.entities.clean()
     // trigger lateUpdates
-    this.lateUpdate(delta)
+    this.lateUpdate(delta, alpha)
     this.entities.clean()
     // update the camera target for active camera
     this.input.finalize(delta)
@@ -139,15 +140,15 @@ export class World extends EventEmitter {
     this.stats.end()
   }
 
-  update(delta) {
-    for (const system of this.systems) {
-      system.update(delta)
-    }
-  }
-
   fixedUpdate(delta) {
     for (const system of this.systems) {
       system.fixedUpdate(delta)
+    }
+  }
+
+  update(delta) {
+    for (const system of this.systems) {
+      system.update(delta)
     }
   }
 
@@ -159,14 +160,18 @@ export class World extends EventEmitter {
 
   pause() {
     this.graphics.renderer.setAnimationLoop(null)
+    this.paused = true
   }
 
   step() {
+    if (!this.paused) this.pause()
     const time = this.time * 1000 + 16.6666
     this.tick(time)
   }
 
   resume() {
+    if (!this.paused) return
+    this.paused = false
     this.graphics.renderer.setAnimationLoop(this.tick)
   }
 

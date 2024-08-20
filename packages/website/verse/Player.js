@@ -33,6 +33,8 @@ const UP = new THREE.Vector3(0, 1, 0)
 const DOWN = new THREE.Vector3(0, -1, 0)
 const FORWARD = new THREE.Vector3(0, 0, -1)
 
+const IDENTITY_SCALE = new THREE.Vector3(1, 1, 1)
+
 const CAPSULE_RADIUS = 0.3
 
 const FIXED_TIMESTEP = 1 / 60
@@ -59,8 +61,19 @@ const v8 = new THREE.Vector3()
 const e1 = new THREE.Euler(0, 0, 0, 'YXZ')
 const q1 = new THREE.Quaternion()
 const _v1 = new THREE.Vector3()
+const _v2 = new THREE.Vector3()
+const _v3 = new THREE.Vector3()
+const _v4 = new THREE.Vector3()
+const _v5 = new THREE.Vector3()
+const _v6 = new THREE.Vector3()
 const _q1 = new THREE.Quaternion()
+const _q2 = new THREE.Quaternion()
+const _q3 = new THREE.Quaternion()
+const _q4 = new THREE.Quaternion()
 const _e1 = new THREE.Euler(0, 0, 0, 'YXZ')
+const _m1 = new THREE.Matrix4()
+const _m2 = new THREE.Matrix4()
+const _m3 = new THREE.Matrix4()
 
 const emotes = {
   idle: 'avatar@idle.glb',
@@ -103,13 +116,14 @@ export class Player extends Entity {
     this.ghost.position.copy(this.position.value)
     this.ghost.quaternion.copy(this.quaternion.value)
 
-    this.gravity = 9.81
+    this.gravity = 20
     this.jumpHeight = 1.5
 
     this.displacement = new THREE.Vector3()
     this.velocity = new THREE.Vector3()
 
     this.moving = false
+
     this.moveDir = new THREE.Vector3()
 
     this.grounded = false
@@ -125,6 +139,21 @@ export class Player extends Entity {
     // this.groundCheckGeometry = new PHYSX.PxSphereGeometry(CAPSULE_RADIUS)
 
     this.zoom = 6
+
+    this.platform = {
+      actor: null,
+      prevTransform: new THREE.Matrix4(),
+      // prev: {
+      //   position: new THREE.Vector3(),
+      //   quaternion: new THREE.Quaternion(),
+      // },
+      // curr: {
+      //   position: new THREE.Vector3(),
+      //   quaternion: new THREE.Quaternion(),
+      // },
+      // localPosition: new THREE.Vector3(), // remove
+      // localQuaternion: new THREE.Quaternion(), // remove
+    }
 
     this.targetEuler = new THREE.Euler(0, 0, 0, 'YXZ')
     this.targetQuaternion = new THREE.Quaternion()
@@ -205,8 +234,10 @@ export class Player extends Entity {
     this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
 
     this.actor.setRigidDynamicLockFlag(PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_X, true)
-    this.actor.setRigidDynamicLockFlag(PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_Y, true)
+    // this.actor.setRigidDynamicLockFlag(PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_Y, true)
     this.actor.setRigidDynamicLockFlag(PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_Z, true)
+    // disable gravity we'll add it ourselves
+    this.actor.setActorFlag(PHYSX.PxActorFlagEnum.eDISABLE_GRAVITY, true)
     this.actor.attachShape(shape)
 
     // There's a weird issue where running directly at a wall the capsule won't generate contacts and instead
@@ -420,14 +451,80 @@ export class Player extends Entity {
   fixedUpdate(delta) {
     const isOwner = this.isOwner()
     if (isOwner) {
+      // if grounded last update, check for moving platforms and move with them
+      if (this.grounded) {
+        // find any potentially moving platform
+        const pose = this.actor.getGlobalPose()
+        const origin = _v1.copy(pose.p)
+        origin.y += 0.2
+        const hitMask = Layers.environment.group | Layers.prop.group | Layers.tool.group
+        const hit = this.world.physics.raycast(origin, DOWN, 2, hitMask)
+        let actor = hit?.actor || null
+        if (actor) {
+          actor = this.world.physics.tracking.get(actor.ptr)?.actor || null
+        }
+        // if we found a new platform, set it up for tracking
+        if (this.platform.actor !== actor) {
+          this.platform.actor = actor
+          if (actor) {
+            const platformPose = this.platform.actor.getGlobalPose()
+            _v1.copy(platformPose.p)
+            _q1.copy(platformPose.q)
+            this.platform.prevTransform.compose(_v1, _q1, IDENTITY_SCALE)
+          }
+        }
+        // move with platform
+        if (this.platform.actor) {
+          // get current platform transform
+          const currTransform = _m1
+          const platformPose = this.platform.actor.getGlobalPose()
+          _v1.copy(platformPose.p)
+          _q1.copy(platformPose.q)
+          currTransform.compose(_v1, _q1, IDENTITY_SCALE)
+          // get delta transform
+          const deltaTransform = _m2.multiplyMatrices(currTransform, this.platform.prevTransform.clone().invert())
+          // extract delta position and quaternion
+          const deltaPosition = _v2
+          const deltaQuaternion = _q2
+          const deltaScale = _v3
+          deltaTransform.decompose(deltaPosition, deltaQuaternion, deltaScale)
+          // apply delta to player
+          const playerPose = this.actor.getGlobalPose()
+          _v4.copy(playerPose.p)
+          _q3.copy(playerPose.q)
+          const playerTransform = _m3
+          playerTransform.compose(_v4, _q3, IDENTITY_SCALE)
+          playerTransform.premultiply(deltaTransform)
+          const newPosition = _v5
+          const newQuaternion = _q4
+          playerTransform.decompose(newPosition, newQuaternion, _v6)
+          const newPose = this.actor.getGlobalPose()
+          newPosition.toPxTransform(newPose)
+          // newQuaternion.toPxTransform(newPose) // capsule doesn't rotate
+          this.actor.setGlobalPose(newPose)
+          // rotate ghost by Y only
+          _e1.setFromQuaternion(deltaQuaternion).reorder('YXZ')
+          _e1.x = 0
+          _e1.z = 0
+          _q1.setFromEuler(_e1)
+          this.ghost.quaternion.multiply(_q1)
+          this.ghost.updateMatrix()
+          // store current transform for next frame
+          this.platform.prevTransform.copy(currTransform)
+        }
+      } else {
+        this.platform.actor = null
+      }
+
       // sweep down to see if we hit ground
       let sweepHit
       {
         const geometry = this.groundSweepGeometry
-        const origin = v1.copy(this.ghost.position)
-        origin.y += this.groundSweepRadius + 0.02 // move up inside player + a bit
+        const pose = this.actor.getGlobalPose()
+        const origin = v1.copy(pose.p /*this.ghost.position*/)
+        origin.y += this.groundSweepRadius + 0.12 // move up inside player + a bit
         const direction = DOWN
-        const maxDistance = 0.02 + 0.1 // outside player + a bit more
+        const maxDistance = 0.12 + 0.1 // outside player + a bit more
         const hitMask = Layers.environment.group | Layers.prop.group | Layers.tool.group
         sweepHit = this.world.physics.sweep(geometry, origin, direction, maxDistance, hitMask)
       }
@@ -451,16 +548,46 @@ export class Player extends Entity {
         this.jumping = true
       }
 
-      // if jumping and we're now on the ground, clear
+      // if not grounded and our velocity is downward, progress to falling
+      if (!this.grounded && this.actor.getLinearVelocity().y < 0) {
+        this.jumping = false
+        this.falling = true
+      }
+
+      // if falling and we're now on the ground, clear it
+      if (this.falling && this.grounded) {
+        this.falling = false
+      }
+
+      // if jumping and we're now on the ground, clear it
       if (this.jumping && this.grounded) {
         this.jumping = false
       }
 
-      // if grounded and not jumping, disable gravity so we don't slide down slopes
-      if (this.grounded && !this.jumping) {
-        this.actor.setActorFlag(PHYSX.PxActorFlagEnum.eDISABLE_GRAVITY, true)
+      // if we're grounded we don't need gravity.
+      // more importantly we disable it so that we don't slowly slide down ramps while standing still.
+      // even more importantly, if the platform we are on is dynamic we apply a force to it to compensate for our gravity being off.
+      // this allows things like see-saws to move down when we stand on them etc.
+      if (this.grounded) {
+        // gravity is disabled but we need to check our platform
+        if (this.platform.actor) {
+          const isKinematic = this.platform.actor.getRigidBodyFlags().isSet(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC)
+          // if its dynamic apply downward force!
+          if (!isKinematic) {
+            // this feels like the right amount of force but no idea why 0.2
+            const amount = -9.81 * 0.2
+            const force = v1.set(0, amount, 0)
+            PHYSX.PxRigidBodyExt.prototype.addForceAtPos(
+              this.platform.actor,
+              force.toPxVec3(),
+              this.actor.getGlobalPose().p,
+              PHYSX.PxForceModeEnum.eFORCE,
+              true
+            )
+          }
+        }
       } else {
-        this.actor.setActorFlag(PHYSX.PxActorFlagEnum.eDISABLE_GRAVITY, false)
+        this.actor.addForce(v1.set(0, -this.gravity, 0).toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
       }
 
       // if on a steep slope, unground and track slipping
@@ -474,17 +601,23 @@ export class Player extends Entity {
         this.slipping = false
       }
 
-      // // apply drag
+      // update velocity
       const velocity = v1.copy(this.actor.getLinearVelocity())
-      const dragCoeff = 12
-      // prevent slip and slide
-      velocity.x *= 1 - dragCoeff * delta
-      velocity.z *= 1 - dragCoeff * delta
-      // prevent force from yeeting us upward when going up slopes
-      if (this.grounded && !this.jumped) {
-        velocity.y *= 1 - dragCoeff * delta
+      // apply drag, orientated to ground normal
+      // this prevents ice-skating & yeeting us upward when going up ramps
+      const dragCoeff = 10 * delta
+      let perpComponent = v2.copy(this.groundNormal).multiplyScalar(velocity.dot(this.groundNormal))
+      let parallelComponent = v3.copy(velocity).sub(perpComponent)
+      parallelComponent.multiplyScalar(1 - dragCoeff)
+      velocity.copy(parallelComponent.add(perpComponent))
+      // cancel out velocity in ground normal direction (up oriented to ground normal)
+      // this helps us stick to elevators
+      if (this.grounded && !this.jumping) {
+        const projectedLength = velocity.dot(this.groundNormal)
+        const projectedVector = v2.copy(this.groundNormal).multiplyScalar(projectedLength)
+        velocity.sub(projectedVector)
       }
-      // when walking of an edge or over the top of a ramp, attempt to snap down to a surface
+      // when walking off an edge or over the top of a ramp, attempt to snap down to a surface
       if (this.justLeftGround && !this.jumping) {
         velocity.y = -5
       }
@@ -497,10 +630,17 @@ export class Player extends Entity {
       this.actor.setLinearVelocity(velocity.toPxVec3())
 
       // apply move force, projected onto ground normal
-      let moveSpeed = 10 // run
-      const slopeRotation = q1.setFromUnitVectors(UP, this.groundNormal)
-      const moveForce = v1.copy(this.moveDir).multiplyScalar(moveSpeed * 10).applyQuaternion(slopeRotation) // prettier-ignore
-      this.actor.addForce(moveForce.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
+      if (this.moving) {
+        let moveSpeed = 10 // run
+        const slopeRotation = q1.setFromUnitVectors(UP, this.groundNormal)
+        const moveForce = v1.copy(this.moveDir).multiplyScalar(moveSpeed * 10).applyQuaternion(slopeRotation) // prettier-ignore
+        this.actor.addForce(moveForce.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
+        // alternative (slightly different projection)
+        // let moveSpeed = 10
+        // const slopeMoveDir = v1.copy(this.moveDir).projectOnPlane(this.groundNormal).normalize()
+        // const moveForce = v2.copy(slopeMoveDir).multiplyScalar(moveSpeed * 10)
+        // this.actor.addForce(moveForce.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
+      }
 
       // apply jump
       if (this.grounded && !this.jumping && this.input.jump) {
@@ -515,6 +655,68 @@ export class Player extends Entity {
       }
     }
   }
+
+  update(delta, alpha) {
+    // rotate camera when looking (holding right mouse + dragging)
+    this.control.camera.rotation.y += -this.input.lookDelta.x * LOOK_SPEED * delta
+    this.control.camera.rotation.x += -this.input.lookDelta.y * LOOK_SPEED * delta
+    // ensure we can't look too far up/down
+    this.control.camera.rotation.x = clamp(this.control.camera.rotation.x, -90 * DEG2RAD, 90 * DEG2RAD)
+    // consume lookDelta
+    this.input.lookDelta.set(0, 0, 0)
+
+    // zoom camera if scrolling wheel (and not moving an object)
+    this.zoom += -this.input.zoomDelta * ZOOM_SPEED * delta
+    this.zoom = clamp(this.zoom, MIN_ZOOM, MAX_ZOOM)
+    this.control.camera.zoom = this.zoom
+    // consume zoomDelta
+    this.input.zoomDelta = 0
+
+    // get our movement direction
+    this.moveDir.set(0, 0, 0)
+    if (this.input.moveForward) this.moveDir.z -= 1
+    if (this.input.moveBack) this.moveDir.z += 1
+    if (this.input.moveLeft) this.moveDir.x -= 1
+    if (this.input.moveRight) this.moveDir.x += 1
+
+    // we're moving if any keys are down
+    this.moving = this.moveDir.length() > 0
+
+    // normalize direction for non-joystick (prevents surfing)
+    this.moveDir.normalize()
+
+    // rotate direction to face camera Y direction
+    const yQuaternion = q1.setFromAxisAngle(UP, this.control.camera.rotation.y)
+    this.moveDir.applyQuaternion(yQuaternion)
+
+    // if we're moving continually rotate ourselves toward the direction we are moving
+    if (this.moving) {
+      const alpha = 1 - Math.pow(0.00000001, delta)
+      q1.setFromUnitVectors(FORWARD, this.moveDir)
+      this.ghost.quaternion.slerp(q1, alpha)
+    }
+
+    // make camera follow our position horizontally
+    // and vertically at our vrm model height
+    this.control.camera.position.set(
+      this.ghost.position.x,
+      this.ghost.position.y + this.vrm.height,
+      this.ghost.position.z
+    )
+
+    // emote
+    if (this.jumping) {
+      this.vrm.setEmote(emotes.float) // todo: better jump anim
+    } else if (this.falling) {
+      this.vrm.setEmote(emotes.float)
+    } else if (this.moving) {
+      this.vrm.setEmote(emotes.run)
+    } else {
+      this.vrm.setEmote(emotes.idle)
+    }
+  }
+
+  lateUpdate(delta) {}
 
   // fixedUpdate(delta) {
   //   const isOwner = this.isOwner()
@@ -669,409 +871,349 @@ export class Player extends Entity {
   //   }
   // }
 
-  update(delta) {
-    // rotate camera when looking (holding right mouse + dragging)
-    this.control.camera.rotation.y += -this.input.lookDelta.x * LOOK_SPEED * delta
-    this.control.camera.rotation.x += -this.input.lookDelta.y * LOOK_SPEED * delta
-    // ensure we can't look too far up/down
-    this.control.camera.rotation.x = clamp(this.control.camera.rotation.x, -90 * DEG2RAD, 90 * DEG2RAD)
-    // consume lookDelta
-    this.input.lookDelta.set(0, 0, 0)
-
-    // zoom camera if scrolling wheel (and not moving an object)
-    this.zoom += -this.input.zoomDelta * ZOOM_SPEED * delta
-    this.zoom = clamp(this.zoom, MIN_ZOOM, MAX_ZOOM)
-    this.control.camera.zoom = this.zoom
-    // consume zoomDelta
-    this.input.zoomDelta = 0
-
-    // get our movement direction
-    this.moveDir.set(0, 0, 0)
-    if (this.input.moveForward) this.moveDir.z -= 1
-    if (this.input.moveBack) this.moveDir.z += 1
-    if (this.input.moveLeft) this.moveDir.x -= 1
-    if (this.input.moveRight) this.moveDir.x += 1
-
-    // we're moving if any keys are down
-    this.moving = this.moveDir.length() > 0
-
-    // normalize direction for non-joystick (prevents surfing)
-    this.moveDir.normalize()
-
-    // rotate direction to face camera Y direction
-    const yQuaternion = q1.setFromAxisAngle(UP, this.control.camera.rotation.y)
-    this.moveDir.applyQuaternion(yQuaternion)
-
-    // if we're moving continually rotate ourselves toward the direction we are moving
-    if (this.moving) {
-      const alpha = 1 - Math.pow(0.00000001, delta)
-      q1.setFromUnitVectors(FORWARD, this.moveDir)
-      this.ghost.quaternion.slerp(q1, alpha)
-    }
-
-    // make camera follow our position horizontally
-    // and vertically at our vrm model height
-    this.control.camera.position.set(
-      this.ghost.position.x,
-      this.ghost.position.y + this.vrm.height,
-      this.ghost.position.z
-    )
-
-    // emote
-    if (this.jumping) {
-      this.vrm.setEmote(emotes.float) // todo: better jump anim
-    } else if (this.falling) {
-      this.vrm.setEmote(emotes.float)
-    } else if (this.moving) {
-      this.vrm.setEmote(emotes.run)
-    } else {
-      this.vrm.setEmote(emotes.idle)
-    }
-  }
-
-  _update(delta) {
-    const isOwner = this.isOwner()
-
-    //
-    // Owner
-    //
-
-    if (isOwner) {
-      const input = this.input
-      const camera = this.control.camera
-      const ghost = this.ghost
-
-      // rotate camera when looking (holding right mouse + dragging)
-      camera.rotation.y += -input.lookDelta.x * LOOK_SPEED * delta
-      camera.rotation.x += -input.lookDelta.y * LOOK_SPEED * delta
-      input.lookDelta.set(0, 0, 0)
-
-      // zoom camera if scrolling wheel (and not moving an object)
-      this.zoom += -input.zoomDelta * ZOOM_SPEED * delta
-      this.zoom = clamp(this.zoom, MIN_ZOOM, MAX_ZOOM)
-      camera.zoom = this.zoom
-      input.zoomDelta = 0
-
-      // switch items (if not performing an action)
-      if (!this.action && input.nextItem !== null) {
-        this.itemIdx.value = input.nextItem
-        input.nextItem = null
-      }
-
-      // if not performing an action, check if we should start one
-      if (!this.action) {
-        if (this.item?.action?.check(this)) {
-          this.action = this.item.action
-        } else {
-          for (const action of this.actions) {
-            if (action.check(this)) {
-              this.action = action
-              break
-            }
-          }
-        }
-      }
-    }
-
-    // Not Owner
-
-    if (!isOwner) {
-      // ...
-    }
-  }
-
-  _fixedUpdate(delta) {
-    const isOwner = this.isOwner()
-
-    //
-    // Owner
-    //
-
-    if (isOwner) {
-      const input = this.input
-      const camera = this.control.camera
-      const ghost = this.ghost
-
-      // anchor node
-      let anchorNode
-      let anchorEmote
-      if (this.anchor.value) {
-        const entity = this.world.entities.getEntity(this.anchor.value.objectId)
-        if (!entity) return
-        anchorNode = entity.nodes.get(this.anchor.value.node)
-        if (anchorNode) anchorEmote = emotes[this.anchor.value.emote]
-      }
-
-      // initialize moveDir
-      this.moveDir.set(0, 0, 0)
-
-      // if we're not performing an action, use directional input displacement
-      if (!this.action || this.action.moveFreedom) {
-        // copy input axis
-        if (input.moveForward) this.moveDir.z -= 1
-        if (input.moveBack) this.moveDir.z += 1
-        if (input.moveLeft) this.moveDir.x -= 1
-        if (input.moveRight) this.moveDir.x += 1
-
-        // we're moving if any keys are down
-        this.isMoving = this.moveDir.length() > 0
-
-        // normalize direction for non-joystick (disables surfing)
-        this.moveDir.normalize()
-
-        // rotate direction to face camera Y direction
-        const yRigQuaternion = q1.setFromAxisAngle(UP, camera.rotation.y)
-        this.moveDir.applyQuaternion(yRigQuaternion)
-
-        // get a quaternion that faces the direction we are moving
-        if (this.isMoving) {
-          this.targetQuaternion.setFromUnitVectors(FORWARD, this.moveDir)
-          // console.log('foo2')
-        }
-
-        // apply damping manually (can't use actor.setLinearDamping(10) as it also applies to Y)
-        const lvel = this.actor.getLinearVelocity()
-        const dampingCoefficient = 12
-        lvel.x *= 1 - dampingCoefficient * delta
-        lvel.z *= 1 - dampingCoefficient * delta
-        this.actor.setLinearVelocity(lvel)
-
-        if (this.action) {
-          this.moveDir.multiplyScalar(this.action.moveFreedom)
-        }
-
-        const moveForce = 80
-        const force = v3.copy(this.moveDir).multiplyScalar(moveForce)
-
-        // apply move force
-        this.actor.addForce(force.toPxVec3(), PHYSX.PxForceModeEnum.eIMPULSE * delta, true)
-      }
-
-      // progress our action if any
-      if (this.action) {
-        this.action.update(delta, this)
-
-        v1.copy(this.action.displacement)
-
-        // rotate displacement by player Y-rotation
-        v1.applyQuaternion(this.targetQuaternion)
-
-        // multiply our displacement direction by our movement speed
-        v1.multiplyScalar(this.action.speed * delta)
-
-        this.displacement.add(v1)
-
-        this.isMoving = false
-
-        // lock on (face camera)
-        if (this.action.lockOn) {
-          this.targetEuler.set(0, camera.rotation.y, 0)
-          this.targetQuaternion.setFromEuler(this.targetEuler)
-        }
-      }
-
-      // // apply a natural gravity
-      // // don't accrue it while anchored
-      // if (!this.isGrounded && !anchorNode) {
-      //   this.velocity.y -= this.gravity * delta
-      // }
-
-      // determine if we're airborn
-      // this is used to negate walking down slopes where you come off the ground
-      if (this.isGrounded) {
-        this.airtime = 0
-      } else {
-        this.airtime += delta
-      }
-      this.isAirborn = this.airtime > 0.3
-
-      // if we're grounded and we want to jump, apply jump velocity
-      if (this.isGrounded && input.jump && !this.action) {
-        // this.velocity.y = Math.sqrt(2 * this.gravity * this.jumpHeight)
-        v4.set(0, Math.sqrt(2 * this.gravity * this.jumpHeight), 0).multiplyScalar(50) // WHY 50!?!?!?
-        this.actor.addForce(v4.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
-        this.isJumping = true
-        input.jump = false // consume
-      }
-      // // HACK: temp flying
-      // if (input.jumpDown) {
-      //   this.velocity.y += 1
-      // }
-
-      // apply emote
-      let emote
-      if (anchorEmote) {
-        emote = anchorEmote
-      } else if (this.action) {
-        emote = this.action.emote
-      } else if (this.isAirborn || this.isJumping) {
-        emote = emotes.float
-      } else if (this.isMoving) {
-        emote = emotes.run
-      } else {
-        emote = emotes.idle
-      }
-      this.vrm.setEmote(emote)
-      this.emote.value = emote
-
-      // // apply the velocity (for this frame) to our displacement
-      // const velocity = v1.copy(this.velocity).multiplyScalar(delta)
-      // this.displacement.add(velocity)
-
-      // ===
-
-      // ===
-      // ===
-      // ===
-      // ===
-      // ===
-      // ===
-      // ===
-
-      v1.copy(this.ghost.position)
-      v1.y += 0.1
-      const hit = this.world.physics.raycast(
-        v1,
-        DOWN,
-        0.3,
-        Layers.environment.group | Layers.prop.group | Layers.tool.group
-      )
-      this.isGrounded = !!hit
-
-      this.isCeiling = false // TODO: can we remove?
-
-      // const moveDir = v1.set(0, 0, 0)
-      // if (input.moveForward) moveDir.z -= 1
-      // if (input.moveBack) moveDir.z += 1
-      // if (input.moveLeft) moveDir.x -= 1
-      // if (input.moveRight) moveDir.x += 1
-      // moveDir.normalize()
-      // const yRigQuaternion = q1.setFromAxisAngle(UP, camera.rotation.y)
-      // moveDir.applyQuaternion(yRigQuaternion)
-
-      // const moveForce = 80
-      // const force = v3.copy(this.moveDir).multiplyScalar(moveForce)
-
-      // // apply damping manually (can't use actor.setLinearDamping(10) as it also applies to Y)
-      // const lvel = this.actor.getLinearVelocity()
-      // const dampingCoefficient = 12
-      // lvel.x *= 1 - dampingCoefficient * delta
-      // lvel.z *= 1 - dampingCoefficient * delta
-      // this.actor.setLinearVelocity(lvel)
-
-      // // // if we're grounded and we want to jump, apply jump velocity
-      // // if (input.jump && !this.action) {
-      // //   v4.set(0, Math.sqrt(2 * this.gravity * this.jumpHeight), 0).multiplyScalar(50)
-      // //   this.actor.addForce(v4.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
-      // //   this.isJumping = true
-      // //   input.jump = false // consume
-      // // }
-
-      // // apply our force
-      // this.actor.addForce(force.toPxVec3(), PHYSX.PxForceModeEnum.eIMPULSE * delta, true) // PHYSX.PxForceModeEnum.eIMPULSE
-
-      // ===
-
-      // // finally apply displacement to our controller
-      // this.moveFlags = this.controller.move(
-      //   this.displacement.toPxVec3(),
-      //   0,
-      //   FIXED_TIMESTEP,
-      //   this.world.physics.controllerFilters
-      // )
-
-      // // check if we're grounded
-      // this.isGrounded = this.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN)
-
-      // // check if we hit our head on something
-      // this.isCeiling = this.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_UP)
-
-      // if we were jumping and now we're grounded, update our variable
-      if (this.isJumping && this.isGrounded) {
-        this.isJumping = false
-      }
-
-      // // if we did hit our head, cancel any jump velocity
-      // if (this.isCeiling && this.velocity.y > 0) {
-      //   this.velocity.y = -this.gravity * delta
-      // }
-
-      // // read back controller position and apply to ghost & vrm
-      // const pos = this.controller.getFootPosition()
-      // ghost.position.copy(pos)
-      // ghost.updateMatrix()
-      // this.vrm.move(ghost.matrix)
-
-      // make camera follow our final position horizontally
-      // and vertically at our vrm model height
-      camera.position.set(ghost.position.x, ghost.position.y + this.vrm.height, ghost.position.z)
-
-      // if we're moving continually rotate ourselves toward the direction we are moving
-      if (this.isMoving || this.action) {
-        const alpha = 1 - Math.pow(0.00000001, delta)
-        ghost.quaternion.slerp(this.targetQuaternion, alpha)
-      }
-
-      // clear the action when its complete
-      if (this.action?.complete) {
-        this.action = null
-      }
-
-      // if we're anchored most of above doesn't matter because we're forcing our position
-      if (anchorNode) {
-        anchorNode.matrixWorld.decompose(this.ghost.position, this.ghost.quaternion, v1)
-        this.ghost.updateMatrix()
-        this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
-        this.vrm.move(this.ghost.matrix)
-      }
-
-      // attach any item to bone
-      if (this.item?.model) {
-        this.vrm.applyBoneMatrixWorld(this.item.boneName, this.item.model.matrix)
-        this.item.model.matrixWorld.copy(this.item.model.matrix)
-      }
-
-      // network
-      this.position.value.copy(ghost.position)
-      this.quaternion.value.copy(ghost.quaternion)
-    }
-
-    //
-    // Not Owner
-    //
-
-    if (!isOwner) {
-      // anchor
-      let anchorNode
-      let anchorEmote
-      if (this.anchor.value) {
-        const entity = this.world.entities.getEntity(this.anchor.value.objectId)
-        if (!entity) return
-        anchorNode = entity.nodes.get(this.anchor.value.node)
-        if (anchorNode) {
-          anchorNode.matrixWorld.decompose(this.ghost.position, this.ghost.quaternion, v1)
-          // this.ghost.position.copy(anchorNode.position)
-          // this.ghost.quaternion.copy(anchorNode.quaternion)
-          anchorEmote = emotes[this.anchor.value.emote]
-        }
-      }
-      // move
-      if (!anchorNode) {
-        this.networkPosition.update(this.position.value, this.teleportN.value, delta)
-        this.networkQuaternion.update(this.quaternion.value, this.teleportN.value, delta)
-      }
-      this.ghost.updateMatrix()
-      this.vrm.move(this.ghost.matrix)
-      this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
-      // emote
-      this.vrm.setEmote(anchorEmote || this.emote.value)
-      // item attachment
-      if (this.item?.model) {
-        this.vrm.applyBoneMatrixWorld(this.item.boneName, this.item.model.matrix)
-        this.item.model.matrixWorld.copy(this.item.model.matrix)
-      }
-    }
-  }
+  // _update(delta) {
+  //   const isOwner = this.isOwner()
+
+  //   //
+  //   // Owner
+  //   //
+
+  //   if (isOwner) {
+  //     const input = this.input
+  //     const camera = this.control.camera
+  //     const ghost = this.ghost
+
+  //     // rotate camera when looking (holding right mouse + dragging)
+  //     camera.rotation.y += -input.lookDelta.x * LOOK_SPEED * delta
+  //     camera.rotation.x += -input.lookDelta.y * LOOK_SPEED * delta
+  //     input.lookDelta.set(0, 0, 0)
+
+  //     // zoom camera if scrolling wheel (and not moving an object)
+  //     this.zoom += -input.zoomDelta * ZOOM_SPEED * delta
+  //     this.zoom = clamp(this.zoom, MIN_ZOOM, MAX_ZOOM)
+  //     camera.zoom = this.zoom
+  //     input.zoomDelta = 0
+
+  //     // switch items (if not performing an action)
+  //     if (!this.action && input.nextItem !== null) {
+  //       this.itemIdx.value = input.nextItem
+  //       input.nextItem = null
+  //     }
+
+  //     // if not performing an action, check if we should start one
+  //     if (!this.action) {
+  //       if (this.item?.action?.check(this)) {
+  //         this.action = this.item.action
+  //       } else {
+  //         for (const action of this.actions) {
+  //           if (action.check(this)) {
+  //             this.action = action
+  //             break
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+
+  //   // Not Owner
+
+  //   if (!isOwner) {
+  //     // ...
+  //   }
+  // }
+
+  // _fixedUpdate(delta) {
+  //   const isOwner = this.isOwner()
+
+  //   //
+  //   // Owner
+  //   //
+
+  //   if (isOwner) {
+  //     const input = this.input
+  //     const camera = this.control.camera
+  //     const ghost = this.ghost
+
+  //     // anchor node
+  //     let anchorNode
+  //     let anchorEmote
+  //     if (this.anchor.value) {
+  //       const entity = this.world.entities.getEntity(this.anchor.value.objectId)
+  //       if (!entity) return
+  //       anchorNode = entity.nodes.get(this.anchor.value.node)
+  //       if (anchorNode) anchorEmote = emotes[this.anchor.value.emote]
+  //     }
+
+  //     // initialize moveDir
+  //     this.moveDir.set(0, 0, 0)
+
+  //     // if we're not performing an action, use directional input displacement
+  //     if (!this.action || this.action.moveFreedom) {
+  //       // copy input axis
+  //       if (input.moveForward) this.moveDir.z -= 1
+  //       if (input.moveBack) this.moveDir.z += 1
+  //       if (input.moveLeft) this.moveDir.x -= 1
+  //       if (input.moveRight) this.moveDir.x += 1
+
+  //       // we're moving if any keys are down
+  //       this.isMoving = this.moveDir.length() > 0
+
+  //       // normalize direction for non-joystick (disables surfing)
+  //       this.moveDir.normalize()
+
+  //       // rotate direction to face camera Y direction
+  //       const yRigQuaternion = q1.setFromAxisAngle(UP, camera.rotation.y)
+  //       this.moveDir.applyQuaternion(yRigQuaternion)
+
+  //       // get a quaternion that faces the direction we are moving
+  //       if (this.isMoving) {
+  //         this.targetQuaternion.setFromUnitVectors(FORWARD, this.moveDir)
+  //         // console.log('foo2')
+  //       }
+
+  //       // apply damping manually (can't use actor.setLinearDamping(10) as it also applies to Y)
+  //       const lvel = this.actor.getLinearVelocity()
+  //       const dampingCoefficient = 12
+  //       lvel.x *= 1 - dampingCoefficient * delta
+  //       lvel.z *= 1 - dampingCoefficient * delta
+  //       this.actor.setLinearVelocity(lvel)
+
+  //       if (this.action) {
+  //         this.moveDir.multiplyScalar(this.action.moveFreedom)
+  //       }
+
+  //       const moveForce = 80
+  //       const force = v3.copy(this.moveDir).multiplyScalar(moveForce)
+
+  //       // apply move force
+  //       this.actor.addForce(force.toPxVec3(), PHYSX.PxForceModeEnum.eIMPULSE * delta, true)
+  //     }
+
+  //     // progress our action if any
+  //     if (this.action) {
+  //       this.action.update(delta, this)
+
+  //       v1.copy(this.action.displacement)
+
+  //       // rotate displacement by player Y-rotation
+  //       v1.applyQuaternion(this.targetQuaternion)
+
+  //       // multiply our displacement direction by our movement speed
+  //       v1.multiplyScalar(this.action.speed * delta)
+
+  //       this.displacement.add(v1)
+
+  //       this.isMoving = false
+
+  //       // lock on (face camera)
+  //       if (this.action.lockOn) {
+  //         this.targetEuler.set(0, camera.rotation.y, 0)
+  //         this.targetQuaternion.setFromEuler(this.targetEuler)
+  //       }
+  //     }
+
+  //     // // apply a natural gravity
+  //     // // don't accrue it while anchored
+  //     // if (!this.isGrounded && !anchorNode) {
+  //     //   this.velocity.y -= this.gravity * delta
+  //     // }
+
+  //     // determine if we're airborn
+  //     // this is used to negate walking down slopes where you come off the ground
+  //     if (this.isGrounded) {
+  //       this.airtime = 0
+  //     } else {
+  //       this.airtime += delta
+  //     }
+  //     this.isAirborn = this.airtime > 0.3
+
+  //     // if we're grounded and we want to jump, apply jump velocity
+  //     if (this.isGrounded && input.jump && !this.action) {
+  //       // this.velocity.y = Math.sqrt(2 * this.gravity * this.jumpHeight)
+  //       v4.set(0, Math.sqrt(2 * this.gravity * this.jumpHeight), 0).multiplyScalar(50) // WHY 50!?!?!?
+  //       this.actor.addForce(v4.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
+  //       this.isJumping = true
+  //       input.jump = false // consume
+  //     }
+  //     // // HACK: temp flying
+  //     // if (input.jumpDown) {
+  //     //   this.velocity.y += 1
+  //     // }
+
+  //     // apply emote
+  //     let emote
+  //     if (anchorEmote) {
+  //       emote = anchorEmote
+  //     } else if (this.action) {
+  //       emote = this.action.emote
+  //     } else if (this.isAirborn || this.isJumping) {
+  //       emote = emotes.float
+  //     } else if (this.isMoving) {
+  //       emote = emotes.run
+  //     } else {
+  //       emote = emotes.idle
+  //     }
+  //     this.vrm.setEmote(emote)
+  //     this.emote.value = emote
+
+  //     // // apply the velocity (for this frame) to our displacement
+  //     // const velocity = v1.copy(this.velocity).multiplyScalar(delta)
+  //     // this.displacement.add(velocity)
+
+  //     // ===
+
+  //     // ===
+  //     // ===
+  //     // ===
+  //     // ===
+  //     // ===
+  //     // ===
+  //     // ===
+
+  //     v1.copy(this.ghost.position)
+  //     v1.y += 0.1
+  //     const hit = this.world.physics.raycast(
+  //       v1,
+  //       DOWN,
+  //       0.3,
+  //       Layers.environment.group | Layers.prop.group | Layers.tool.group
+  //     )
+  //     this.isGrounded = !!hit
+
+  //     this.isCeiling = false // TODO: can we remove?
+
+  //     // const moveDir = v1.set(0, 0, 0)
+  //     // if (input.moveForward) moveDir.z -= 1
+  //     // if (input.moveBack) moveDir.z += 1
+  //     // if (input.moveLeft) moveDir.x -= 1
+  //     // if (input.moveRight) moveDir.x += 1
+  //     // moveDir.normalize()
+  //     // const yRigQuaternion = q1.setFromAxisAngle(UP, camera.rotation.y)
+  //     // moveDir.applyQuaternion(yRigQuaternion)
+
+  //     // const moveForce = 80
+  //     // const force = v3.copy(this.moveDir).multiplyScalar(moveForce)
+
+  //     // // apply damping manually (can't use actor.setLinearDamping(10) as it also applies to Y)
+  //     // const lvel = this.actor.getLinearVelocity()
+  //     // const dampingCoefficient = 12
+  //     // lvel.x *= 1 - dampingCoefficient * delta
+  //     // lvel.z *= 1 - dampingCoefficient * delta
+  //     // this.actor.setLinearVelocity(lvel)
+
+  //     // // // if we're grounded and we want to jump, apply jump velocity
+  //     // // if (input.jump && !this.action) {
+  //     // //   v4.set(0, Math.sqrt(2 * this.gravity * this.jumpHeight), 0).multiplyScalar(50)
+  //     // //   this.actor.addForce(v4.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
+  //     // //   this.isJumping = true
+  //     // //   input.jump = false // consume
+  //     // // }
+
+  //     // // apply our force
+  //     // this.actor.addForce(force.toPxVec3(), PHYSX.PxForceModeEnum.eIMPULSE * delta, true) // PHYSX.PxForceModeEnum.eIMPULSE
+
+  //     // ===
+
+  //     // // finally apply displacement to our controller
+  //     // this.moveFlags = this.controller.move(
+  //     //   this.displacement.toPxVec3(),
+  //     //   0,
+  //     //   FIXED_TIMESTEP,
+  //     //   this.world.physics.controllerFilters
+  //     // )
+
+  //     // // check if we're grounded
+  //     // this.isGrounded = this.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN)
+
+  //     // // check if we hit our head on something
+  //     // this.isCeiling = this.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_UP)
+
+  //     // if we were jumping and now we're grounded, update our variable
+  //     if (this.isJumping && this.isGrounded) {
+  //       this.isJumping = false
+  //     }
+
+  //     // // if we did hit our head, cancel any jump velocity
+  //     // if (this.isCeiling && this.velocity.y > 0) {
+  //     //   this.velocity.y = -this.gravity * delta
+  //     // }
+
+  //     // // read back controller position and apply to ghost & vrm
+  //     // const pos = this.controller.getFootPosition()
+  //     // ghost.position.copy(pos)
+  //     // ghost.updateMatrix()
+  //     // this.vrm.move(ghost.matrix)
+
+  //     // make camera follow our final position horizontally
+  //     // and vertically at our vrm model height
+  //     camera.position.set(ghost.position.x, ghost.position.y + this.vrm.height, ghost.position.z)
+
+  //     // if we're moving continually rotate ourselves toward the direction we are moving
+  //     if (this.isMoving || this.action) {
+  //       const alpha = 1 - Math.pow(0.00000001, delta)
+  //       ghost.quaternion.slerp(this.targetQuaternion, alpha)
+  //     }
+
+  //     // clear the action when its complete
+  //     if (this.action?.complete) {
+  //       this.action = null
+  //     }
+
+  //     // if we're anchored most of above doesn't matter because we're forcing our position
+  //     if (anchorNode) {
+  //       anchorNode.matrixWorld.decompose(this.ghost.position, this.ghost.quaternion, v1)
+  //       this.ghost.updateMatrix()
+  //       this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
+  //       this.vrm.move(this.ghost.matrix)
+  //     }
+
+  //     // attach any item to bone
+  //     if (this.item?.model) {
+  //       this.vrm.applyBoneMatrixWorld(this.item.boneName, this.item.model.matrix)
+  //       this.item.model.matrixWorld.copy(this.item.model.matrix)
+  //     }
+
+  //     // network
+  //     this.position.value.copy(ghost.position)
+  //     this.quaternion.value.copy(ghost.quaternion)
+  //   }
+
+  //   //
+  //   // Not Owner
+  //   //
+
+  //   if (!isOwner) {
+  //     // anchor
+  //     let anchorNode
+  //     let anchorEmote
+  //     if (this.anchor.value) {
+  //       const entity = this.world.entities.getEntity(this.anchor.value.objectId)
+  //       if (!entity) return
+  //       anchorNode = entity.nodes.get(this.anchor.value.node)
+  //       if (anchorNode) {
+  //         anchorNode.matrixWorld.decompose(this.ghost.position, this.ghost.quaternion, v1)
+  //         // this.ghost.position.copy(anchorNode.position)
+  //         // this.ghost.quaternion.copy(anchorNode.quaternion)
+  //         anchorEmote = emotes[this.anchor.value.emote]
+  //       }
+  //     }
+  //     // move
+  //     if (!anchorNode) {
+  //       this.networkPosition.update(this.position.value, this.teleportN.value, delta)
+  //       this.networkQuaternion.update(this.quaternion.value, this.teleportN.value, delta)
+  //     }
+  //     this.ghost.updateMatrix()
+  //     this.vrm.move(this.ghost.matrix)
+  //     this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
+  //     // emote
+  //     this.vrm.setEmote(anchorEmote || this.emote.value)
+  //     // item attachment
+  //     if (this.item?.model) {
+  //       this.vrm.applyBoneMatrixWorld(this.item.boneName, this.item.model.matrix)
+  //       this.item.model.matrixWorld.copy(this.item.model.matrix)
+  //     }
+  //   }
+  // }
 
   teleport(x, y, z) {
     this.ghost.position.set(x, y, z)

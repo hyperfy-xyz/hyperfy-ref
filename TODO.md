@@ -7,6 +7,7 @@
 - jagged terrain: some steep
 - rubble
 - divets and bumps in a row
+- seesaw
 - platforms
   - spinning + dynamic block on it
   - spinning + kinematic block on it

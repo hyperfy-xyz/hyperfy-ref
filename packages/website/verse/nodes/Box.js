@@ -178,8 +178,8 @@ export class Box extends Node {
       this.sItem = null
     }
     if (this.actor) {
-      this.ctx.world.physics.scene.removeActor(this.actor)
       this.untrack?.()
+      this.ctx.world.physics.scene.removeActor(this.actor)
       // TODO: destroy physics things
     }
   }

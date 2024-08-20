@@ -17,19 +17,21 @@ const _q1 = new THREE.Quaternion()
 const defaultScale = new THREE.Vector3(1, 1, 1)
 
 const _raycastHit = {
+  actor: null,
   point: new THREE.Vector3(),
   normal: new THREE.Vector3(),
   distance: null,
 }
 
 const _sweepHit = {
+  actor: null,
   point: new THREE.Vector3(),
   normal: new THREE.Vector3(),
   distance: null,
 }
 
 const _overlapHit = {
-  // actor: null,
+  actor: null,
 }
 
 // const collisionMatrix = {
@@ -148,6 +150,10 @@ export class Physics extends System {
         position: new THREE.Vector3(),
         quaternion: new THREE.Quaternion(),
       },
+      next: {
+        position: new THREE.Vector3(),
+        quaternion: new THREE.Quaternion(),
+      },
       curr: {
         position: new THREE.Vector3(),
         quaternion: new THREE.Quaternion(),
@@ -156,6 +162,8 @@ export class Physics extends System {
     const pose = actor.getGlobalPose()
     item.prev.position.copy(pose.p)
     item.prev.quaternion.copy(pose.q)
+    item.next.position.copy(pose.p)
+    item.next.quaternion.copy(pose.q)
     item.curr.position.copy(pose.p)
     item.curr.quaternion.copy(pose.q)
     this.tracking.set(actor.ptr, item)
@@ -168,7 +176,7 @@ export class Physics extends System {
     if (willStep) {
       // if physics will step, clear active actors
       // so we can repopulate.
-      // this.active.clear()
+      this.active.clear()
     }
   }
 
@@ -185,28 +193,35 @@ export class Physics extends System {
         // console.warn('active actor not found?', actorPtr)
         continue
       }
-      item.prev.position.copy(item.curr.position)
-      item.prev.quaternion.copy(item.curr.quaternion)
+      item.prev.position.copy(item.next.position)
+      item.prev.quaternion.copy(item.next.quaternion)
       const pose = item.actor.getGlobalPose()
-      item.curr.position.copy(pose.p)
-      item.curr.quaternion.copy(pose.q)
+      item.next.position.copy(pose.p)
+      item.next.quaternion.copy(pose.q)
       this.active.add(item)
     }
   }
 
-  finalize(alpha) {
+  interpolate(alpha) {
     for (const item of this.active) {
-      _v1.lerpVectors(item.prev.position, item.curr.position, alpha)
-      _q1.slerpQuaternions(item.prev.quaternion, item.curr.quaternion, alpha)
-      item.onPhysicsMovement?.(_v1, _q1)
+      item.curr.position.lerpVectors(item.prev.position, item.next.position, alpha)
+      item.curr.quaternion.slerpQuaternions(item.prev.quaternion, item.next.quaternion, alpha)
+      item.onPhysicsMovement?.(item.curr.position, item.curr.quaternion)
     }
-
     // finalize any physics updates immediately
     // but don't listen to any loopback commits from those actor moves
     this.ignoreSetGlobalPose = true
     this.world.entities.clean()
     this.ignoreSetGlobalPose = false
   }
+
+  // getInterpolatedTransform(actorPtr, vec3, quat) {
+  //   const item = this.tracking.get(actorPtr)
+  //   if (!item) return false
+  //   vec3.copy(item.curr.position)
+  //   quat.copy(item.curr.quaternion)
+  //   return true
+  // }
 
   setGlobalPose(actor, matrix) {
     if (this.ignoreSetGlobalPose) return
@@ -233,8 +248,15 @@ export class Physics extends System {
       this.queryFilterData
     )
     if (didHit) {
-      const hit = this.raycastResult.getAnyHit(0)
-      // console.log(hit.actor.ptr)
+      const numHits = this.raycastResult.getNbAnyHits()
+      let hit
+      for (let n = 0; n < numHits; n++) {
+        const nHit = this.raycastResult.getAnyHit(n)
+        if (!hit || hit.distance > nHit.distance) {
+          hit = nHit
+        }
+      }
+      _raycastHit.actor = hit.actor
       _raycastHit.point.set(hit.position.x, hit.position.y, hit.position.z)
       _raycastHit.normal.set(hit.normal.x, hit.normal.y, hit.normal.z)
       _raycastHit.distance = hit.distance
@@ -258,7 +280,15 @@ export class Physics extends System {
       this.queryFilterData
     )
     if (didHit) {
-      const hit = this.sweepResult.getAnyHit(0)
+      const numHits = this.sweepResult.getNbAnyHits()
+      let hit
+      for (let n = 0; n < numHits; n++) {
+        const nHit = this.sweepResult.getAnyHit(n)
+        if (!hit || hit.distance > nHit.distance) {
+          hit = nHit
+        }
+      }
+      _sweepHit.actor = hit.actor
       _sweepHit.point.set(hit.position.x, hit.position.y, hit.position.z)
       _sweepHit.normal.set(hit.normal.x, hit.normal.y, hit.normal.z)
       _sweepHit.distance = hit.distance
@@ -274,7 +304,7 @@ export class Physics extends System {
     const didHit = this.scene.overlap(geometry, this.overlapPose, this.overlapResult, this.queryFilterData)
     if (didHit) {
       // const hit = this.overlapResult.getAnyHit(0)
-      // _overlapHit.actor = hit.???
+      _overlapHit.actor = hit.actor
       return _overlapHit
     }
     // TODO: this.overlapResult.destroy() on this.destroy()
