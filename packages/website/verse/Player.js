@@ -116,7 +116,10 @@ export class Player extends Entity {
     this.ghost.position.copy(this.position.value)
     this.ghost.quaternion.copy(this.quaternion.value)
 
+    this.mass = 1
     this.gravity = 20
+    this.effectiveGravity = this.gravity * this.mass
+
     this.jumpHeight = 1.5
 
     this.displacement = new THREE.Vector3()
@@ -200,11 +203,13 @@ export class Player extends Entity {
     const halfHeight = (this.vrm.height - radius - radius) / 2
     const geometry = new PHYSX.PxCapsuleGeometry(radius, halfHeight)
     // frictionless material (the combine mode ensures we always use out min=0 instead of avging)
-    const material = this.world.physics.physics.createMaterial(0, 0, 0)
-    material.setFrictionCombineMode(PHYSX.PxCombineModeEnum.eMIN)
-    material.setRestitutionCombineMode(PHYSX.PxCombineModeEnum.eMIN)
+    // we use eMIN when in the air so that we don't stick to walls etc
+    // and eMAX on the ground so that we don't constantly slip off physics objects we're pushing
+    this.material = this.world.physics.physics.createMaterial(0, 0, 0)
+    // material.setFrictionCombineMode(PHYSX.PxCombineModeEnum.eMIN)
+    // material.setRestitutionCombineMode(PHYSX.PxCombineModeEnum.eMIN)
     const flags = new PHYSX.PxShapeFlags(PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE) // prettier-ignore
-    const shape = this.world.physics.physics.createShape(geometry, material, true, flags)
+    const shape = this.world.physics.physics.createShape(geometry, this.material, true, flags)
     const localPose = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
     // rotate to stand up
     _q1.set(0, 0, 0).setFromAxisAngle(v1.set(0, 0, 1), Math.PI / 2)
@@ -229,7 +234,7 @@ export class Player extends Entity {
     _v1.copy(this.ghost.position).toPxTransform(transform)
     _q1.set(0, 0, 0, 1).toPxTransform(transform)
     this.actor = this.world.physics.physics.createRigidDynamic(transform)
-    // this.actor.setMass(0.1)
+    this.actor.setMass(this.mass)
     // this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
     this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
 
@@ -246,7 +251,7 @@ export class Player extends Entity {
     // For now the best solution is to just add a sphere right in the center of our capsule to keep that problem at bay.
     {
       const geometry = new PHYSX.PxSphereGeometry(CAPSULE_RADIUS)
-      const shape = this.world.physics.physics.createShape(geometry, material, true, flags)
+      const shape = this.world.physics.physics.createShape(geometry, this.material, true, flags)
       shape.setQueryFilterData(filterData)
       shape.setSimulationFilterData(filterData)
       const pose = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
@@ -542,6 +547,23 @@ export class Player extends Entity {
         this.groundAngle = 0
       }
 
+      // our capsule material has 0 friction
+      // we use eMIN when in the air so that we don't stick to walls etc (zero friction)
+      // and eMAX on the ground so that we don't constantly slip off physics objects we're pushing (absorb objects friction)
+      if (this.grounded) {
+        if (this.materialMax !== true) {
+          this.material.setFrictionCombineMode(PHYSX.PxCombineModeEnum.eMAX)
+          this.material.setRestitutionCombineMode(PHYSX.PxCombineModeEnum.eMAX)
+          this.materialMax = true
+        }
+      } else {
+        if (this.materialMax !== false) {
+          this.material.setFrictionCombineMode(PHYSX.PxCombineModeEnum.eMIN)
+          this.material.setRestitutionCombineMode(PHYSX.PxCombineModeEnum.eMIN)
+          this.materialMax = false
+        }
+      }
+
       // if we jumped and have now left the ground, progress to jumping
       if (this.jumped && !this.grounded) {
         this.jumped = false
@@ -587,7 +609,7 @@ export class Player extends Entity {
           }
         }
       } else {
-        this.actor.addForce(v1.set(0, -this.gravity, 0).toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
+        this.actor.addForce(v1.set(0, -this.effectiveGravity, 0).toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
       }
 
       // if on a steep slope, unground and track slipping
@@ -631,7 +653,7 @@ export class Player extends Entity {
 
       // apply move force, projected onto ground normal
       if (this.moving) {
-        let moveSpeed = 10 // run
+        let moveSpeed = 10 * this.mass // run
         const slopeRotation = q1.setFromUnitVectors(UP, this.groundNormal)
         const moveForce = v1.copy(this.moveDir).multiplyScalar(moveSpeed * 10).applyQuaternion(slopeRotation) // prettier-ignore
         this.actor.addForce(moveForce.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
@@ -645,7 +667,8 @@ export class Player extends Entity {
       // apply jump
       if (this.grounded && !this.jumping && this.input.jump) {
         // calc velocity needed to reach jump height
-        const jumpVelocity = Math.sqrt(2 * this.gravity * this.jumpHeight)
+        let jumpVelocity = Math.sqrt(2 * this.effectiveGravity * this.jumpHeight)
+        jumpVelocity = jumpVelocity * (1 / Math.sqrt(this.mass))
         // update velocity
         const velocity = this.actor.getLinearVelocity()
         velocity.y = jumpVelocity
