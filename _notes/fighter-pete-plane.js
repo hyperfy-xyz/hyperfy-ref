@@ -48,11 +48,14 @@ let control
 let throttle = 0
 let isAuthority = object.isAuthority()
 
+let mass = 10
+
 // create physics body
 const body = object.create('box')
 body.visible = false
 body.collision = isAuthority ? 'dynamic' : 'kinematic'
-body.collisionLayer = 'environment'
+body.collisionLayer = 'prop'
+body.mass = mass
 body.setSize(7, 1.1, 7)
 body.position.copy(object.position)
 body.position.y += 1
@@ -186,7 +189,7 @@ function fixedUpdate(delta) {
   if (isAuthority) {
     if (control) {
       // thrust
-      _v1.copy(FORWARD).multiplyScalar(MAX_THRUST * throttle)
+      _v1.copy(FORWARD).multiplyScalar(MAX_THRUST * throttle * mass)
       _v1.applyQuaternion(body.quaternion)
       body.addForce(_v1)
 
@@ -221,11 +224,11 @@ function fixedUpdate(delta) {
       const velocityCorrection = _v2.subVectors(projVelocity, currVelocity)
 
       // apply correction force (adjust the multiplier to control how quickly the plane aligns with its direction)
-      const correctionMultiplier = 5 // You may need to adjust this value
+      const correctionMultiplier = 5 * mass // You may need to adjust this value
       body.addForce(velocityCorrection.multiplyScalar(correctionMultiplier))
 
       // upward lift
-      const lift = 0.5
+      const lift = 0.5 * mass
       const magnitude = body.getLinearVelocity().length()
       _v1.copy(UP).multiplyScalar(magnitude * lift)
       _v1.applyQuaternion(body.quaternion)
