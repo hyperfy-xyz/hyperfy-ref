@@ -39,6 +39,7 @@ const defaults = {
   visible: true,
   collision: null,
   collisionLayer: 'environment',
+  mass: 1,
   staticFriction: 0.6,
   dynamicFriction: 0.6,
   restitution: 0.1,
@@ -62,6 +63,7 @@ export class Box extends Node {
 
     this.collision = data.collision || defaults.collision
     this.collisionLayer = data.collisionLayer || defaults.collisionLayer
+    this.mass = isNumber(data.mass) ? data.mass : defaults.mass
     this.staticFriction = isNumber(data.staticFriction) ? data.staticFriction : defaults.staticFriction
     this.dynamicFriction = isNumber(data.dynamicFriction) ? data.dynamicFriction : defaults.dynamicFriction
     this.restitution = isNumber(data.restitution) ? data.restitution : defaults.restitution
@@ -134,7 +136,7 @@ export class Box extends Node {
       } else if (this.collision === 'static') {
         this.actor = this.ctx.world.physics.physics.createRigidStatic(this.transform)
       }
-      // this.actor.setMass(1)
+      this.actor.setMass?.(this.mass)
       this.actor.attachShape(shape)
       this.ctx.world.physics.scene.addActor(this.actor)
       if (this.collision === 'kinematic' || this.collision === 'dynamic') {
@@ -197,6 +199,7 @@ export class Box extends Node {
     this.visible = source.visible
     this.collision = source.collision
     this.collisionLayer = source.collisionLayer
+    this.mass = source.mass
     this.staticFriction = source.staticFriction
     this.dynamicFriction = source.dynamicFriction
     this.restitution = source.restitution
@@ -344,6 +347,16 @@ export class Box extends Node {
             // todo: we could just update the PxFilterData tbh
             self.needsRebuild = true
             self.setDirty()
+          }
+        },
+        get mass() {
+          return self.mass
+        },
+        set mass(value) {
+          if (!isNumber(value) || value <= 0) throw new Error('mass must be a positive number')
+          self.mass = value
+          if (self.actor) {
+            self.actor.setMass?.(value)
           }
         },
         get staticFriction() {
