@@ -136,8 +136,8 @@ export class World extends EventEmitter {
     this.input.finalize(delta)
     // interpolate or snap to final camera target
     this.cam.finalize(delta)
-    // finally render
-    this.graphics.render()
+    // finally render (skipped if tabbed away)
+    if (!document.hidden) this.graphics.render()
     // end stats
     this.stats.end()
   }
