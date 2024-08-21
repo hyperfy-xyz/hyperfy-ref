@@ -547,6 +547,17 @@ export class Player extends Entity {
         this.groundAngle = 0
       }
 
+      // if on a steep slope, unground and track slipping
+      if (this.grounded && this.groundAngle > 60) {
+        this.justLeftGround = false
+        this.grounded = false
+        this.groundNormal.copy(UP)
+        this.groundAngle = 0
+        this.slipping = true
+      } else {
+        this.slipping = false
+      }
+
       // our capsule material has 0 friction
       // we use eMIN when in the air so that we don't stick to walls etc (zero friction)
       // and eMAX on the ground so that we don't constantly slip off physics objects we're pushing (absorb objects friction)
@@ -612,17 +623,6 @@ export class Player extends Entity {
         this.actor.addForce(v1.set(0, -this.effectiveGravity, 0).toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
       }
 
-      // if on a steep slope, unground and track slipping
-      if (this.grounded && this.groundAngle > 60) {
-        this.justLeftGround = false
-        this.grounded = false
-        this.groundNormal.copy(UP)
-        this.groundAngle = 0
-        this.slipping = true
-      } else {
-        this.slipping = false
-      }
-
       // update velocity
       const velocity = v1.copy(this.actor.getLinearVelocity())
       // apply drag, orientated to ground normal
@@ -645,15 +645,14 @@ export class Player extends Entity {
       }
       // if slipping ensure we can't gain upward velocity
       if (this.slipping) {
-        // force minimum slip velocity + increase if not trying to climb back up
-        if (velocity.y > -3.5) velocity.y = -3.5
+        // increase downward velocity to prevent sliding upward when walking at a slope
         velocity.y -= 0.5
       }
       this.actor.setLinearVelocity(velocity.toPxVec3())
 
       // apply move force, projected onto ground normal
       if (this.moving) {
-        let moveSpeed = 10 * this.mass // run
+        let moveSpeed = 8 * this.mass // run
         const slopeRotation = q1.setFromUnitVectors(UP, this.groundNormal)
         const moveForce = v1.copy(this.moveDir).multiplyScalar(moveSpeed * 10).applyQuaternion(slopeRotation) // prettier-ignore
         this.actor.addForce(moveForce.toPxVec3(), PHYSX.PxForceModeEnum.eFORCE, true)
