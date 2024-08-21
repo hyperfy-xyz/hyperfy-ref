@@ -581,8 +581,15 @@ export class Player extends Entity {
         this.jumping = true
       }
 
-      // if not grounded and our velocity is downward, progress to falling
+      // if not grounded and our velocity is downward, start timing our falling
       if (!this.grounded && this.actor.getLinearVelocity().y < 0) {
+        this.fallTimer += delta
+      } else {
+        this.fallTimer = 0
+      }
+      // if we've been falling for a bit then progress to actual falling
+      // this is to prevent animation jitter when only falling for a very small amount of time
+      if (this.fallTimer > 0.1) {
         this.jumping = false
         this.falling = true
       }
