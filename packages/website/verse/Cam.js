@@ -5,7 +5,7 @@ import { System } from './System'
 import { bindRotations } from './extras/bindRotations'
 import { Layers } from './extras/Layers'
 
-const CAM_MAX_DISTANCE = 2 // max distance between camera and target
+const CAM_MAX_DISTANCE = 1 // max distance between camera and target
 const CAM_MIN_FACTOR = 5 // min lerp factor (slowest speed)
 const CAM_MAX_FACTOR = 16 // max lerp factor (fastest speed) note: it gets jittery for some reason when higher
 
