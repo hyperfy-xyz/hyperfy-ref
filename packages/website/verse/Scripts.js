@@ -29,7 +29,7 @@ export class Scripts extends System {
       Layers,
       Object3D: THREE.Object3D,
       Quaternion: THREE.Quaternion,
-      Vector3: Vector3Enhanced,
+      Vector3: Vector3Enhanced, // todo: Object.freeze(Vector3Enhanced.prototype) + Object.freeze(Vector3Enhanced)  etc...
       Euler: THREE.Euler,
       Matrix4: THREE.Matrix4,
       Vector3Lerp: Vector3Lerp,

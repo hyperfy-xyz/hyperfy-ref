@@ -95,16 +95,10 @@ export class Player extends Entity {
   constructor(world, props) {
     super(world, props)
 
-    this.position = this.createNetworkProp(
-      'position',
-      new Vector3Enhanced().fromArray(props.position || defaults.position)
-    )
-    this.quaternion = this.createNetworkProp(
-      'quaternion',
-      new THREE.Quaternion().fromArray(props.quaternion || defaults.quaternion)
-    )
-    this.emote = this.createNetworkProp('emote', emotes.idle) // prettier-ignore
-    this.itemIdx = this.createNetworkProp('itemIdx', null) // prettier-ignore
+    this.position = this.createNetworkProp('position', new Vector3Enhanced().fromArray(props.position || defaults.position)) // prettier-ignore
+    this.quaternion = this.createNetworkProp('quaternion', new THREE.Quaternion().fromArray(props.quaternion || defaults.quaternion)) // prettier-ignore
+    this.emote = this.createNetworkProp('emote', emotes.idle)
+    this.itemIdx = this.createNetworkProp('itemIdx', null)
     this.itemIdx.onChange = idx => this.setItem(idx)
     this.vrmUrl = this.createNetworkProp('vrmUrl', props.vrmUrl || defaults.vrmUrl)
     this.vrmUrl.onChange = () => this.loadVRM(this)
@@ -116,24 +110,26 @@ export class Player extends Entity {
     this.ghost.position.copy(this.position.value)
     this.ghost.quaternion.copy(this.quaternion.value)
 
+    this.vrm = null
+    this.vrmN = 0
+
     this.mass = 1
     this.gravity = 20
     this.effectiveGravity = this.gravity * this.mass
-
     this.jumpHeight = 1.5
 
-    this.displacement = new THREE.Vector3()
-    this.velocity = new THREE.Vector3()
+    this.zoom = 6
 
-    this.moving = false
+    // this.displacement = new THREE.Vector3()
+    // this.velocity = new THREE.Vector3()
 
     this.moveDir = new THREE.Vector3()
-
+    this.moving = false
     this.grounded = false
     this.slipping = false
     this.jumping = false
     this.falling = false
-    this.airtime = 0
+    // this.airtime = 0
 
     this.groundAngle = 0
     this.groundNormal = new THREE.Vector3().copy(UP)
@@ -141,30 +137,18 @@ export class Player extends Entity {
     this.groundSweepGeometry = new PHYSX.PxSphereGeometry(this.groundSweepRadius)
     // this.groundCheckGeometry = new PHYSX.PxSphereGeometry(CAPSULE_RADIUS)
 
-    this.zoom = 6
-
     this.platform = {
       actor: null,
       prevTransform: new THREE.Matrix4(),
-      // prev: {
-      //   position: new THREE.Vector3(),
-      //   quaternion: new THREE.Quaternion(),
-      // },
-      // curr: {
-      //   position: new THREE.Vector3(),
-      //   quaternion: new THREE.Quaternion(),
-      // },
-      // localPosition: new THREE.Vector3(), // remove
-      // localQuaternion: new THREE.Quaternion(), // remove
     }
 
-    this.targetEuler = new THREE.Euler(0, 0, 0, 'YXZ')
-    this.targetQuaternion = new THREE.Quaternion()
+    // this.targetEuler = new THREE.Euler(0, 0, 0, 'YXZ')
+    // this.targetQuaternion = new THREE.Quaternion()
 
     this.networkPosition = new NetworkedVector3(this.ghost.position, this.world.network.sendRate)
     this.networkQuaternion = new NetworkedQuaternion(this.ghost.quaternion, this.world.network.sendRate)
 
-    this.actions = [new DodgeAction(), new DoubleJumpAction()]
+    this.actions = [new DodgeAction(), new DoubleJumpAction()] // todo: rename abilities
 
     this.items = [
       {
@@ -188,8 +172,6 @@ export class Player extends Entity {
         action: new BowAction(),
       },
     ]
-
-    this.vrmN = 0
 
     this.init()
   }
@@ -686,62 +668,82 @@ export class Player extends Entity {
   }
 
   update(delta, alpha) {
-    // rotate camera when looking (holding right mouse + dragging)
-    this.control.camera.rotation.y += -this.input.lookDelta.x * LOOK_SPEED * delta
-    this.control.camera.rotation.x += -this.input.lookDelta.y * LOOK_SPEED * delta
-    // ensure we can't look too far up/down
-    this.control.camera.rotation.x = clamp(this.control.camera.rotation.x, -90 * DEG2RAD, 90 * DEG2RAD)
-    // consume lookDelta
-    this.input.lookDelta.set(0, 0, 0)
+    const isOwner = this.isOwner()
+    if (isOwner) {
+      // rotate camera when looking (holding right mouse + dragging)
+      this.control.camera.rotation.y += -this.input.lookDelta.x * LOOK_SPEED * delta
+      this.control.camera.rotation.x += -this.input.lookDelta.y * LOOK_SPEED * delta
+      // ensure we can't look too far up/down
+      this.control.camera.rotation.x = clamp(this.control.camera.rotation.x, -90 * DEG2RAD, 90 * DEG2RAD)
+      // consume lookDelta
+      this.input.lookDelta.set(0, 0, 0)
 
-    // zoom camera if scrolling wheel (and not moving an object)
-    this.zoom += -this.input.zoomDelta * ZOOM_SPEED * delta
-    this.zoom = clamp(this.zoom, MIN_ZOOM, MAX_ZOOM)
-    this.control.camera.zoom = this.zoom
-    // consume zoomDelta
-    this.input.zoomDelta = 0
+      // zoom camera if scrolling wheel (and not moving an object)
+      this.zoom += -this.input.zoomDelta * ZOOM_SPEED * delta
+      this.zoom = clamp(this.zoom, MIN_ZOOM, MAX_ZOOM)
+      this.control.camera.zoom = this.zoom
+      // consume zoomDelta
+      this.input.zoomDelta = 0
 
-    // get our movement direction
-    this.moveDir.set(0, 0, 0)
-    if (this.input.moveForward) this.moveDir.z -= 1
-    if (this.input.moveBack) this.moveDir.z += 1
-    if (this.input.moveLeft) this.moveDir.x -= 1
-    if (this.input.moveRight) this.moveDir.x += 1
+      // get our movement direction
+      this.moveDir.set(0, 0, 0)
+      if (this.input.moveForward) this.moveDir.z -= 1
+      if (this.input.moveBack) this.moveDir.z += 1
+      if (this.input.moveLeft) this.moveDir.x -= 1
+      if (this.input.moveRight) this.moveDir.x += 1
 
-    // we're moving if any keys are down
-    this.moving = this.moveDir.length() > 0
+      // we're moving if any keys are down
+      this.moving = this.moveDir.length() > 0
 
-    // normalize direction for non-joystick (prevents surfing)
-    this.moveDir.normalize()
+      // normalize direction for non-joystick (prevents surfing)
+      this.moveDir.normalize()
 
-    // rotate direction to face camera Y direction
-    const yQuaternion = q1.setFromAxisAngle(UP, this.control.camera.rotation.y)
-    this.moveDir.applyQuaternion(yQuaternion)
+      // rotate direction to face camera Y direction
+      const yQuaternion = q1.setFromAxisAngle(UP, this.control.camera.rotation.y)
+      this.moveDir.applyQuaternion(yQuaternion)
 
-    // if we're moving continually rotate ourselves toward the direction we are moving
-    if (this.moving) {
-      const alpha = 1 - Math.pow(0.00000001, delta)
-      q1.setFromUnitVectors(FORWARD, this.moveDir)
-      this.ghost.quaternion.slerp(q1, alpha)
+      // if we're moving continually rotate ourselves toward the direction we are moving
+      if (this.moving) {
+        const alpha = 1 - Math.pow(0.00000001, delta)
+        q1.setFromUnitVectors(FORWARD, this.moveDir)
+        this.ghost.quaternion.slerp(q1, alpha)
+      }
+
+      // make camera follow our position horizontally
+      // and vertically at our vrm model height
+      this.control.camera.position.set(
+        this.ghost.position.x,
+        this.ghost.position.y + this.vrm.height,
+        this.ghost.position.z
+      )
+
+      // emote
+      let emote
+      if (this.jumping) {
+        emote = emotes.float // todo: better jump anim
+      } else if (this.falling) {
+        emote = emotes.float
+      } else if (this.moving) {
+        emote = emotes.run
+      } else {
+        emote = emotes.idle
+      }
+      this.vrm.setEmote(emote)
+
+      // network variables
+      this.position.value.copy(this.ghost.position)
+      this.quaternion.value.copy(this.ghost.quaternion)
+      this.emote.value = emote
     }
-
-    // make camera follow our position horizontally
-    // and vertically at our vrm model height
-    this.control.camera.position.set(
-      this.ghost.position.x,
-      this.ghost.position.y + this.vrm.height,
-      this.ghost.position.z
-    )
-
-    // emote
-    if (this.jumping) {
-      this.vrm.setEmote(emotes.float) // todo: better jump anim
-    } else if (this.falling) {
-      this.vrm.setEmote(emotes.float)
-    } else if (this.moving) {
-      this.vrm.setEmote(emotes.run)
-    } else {
-      this.vrm.setEmote(emotes.idle)
+    if (!isOwner) {
+      // move
+      this.networkPosition.update(this.position.value, this.teleportN.value, delta)
+      this.networkQuaternion.update(this.quaternion.value, this.teleportN.value, delta)
+      this.ghost.updateMatrix()
+      this.vrm.move(this.ghost.matrix)
+      // this.controller.setFootPosition(this.ghost.position.toPxExtVec3())
+      // emote
+      this.vrm.setEmote(this.emote.value)
     }
   }
 
