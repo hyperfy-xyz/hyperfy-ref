@@ -24,8 +24,8 @@ export class NetworkedVector3 {
       this.time = 0
     }
     this.time += delta
-    const alpha = this.time / this.rate
-    if (alpha > 1) return
+    let alpha = this.time / this.rate
+    if (alpha > 1) alpha = 1
     this.value.lerpVectors(this.previous, this.current, alpha)
     return this
   }
