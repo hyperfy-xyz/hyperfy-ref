@@ -3,7 +3,7 @@ import { Node } from './Node'
 export class Group extends Node {
   constructor(entity, data) {
     super(entity, data)
-    this.type = 'group'
+    this.name = 'group'
     this.isGroup = true
   }
 

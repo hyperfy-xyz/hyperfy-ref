@@ -15,14 +15,15 @@ const defaults = {
 export class Action extends Node {
   constructor(data = {}) {
     super(data)
-    this.type = 'action'
-    this.isAction = true
+    this.name = 'action'
+
     this.text = data.text || defaults.text
     this.distance = isNumber(data.distance) ? data.distance : defaults.distance
     this.duration = isNumber(data.duration) ? data.duration : defaults.duration
     this.onStart = data.onStart || defaults.onStart
     this.onTrigger = data.onTrigger || defaults.onTrigger
     this.onCancel = data.onCancel || defaults.onCancel
+
     this.worldPos = new THREE.Vector3()
     this.progress = 0
   }

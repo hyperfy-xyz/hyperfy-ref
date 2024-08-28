@@ -7,7 +7,7 @@ const v1 = new THREE.Vector3()
 export class LOD extends Node {
   constructor(data = {}) {
     super(data)
-    this.type = 'lod'
+    this.name = 'lod'
     this.isLod = true
     this.lods = [] // [...{ node, maxDistance }]
   }

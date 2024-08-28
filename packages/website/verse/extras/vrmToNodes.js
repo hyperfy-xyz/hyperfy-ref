@@ -13,11 +13,11 @@ export function vrmToNodes(factory) {
   }
   const root = registerNode({
     id: '$root',
-    type: 'group',
+    name: 'group',
   })
   const vrm = registerNode({
     id: 'vrm',
-    type: 'vrm',
+    name: 'vrm',
     factory,
   })
   root.add(vrm)

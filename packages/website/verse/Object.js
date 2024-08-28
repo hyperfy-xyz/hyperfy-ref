@@ -182,7 +182,7 @@ export class Object extends Entity {
   }
 
   createNode(data) {
-    const Node = Nodes[data.type]
+    const Node = Nodes[data.name]
     const node = new Node(data)
     node.setContext(this.ctx)
     if (this.nodes.has(node.id)) {
@@ -218,11 +218,11 @@ export class Object extends Entity {
       // show loading
       this.root = this.createNode({
         id: '$root',
-        type: 'group',
+        name: 'group',
       })
       const box = this.createNode({
         id: 'loading',
-        type: 'box',
+        name: 'box',
         color: 'blue',
         position: [0, 0.5, 0],
       })
@@ -231,16 +231,28 @@ export class Object extends Entity {
       // not uploading but no blueprint? must be dead!
       this.root = this.createNode({
         id: '$root',
-        type: 'group',
+        name: 'group',
       })
       const box = this.createNode({
         id: 'error',
-        type: 'box',
+        name: 'box',
         color: 'red',
         position: [0, 0.5, 0],
       })
       this.root.add(box)
     } else {
+      // TEMP: use our test blueprint
+      // this.root = this.createNode({
+      //   id: '$root',
+      //   name: 'group',
+      // })
+      // const mesh = this.createNode({
+      //   id: 'box',
+      //   name: 'mesh',
+      //   type: 'sphere',
+      // })
+      // this.root.add(mesh)
+
       // construct from blueprint
       this.root = this.blueprint.clone(true)
       // collect nodes by id
@@ -253,8 +265,8 @@ export class Object extends Entity {
     }
     this.root.setContext(this.ctx)
     // copy over transforms
-    this.root.position.copy(prevRoot.position)
-    this.root.quaternion.copy(prevRoot.quaternion)
+    this.root.position.copy(this.position.value)
+    this.root.quaternion.copy(this.quaternion.value)
     // bind all nodes to this entity
     // this.root.bind(this)
   }
@@ -295,6 +307,7 @@ export class Object extends Entity {
         }
       }
       // activate (mount) nodes
+      this.ctx.active = true
       this.root.activate()
       // emit script 'mount' event (post-mount)
       // try {
@@ -316,6 +329,7 @@ export class Object extends Entity {
       // ensure we get updates
       this.incHot()
       // activate (mount) nodes
+      this.ctx.active = false
       this.root.activate()
     }
     this.nodes.forEach(node => node.setMode(mode))
@@ -475,13 +489,13 @@ export class Object extends Entity {
         if (!node) return null
         return node.getProxy()
       },
-      create(type) {
-        if (isString(type)) {
-          const node = entity.createNode({ type })
+      create(name) {
+        if (isString(name)) {
+          const node = entity.createNode({ name })
           return node.getProxy()
         } else {
           console.warn('TODO: migrate script to create(String)')
-          const node = entity.createNode(type)
+          const node = entity.createNode(name)
           return node.getProxy()
         }
       },

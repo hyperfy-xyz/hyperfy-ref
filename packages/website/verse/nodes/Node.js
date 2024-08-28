@@ -20,7 +20,8 @@ let nodeIds = -1
 export class Node {
   constructor(data = {}) {
     this.id = data.id || ++nodeIds
-    this.type = 'node'
+    this.name = 'node'
+
     this.parent = null
     this.children = []
     this.ctx = null
@@ -57,20 +58,26 @@ export class Node {
   }
 
   activate() {
-    this.traverse(node => {
-      if (node.mounted) return
-      node.updateTransform()
-      node.mounted = true
-      node.mount()
-    })
+    // top down mount
+    if (this.mounted) return
+    this.updateTransform()
+    this.mounted = true
+    this.mount()
+    const children = this.children
+    for (let i = 0, l = children.length; i < l; i++) {
+      children[i].activate()
+    }
   }
 
   deactivate() {
-    this.traverse(node => {
-      if (!node.mounted) return
-      node.unmount()
-      node.mounted = false
-    })
+    if (!this.mounted) return
+    // bottom up unmount
+    const children = this.children
+    for (let i = 0, l = children.length; i < l; i++) {
+      children[i].deactivate()
+    }
+    this.unmount()
+    this.mounted = false
   }
 
   add(node) {
@@ -292,6 +299,10 @@ export class Node {
         // detach(node) {
         //   self.detach(node)
         // },
+        get _ref() {
+          if (self.ctx.world._allowRefs) return self
+          return null
+        },
       }
       this.proxy = proxy
     }

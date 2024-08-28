@@ -5,7 +5,7 @@ import { Node } from './Node'
 export class Collider extends Node {
   constructor(data = {}) {
     super(data)
-    this.type = 'collider'
+    this.name = 'collider'
     this.isCollider = true
     this.factory = data.factory
   }

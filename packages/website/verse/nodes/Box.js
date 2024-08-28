@@ -48,7 +48,7 @@ const defaults = {
 export class Box extends Node {
   constructor(data = {}) {
     super(data)
-    this.type = 'box'
+    this.name = 'box'
     this.isBox = true
 
     this.width = isNumber(data.width) ? data.width : defaults.width

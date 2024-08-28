@@ -14,7 +14,7 @@ const defaults = {
 export class Controller extends Node {
   constructor(data = {}) {
     super(data)
-    this.type = 'controller'
+    this.name = 'controller'
     this.isController = true
     this.radius = isNumber(data.radius) ? data.radius : defaults.radius
     this.height = isNumber(data.height) ? data.height : defaults.height
@@ -75,12 +75,7 @@ export class Controller extends Node {
   }
 
   move(vec3) {
-    this.moveFlags = this.controller.move(
-      vec3.toPxVec3(),
-      0,
-      1 / 60,
-      this.ctx.world.physics.controllerFilters
-    )
+    this.moveFlags = this.controller.move(vec3.toPxVec3(), 0, 1 / 60, this.ctx.world.physics.controllerFilters)
     // this.isGrounded = moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN) // prettier-ignore
     const pos = this.controller.getFootPosition()
     this.position.copy(pos)
@@ -112,14 +107,10 @@ export class Controller extends Node {
           return self.move(vec3)
         },
         isGrounded() {
-          return self.moveFlags.isSet(
-            PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN
-          )
+          return self.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_DOWN)
         },
         isCeiling() {
-          return self.moveFlags.isSet(
-            PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_UP
-          )
+          return self.moveFlags.isSet(PHYSX.PxControllerCollisionFlagEnum.eCOLLISION_UP)
         },
       }
       this.proxy = proxy

@@ -7,6 +7,7 @@ import { Backpack } from './Backpack'
 import { Wind } from './Wind'
 import { Actions } from './Actions'
 import { Models } from './Models'
+import { Composites } from './Composites'
 import { LODs } from './LODs'
 import { Scripts } from './Scripts'
 import { Panels } from './Panels'
@@ -43,6 +44,7 @@ export class World extends EventEmitter {
     this.wind = this.register(Wind)
     this.actions = this.register(Actions)
     this.models = this.register(Models)
+    this.composites = this.register(Composites)
     this.lods = this.register(LODs)
     this.scripts = this.register(Scripts)
     this.panels = this.register(Panels)
@@ -133,9 +135,9 @@ export class World extends EventEmitter {
     this.lateUpdate(delta, alpha)
     this.entities.clean()
     // update the camera target for active camera
-    this.input.finalize(delta)
+    if (!document.hidden) this.input.finalize(delta)
     // interpolate or snap to final camera target
-    this.cam.finalize(delta)
+    if (!document.hidden) this.cam.finalize(delta)
     // finally render (skipped if tabbed away)
     if (!document.hidden) this.graphics.render()
     // end stats

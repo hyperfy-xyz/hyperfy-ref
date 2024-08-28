@@ -10,10 +10,18 @@ import { System } from './System'
 import { Vector3Enhanced } from './extras/Vector3Enhanced'
 import { clamp } from './extras/utils'
 import { Layers } from './extras/Layers'
+import { isNumber } from 'lodash-es'
 
 export class Scripts extends System {
   constructor(world) {
     super(world)
+
+    class Material {
+      constructor(options) {
+        return world.composites.createMaterial(options).proxy
+      }
+    }
+
     this.compartment = new Compartment({
       console: {
         log: (...args) => console.log(...args),
@@ -34,6 +42,7 @@ export class Scripts extends System {
       Matrix4: THREE.Matrix4,
       Vector3Lerp: Vector3Lerp,
       QuaternionLerp: QuaternionLerp,
+      Material: Material,
       DEG2RAD: DEG2RAD,
       RAD2DEG: RAD2DEG,
       // pause: () => this.world.pause(),

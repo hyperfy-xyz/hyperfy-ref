@@ -5,7 +5,7 @@ import { Node } from './Node'
 export class Composite extends Node {
   constructor(data = {}) {
     super(data)
-    this.type = 'composite'
+    this.name = 'composite'
     this.isComposite = true
     this.src = data.src
     this.instance = null

@@ -67,6 +67,31 @@ export class Physics extends System {
 
     const simulationEventCallback = new PHYSX.PxSimulationEventCallbackImpl()
     simulationEventCallback.onContact = () => {} // TODO
+    simulationEventCallback.onTrigger = (pairs, count) => {
+      pairs = PHYSX.wrapPointer(pairs, PHYSX.PxTriggerPair)
+      for (let i = 0; i < count; i++) {
+        const pair = PHYSX.NativeArrayHelpers.prototype.getTriggerPairAt(pairs, i)
+        // ignore pairs if a shape was deleted.
+        // this prevents an issue where onLeave can get called after rebuilding an object that had entered a trigger
+        if (
+          pair.flags.isSet(PHYSX.PxTriggerPairFlagEnum.eREMOVED_SHAPE_TRIGGER)
+          // pair.flags.isSet(PHYSX.PxTriggerPairFlagEnum.eREMOVED_SHAPE_OTHER)
+        ) {
+          continue
+        }
+        const node = pair.triggerShape.triggerNode
+        const result = pair.otherShape.triggerResult
+        if (!node || !node.mounted || !result) continue
+        if (pair.status === PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_FOUND) {
+          node.onEnter?.(result)
+        } else if (pair.status === PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_LOST) {
+          node.onLeave?.(result)
+        }
+      }
+    }
+    simulationEventCallback.onConstraintBreak = (...args) => {
+      console.error('TODO: onContraintBreak', ...args)
+    }
 
     const sceneDesc = new PHYSX.PxSceneDesc(this.tolerances)
     sceneDesc.gravity = new PHYSX.PxVec3(0, -9.81, 0)

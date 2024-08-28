@@ -5,7 +5,7 @@ const groupTypes = ['Scene', 'Group', 'Object3D']
 export function voxToNodes(vox, world) {
   const nodes = new Map()
   function createNode(data) {
-    const Node = Nodes[data.type]
+    const Node = Nodes[data.name]
     const node = new Node(data)
     if (nodes.has(node.id)) {
       console.error('node with id already exists:', node.id)
@@ -16,14 +16,14 @@ export function voxToNodes(vox, world) {
   }
   const root = createNode({
     id: '$root',
-    type: 'group',
+    name: 'group',
   })
   function parse(object3ds, parentNode) {
     for (const object3d of object3ds) {
       if (groupTypes.includes(object3d.type)) {
         const node = createNode({
           id: object3d.name,
-          type: 'group',
+          name: 'group',
           position: object3d.position.toArray(),
           quaternion: object3d.quaternion.toArray(),
           scale: object3d.scale.toArray(),
@@ -35,7 +35,7 @@ export function voxToNodes(vox, world) {
         object3d.geometry.computeBoundsTree() // three-mesh-bvh
         const node = createNode({
           id: object3d.name,
-          type: 'mesh',
+          name: 'mesh',
           model: world.models.register(object3d),
           visible: true,
           collision: false,

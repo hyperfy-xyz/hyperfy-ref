@@ -191,7 +191,7 @@ export class Player extends Entity {
     // material.setFrictionCombineMode(PHYSX.PxCombineModeEnum.eMIN)
     // material.setRestitutionCombineMode(PHYSX.PxCombineModeEnum.eMIN)
     const flags = new PHYSX.PxShapeFlags(PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE) // prettier-ignore
-    const shape = this.world.physics.physics.createShape(geometry, this.material, true, flags)
+    const shape1 = this.world.physics.physics.createShape(geometry, this.material, true, flags)
     const localPose = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
     // rotate to stand up
     _q1.set(0, 0, 0).setFromAxisAngle(v1.set(0, 0, 1), Math.PI / 2)
@@ -199,7 +199,8 @@ export class Player extends Entity {
     // move capsule up so its base is at 0,0,0
     _v1.set(0, halfHeight + radius, 0)
     _v1.toPxTransform(localPose)
-    shape.setLocalPose(localPose)
+    shape1.setLocalPose(localPose)
+    shape1.triggerResult = { id: -1, tag: 'player' }
     const filterData = new PHYSX.PxFilterData(
       Layers.player.group,
       Layers.player.mask,
@@ -209,9 +210,9 @@ export class Player extends Entity {
         PHYSX.PxPairFlagEnum.eDETECT_DISCRETE_CONTACT,
       0
     )
-    // shape.setFlag(PHYSX.PxShapeFlagEnum.eUSE_SWEPT_BOUNDS, true)
-    shape.setQueryFilterData(filterData)
-    shape.setSimulationFilterData(filterData)
+    // shape1.setFlag(PHYSX.PxShapeFlagEnum.eUSE_SWEPT_BOUNDS, true)
+    shape1.setQueryFilterData(filterData)
+    shape1.setSimulationFilterData(filterData)
     const transform = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
     _v1.copy(this.ghost.position).toPxTransform(transform)
     _q1.set(0, 0, 0, 1).toPxTransform(transform)
@@ -225,21 +226,22 @@ export class Player extends Entity {
     this.actor.setRigidDynamicLockFlag(PHYSX.PxRigidDynamicLockFlagEnum.eLOCK_ANGULAR_Z, true)
     // disable gravity we'll add it ourselves
     this.actor.setActorFlag(PHYSX.PxActorFlagEnum.eDISABLE_GRAVITY, true)
-    this.actor.attachShape(shape)
+    this.actor.attachShape(shape1)
 
     // There's a weird issue where running directly at a wall the capsule won't generate contacts and instead
     // go straight through it. It has to be almost perfectly head on, a slight angle and everything works fine.
     // I spent days trying to figure out why, it's not CCD, it's not contact offsets, its just straight up bugged.
     // For now the best solution is to just add a sphere right in the center of our capsule to keep that problem at bay.
+    let shape2
     {
       const geometry = new PHYSX.PxSphereGeometry(CAPSULE_RADIUS)
-      const shape = this.world.physics.physics.createShape(geometry, this.material, true, flags)
-      shape.setQueryFilterData(filterData)
-      shape.setSimulationFilterData(filterData)
+      shape2 = this.world.physics.physics.createShape(geometry, this.material, true, flags)
+      shape2.setQueryFilterData(filterData)
+      shape2.setSimulationFilterData(filterData)
       const pose = new PHYSX.PxTransform(PHYSX.PxIDENTITYEnum.PxIdentity)
       _v1.set(0, halfHeight + radius, 0).toPxTransform(pose)
-      shape.setLocalPose(pose)
-      this.actor.attachShape(shape)
+      shape2.setLocalPose(pose)
+      this.actor.attachShape(shape2)
     }
 
     this.world.physics.scene.addActor(this.actor)
@@ -1313,11 +1315,17 @@ export class Player extends Entity {
     super.destroy()
     this.world.entities.setHot(this, false)
     this.vrm?.destroy()
-    this.controller.release()
-    this.controller = null
-    if (this.item?.model) {
-      this.world.graphics.scene.remove(this.item.model)
-    }
+    // this.controller.release()
+    // this.controller = null
+    // if (this.item?.model) {
+    //   this.world.graphics.scene.remove(this.item.model)
+    // }
+
+    this.untrack?.()
+    this.untrack = null
+
+    this.world.physics.scene.removeActor(this.actor)
+
     this.control?.release()
     this.control = null
   }

@@ -4,7 +4,7 @@ import * as THREE from 'three'
 export class VRM extends Node {
   constructor(data = {}) {
     super(data)
-    this.type = 'vrm'
+    this.name = 'vrm'
     this.isVRM = true
     this.factory = data.factory
     this.vrm = null
