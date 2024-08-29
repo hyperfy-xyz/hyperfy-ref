@@ -35,6 +35,7 @@ export class Object extends Entity {
     this.creator = props.creator
 
     this.schema = this.world.entities.getSchema(props.schemaId)
+    console.log(this.schema)
 
     this.authority = this.createNetworkProp('authority', props.authority)
     this.uploading = this.createNetworkProp('uploading', props.uploading)
@@ -652,15 +653,15 @@ export class Object extends Entity {
         self.modeClientId.value = world.network.client.id
       },
     })
-    add({
-      label: 'Edit',
-      icon: PencilRulerIcon,
-      visible: world.permissions.canEditEntity(self),
-      disabled: self.mode.value !== 'active' && self.mode.value !== 'dead',
-      execute: () => {
-        world.panels.edit(self)
-      },
-    })
+    // add({
+    //   label: 'Edit',
+    //   icon: PencilRulerIcon,
+    //   visible: world.permissions.canEditEntity(self),
+    //   disabled: self.mode.value !== 'active' && self.mode.value !== 'dead',
+    //   execute: () => {
+    //     world.panels.edit(self)
+    //   },
+    // })
     if (world.entities.countEntitysBySchema(self.schema.id) > 1) {
       add({
         label: 'Unlink',

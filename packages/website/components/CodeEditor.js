@@ -40,9 +40,7 @@ export function CodeEditor({ value, onChange, onSave }) {
     <div
       className='code'
       css={css`
-        width: 700px;
-        height: 700px;
-        position: relative;
+        flex: 1;
         .code-container {
           position: absolute;
           inset: 0;

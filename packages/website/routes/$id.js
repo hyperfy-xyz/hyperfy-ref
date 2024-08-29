@@ -108,9 +108,7 @@ function Content() {
             <div>Disconnected</div>
           </div>
         )}
-        {context && (
-          <Context x={context.x} y={context.y} actions={context.actions} />
-        )}
+        {context && <Context x={context.x} y={context.y} actions={context.actions} />}
         {world && <Panels world={world} />}
         {/* <Backpack world={world} /> */}
         {verse.next && <div className='world-next'>Loading next world</div>}
@@ -133,12 +131,7 @@ function Context({ x, y, actions }) {
         user-select: none;
       `}
     >
-      <RadialMenu
-        innerRadius={50}
-        outerRadius={150}
-        actions={actions}
-        gapAngle={6}
-      />
+      <RadialMenu innerRadius={50} outerRadius={150} actions={actions} gapAngle={6} />
     </div>
   )
 }
@@ -252,8 +245,7 @@ const RadialButton = ({
   const outerGapAngle = gapAngle * (innerRadius / outerRadius)
   const adjustedStartDegreeInner = startDegree + offsetDegree + gapAngle / 2
   const adjustedEndDegreeInner = endDegree + offsetDegree - gapAngle / 2
-  const adjustedStartDegreeOuter =
-    startDegree + offsetDegree + outerGapAngle / 2
+  const adjustedStartDegreeOuter = startDegree + offsetDegree + outerGapAngle / 2
   const adjustedEndDegreeOuter = endDegree + offsetDegree - outerGapAngle / 2
   const startXInner = centerX + innerRadius * Math.cos(adjustedStartDegreeInner * (Math.PI / 180)) // prettier-ignore
   const startYInner = centerY + innerRadius * Math.sin(adjustedStartDegreeInner * (Math.PI / 180)) // prettier-ignore
@@ -336,20 +328,66 @@ function Panels({ world }) {
   }, [world])
   const panel = world.panels.panel
   if (!panel) return null
+  return <Panel key={panel.id} {...panel} />
+}
+
+function Panel({ type, entity, close }) {
+  const panelRef = useRef()
+  const barRef = useRef()
+  useEffect(() => {
+    const panel = panelRef.current
+    const bar = barRef.current
+    let top = 70
+    let left = 20
+    let width = 540
+    let height = 800
+    const onPointerDown = e => {
+      e.preventDefault()
+      window.addEventListener('pointermove', onPointerMove)
+      window.addEventListener('pointerup', onPointerUp)
+    }
+    const onPointerMove = e => {
+      e.preventDefault()
+      left += e.movementX
+      top += e.movementY
+      if (top < 70) top = 70
+      commit()
+    }
+    const onPointerUp = e => {
+      e.preventDefault()
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+      // persist()
+    }
+    const commit = () => {
+      panel.style.top = `${top}px`
+      panel.style.left = `${left}px`
+      panel.style.width = `${width}px`
+      panel.style.height = `${height}px`
+    }
+    commit()
+    bar.addEventListener('pointerdown', onPointerDown)
+    return () => {
+      bar.removeEventListener('pointerdown', onPointerDown)
+    }
+  }, [])
   return (
     <div
+      ref={panelRef}
       className='panel'
       css={css`
         position: absolute;
-        top: 100px;
-        left: 100px;
-        width: 300px;
-        height: 400px;
+        /* top: 100px; */
+        /* left: 100px; */
+        /* width: 300px; */
+        /* height: 400px; */
         background: #16161c;
         border: 1px solid rgba(255, 255, 255, 0.03);
         border-radius: 10px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         color: white;
+        display: flex;
+        flex-direction: column;
         .panel-bar {
           height: 40px;
           padding: 0 10px;
@@ -365,38 +403,46 @@ function Panels({ world }) {
             cursor: pointer;
           }
         }
+        .panel-content {
+          flex: 1;
+          position: relative;
+          margin: 8px;
+        }
       `}
     >
-      <div className='panel-bar'>
+      <div className='panel-bar' ref={barRef}>
         <div className='panel-bar-gap' />
-        <div className='panel-bar-close' onClick={panel.close}>
+        <div className='panel-bar-close' onClick={close}>
           <XIcon size={20} />
         </div>
       </div>
-      {panel.type === 'inspect-prototype' && (
+      <div className='panel-content'>
+        {type === 'inspect' && <Inspector entity={entity} />}
+        {/* {type === 'inspect' && <Inspector entity={entity} />} */}
+      </div>
+
+      {/* {type === 'inspect-prototype' && (
         <div>
           <div>It's a prototype</div>
         </div>
       )}
-      {panel.type === 'inspect-avatar' && (
+      {type === 'inspect-avatar' && (
         <div>
           <div>It's an avatar</div>
         </div>
       )}
-      {panel.type === 'inspect-self' && (
+      {type === 'inspect-self' && (
         <div>
           <div>It's me</div>
         </div>
       )}
-      {panel.type === 'edit' && <EditPanel panel={panel} />}
+      {type === 'edit' && <EditPanel panel={panel} />} */}
     </div>
   )
 }
 
-function EditPanel({ panel }) {
-  const entity = panel.entity
-  const [loading, setLoading] = useState(false)
-  const [editing, setEditing] = useState(false)
+function Inspector({ entity }) {
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const rawRef = useRef()
   const save = async () => {
@@ -411,16 +457,26 @@ function EditPanel({ panel }) {
     entity.world.entities.upsertSchemaLocal(entity.schema)
     setSaving(false)
   }
+  useEffect(() => {
+    async function load() {
+      if (entity.schema.script) {
+        const raw = await entity.world.scripts.fetchRaw(entity.schema.script)
+        rawRef.current = raw
+        setLoading(false)
+      } else {
+        rawRef.current = '// ...'
+      }
+    }
+    load()
+  }, [])
   return (
     <div>
-      <div>Edit</div>
+      {/* <div>Edit</div>
       <div
         onClick={async () => {
           if (entity.schema.script) {
             setLoading(true)
-            const raw = await entity.world.scripts.fetchRaw(
-              entity.schema.script
-            )
+            const raw = await entity.world.scripts.fetchRaw(entity.schema.script)
             rawRef.current = raw
             setLoading(false)
             setEditing(true)
@@ -431,9 +487,9 @@ function EditPanel({ panel }) {
         }}
       >
         Edit Code
-      </div>
+      </div> */}
       {loading && <div>Loading</div>}
-      {editing && (
+      {!loading && (
         <>
           <CodeEditor
             value={rawRef.current}
