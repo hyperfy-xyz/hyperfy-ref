@@ -118,7 +118,6 @@ export class Input extends System {
     if (e.repeat) return
     if (this.isInputFocused()) return
     const code = e.code
-    // console.log(code)
     const meta = e.metaKey
     const ctrl = e.ctrlKey
     const shift = e.shiftKey
@@ -216,8 +215,9 @@ export class Input extends System {
 
   onWheel = e => {
     e.preventDefault()
+    const delta = e.shiftKey ? e.deltaX : e.deltaY
     for (const control of this.controls) {
-      if (control.handler.zoom?.(e.deltaY)) {
+      if (control.handler.zoom?.(delta)) {
         break
       }
     }
