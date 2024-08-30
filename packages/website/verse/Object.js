@@ -63,6 +63,7 @@ export class Object extends Entity {
     this.modeChanged = false
 
     this.nodes = new Map()
+    this.worldNodes = new Set()
     this.events = {}
     this.blueprint = null
     this.script = null
@@ -195,12 +196,13 @@ export class Object extends Entity {
   }
 
   rebuild() {
-    // unmount nodes (including detached)
     const prevRoot = this.root
+    // unmount nodes
     this.root.deactivate()
-    this.nodes.forEach(node => {
+    for (const node of this.worldNodes) {
       node.deactivate()
-    })
+    }
+    this.worldNodes.clear()
     this.nodes.clear()
     // release script control
     this.control?.release(false)
@@ -307,9 +309,9 @@ export class Object extends Entity {
           return this.kill()
         }
       }
-      // activate (mount) nodes
-      this.ctx.active = true
-      this.root.activate()
+      // // activate (mount) nodes
+      // this.ctx.active = true
+      // this.root.activate()
       // emit script 'mount' event (post-mount)
       // try {
       //   this.emit('mount')
@@ -330,10 +332,16 @@ export class Object extends Entity {
       // ensure we get updates
       this.incHot()
       // activate (mount) nodes
-      this.ctx.active = false
-      this.root.activate()
+      // this.ctx.active = false
+      // this.root.activate()
     }
-    this.nodes.forEach(node => node.setMode(mode))
+    // activate (mount) nodes
+    this.ctx.active = mode === 'active'
+    this.root.activate()
+    for (const node of this.worldNodes) {
+      node.activate()
+    }
+    // this.nodes.forEach(node => node.setMode(mode))
     this.prevMode = mode
     this.prevModeClientId = modeClientId
   }
@@ -464,12 +472,17 @@ export class Object extends Entity {
         if (node.parent) {
           node.parent.remove(node)
         }
-        node.activate()
+        entity.worldNodes.add(node)
+        if (entity.ctx.active) {
+          node.activate()
+        }
       },
       remove(pNode) {
         const node = entity.nodes.get(pNode.id)
         if (!node) return
         if (node.parent) return // its not in world
+        if (!entity.worldNodes.has(node)) return
+        entity.worldNodes.delete(node)
         node.deactivate()
       },
     }
