@@ -51,15 +51,19 @@ let isAuthority = object.isAuthority()
 let mass = 10
 
 // create physics body
-const body = object.create('box')
-body.visible = false
-body.collision = isAuthority ? 'dynamic' : 'kinematic'
-body.collisionLayer = 'prop'
+const body = object.get('RigidBody')
+body.type = isAuthority ? 'dynamic' : 'kinematic'
 body.mass = mass
-body.setSize(7, 1.1, 7)
-body.position.copy(object.position)
-body.position.y += 1
-body.rotation.copy(object.rotation)
+
+// collider layer
+const collider1 = object.get('Collider1')
+collider1.layer = 'prop'
+const collider2 = object.get('Collider2')
+collider2.layer = 'prop'
+const collider3 = object.get('Collider3')
+collider3.layer = 'prop'
+const collider3b = object.get('Collider3b')
+collider3b.layer = 'prop'
 
 // add seat
 const seat = object.create('group')
@@ -68,30 +72,33 @@ seat.position.y = -0.4
 body.add(seat)
 
 // move fighter to child of body so it follows
-const fighter = object.get('Fighter')
-fighter.position.y -= 1.5 / 2
-body.add(fighter)
+// const fighter = object.get('Fighter')
+// fighter.position.y -= 1.5 / 2
+// body.add(fighter)
 
 // create enter action
 const action = object.create('action')
 action.text = 'Enter'
+action.distance = 5
 action.onTrigger = () => enter()
 action.position.y = 2
 action.position.z = -1
-fighter.add(action)
+body.add(action)
 
 // add body to world space
+body.position.add(object.position)
+body.quaternion.multiply(object.quaternion)
 world.add(body)
 
 function enter() {
   // take authority if needed
   if (!isAuthority) {
     object.takeAuthority()
-    body.collision = 'dynamic'
+    body.type = 'dynamic'
     isAuthority = true
   }
   // hide enter action
-  fighter.remove(action)
+  body.remove(action)
   // take control
   control = object.control({
     btnDown: code => {
@@ -184,7 +191,7 @@ function fixedUpdate(delta) {
   const newAuthority = object.isAuthority()
   if (isAuthority !== newAuthority) {
     isAuthority = newAuthority
-    body.collision = isAuthority ? 'dynamic' : 'kinematic'
+    body.type = isAuthority ? 'dynamic' : 'kinematic'
   }
   if (isAuthority) {
     if (control) {
@@ -297,7 +304,7 @@ function lateUpdate(delta) {
 }
 
 function leave() {
-  fighter.add(action)
+  body.add(action)
   control = null
 }
 
