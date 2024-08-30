@@ -463,10 +463,10 @@ function Inspector({ entity }) {
       if (entity.schema.script) {
         const raw = await entity.world.scripts.fetchRaw(entity.schema.script)
         rawRef.current = raw
-        setLoading(false)
       } else {
         rawRef.current = '// ...'
       }
+      setLoading(false)
     }
     load()
   }, [])
