@@ -2,9 +2,6 @@ import CustomShaderMaterial from '../libs/three-custom-shader-material'
 
 import { createNode } from './createNode'
 
-const LOD_REGEX = /_lod(\d+)/ // eg mesh_lod0 & mesh_lod100
-const COLLIDER_REGEX = /_collider/ // eg mesh_collider
-
 const groupTypes = ['Scene', 'Group', 'Object3D']
 
 export function glbToNodes(glb, world) {
@@ -25,36 +22,46 @@ export function glbToNodes(glb, world) {
     }
     return materials[threeMaterial.uuid]
   }
-  // function parseName(name) {
-  //   const parts = name.split('_')
-  //   let baseName = parts[0]
-  //   let isHidden = false
-  //   let isCollider = false
-  //   let isLod = false
-  //   let maxDistance = null
-  //   for (const part of parts) {
-  //     if (part.startsWith('lod')) {
-  //       isLod = true
-  //       maxDistance = parseInt(part.substring(3), 10)
-  //     } else if (part === 'collider') {
-  //       isCollider = true
-  //     } else if (part === 'hidden') {
-  //       isHidden = true
-  //     }
-  //   }
-  //   return [baseName, isHidden, isCollider, isLod, maxDistance]
-  // }
-  function hasLods(children) {
-    return !!children.find(child => child.isMesh && child.userData.lodMaxDistance)
-  }
+
   function parse(object3ds, parentNode) {
     for (const object3d of object3ds) {
-      // Object3D, Group, Scene
-      if (groupTypes.includes(object3d.type)) {
-        const lod = hasLods(object3d.children)
+      const props = object3d.userData || {}
+      // LOD (custom node)
+      if (props.node === 'lod') {
         const node = registerNode({
           id: object3d.name,
-          name: lod ? 'lod' : 'group',
+          name: 'lod',
+          position: object3d.position.toArray(),
+          quaternion: object3d.quaternion.toArray(),
+          scale: object3d.scale.toArray(),
+        })
+        parentNode.add(node)
+        parse(object3d.children, node)
+      }
+      // RigidBody (custom node)
+      else if (props.node === 'rigidbody') {
+        const node = registerNode({
+          id: object3d.name,
+          name: 'rigidbody',
+          type: props.type,
+          mass: props.mass,
+          position: object3d.position.toArray(),
+          quaternion: object3d.quaternion.toArray(),
+          scale: object3d.scale.toArray(),
+        })
+        parentNode.add(node)
+        parse(object3d.children, node)
+      }
+      // Collider (custom node)
+      else if (props.node === 'collider') {
+        console.error('TODO: glbToNodes collider for box/sphere in blender?')
+        console.log(object3d)
+        const node = registerNode({
+          id: object3d.name,
+          name: 'collider',
+          type: 'custom',
+          geometry: object3d.geometry,
+          convex: props.convex,
           position: object3d.position.toArray(),
           quaternion: object3d.quaternion.toArray(),
           scale: object3d.scale.toArray(),
@@ -63,10 +70,9 @@ export function glbToNodes(glb, world) {
         parse(object3d.children, node)
       }
       // Mesh
-      if (object3d.type === 'Mesh') {
-        // const [baseName, isHidden, isCollider, isLod, maxDistance] = parseName(object3d.name) // prettier-ignore
-        // apply any wind effect
-        if (object3d.material.userData.wind) {
+      else if (object3d.type === 'Mesh') {
+        // wind effect
+        if (props.wind) {
           addWind(object3d, world)
         }
         const material = getMaterial(object3d.material)
@@ -76,52 +82,43 @@ export function glbToNodes(glb, world) {
           type: 'custom',
           geometry: object3d.geometry,
           material,
-          // model: world.models.register(object3d),
-          // visible: object3d.userData.visible,
-          // collision: object3d.userData.collision,
-          // collisionLayer: object3d.userData.collisionLayer,
+          visible: props.visible,
           position: object3d.position.toArray(),
           quaternion: object3d.quaternion.toArray(),
           scale: object3d.scale.toArray(),
         })
-        const lodMaxDistance = object3d.userData.lodMaxDistance
-        if (lodMaxDistance) {
-          parentNode.insert(node, lodMaxDistance)
+        if (parentNode.name === 'lod' && props.maxDistance) {
+          parentNode.insert(node, props.maxDistance)
         } else {
           parentNode.add(node)
         }
-        // if (isLod) {
-        //   let lod = lods[baseName]
-        //   if (!lod) {
-        //     lod = registerNode({
-        //       id: baseName,
-        //       name: 'lod',
-        //       position: [0, 0, 0], // object3d.position.toArray(),
-        //       quaternion: [0, 0, 0, 1], // object3d.quaternion.toArray(),
-        //       scale: [1, 1, 1], // object3d.scale.toArray(),
-        //     })
-        //     lods[baseName] = lod
-        //     parentNode.add(lod)
-        //   }
-        //   lod.insert(node, maxDistance)
-        // } else {
-        //   parentNode.add(node)
-        // }
         parse(object3d.children, node)
       }
-      if (object3d.type === 'SkinnedMesh') {
+      // SkinnedMesh
+      else if (object3d.type === 'SkinnedMesh') {
         // TODO
+      }
+      // Object3D / Group / Scene
+      else if (groupTypes.includes(object3d.type)) {
+        const node = registerNode({
+          id: object3d.name,
+          name: 'group',
+          position: object3d.position.toArray(),
+          quaternion: object3d.quaternion.toArray(),
+          scale: object3d.scale.toArray(),
+        })
+        parentNode.add(node)
+        parse(object3d.children, node)
       }
     }
   }
-  const rootHasLods = hasLods(glb.scene.children)
   const root = registerNode({
     id: '$root',
-    name: rootHasLods ? 'lod' : 'group',
+    name: 'group',
   })
   // parseTerrain(glb)
   parse(glb.scene.children, root)
-  // console.log('$root', root)
+  console.log('$root', root)
   return root
 }
 

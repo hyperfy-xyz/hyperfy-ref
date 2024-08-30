@@ -99,6 +99,13 @@ export class Mesh extends Node {
     }
   }
 
+  setVisible(visible) {
+    if (this.visible === visible) return
+    this.visible = visible
+    this.needsRebuild = true
+    this.setDirty()
+  }
+
   copy(source, recursive) {
     super.copy(source, recursive)
     this.type = source.type

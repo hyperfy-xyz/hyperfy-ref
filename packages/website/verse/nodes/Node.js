@@ -225,7 +225,7 @@ export class Node {
       _m1.compose(position, quaternion, defaultScale)
       _m2.copy(this.parent.matrixWorld).invert()
       _m3.multiplyMatrices(_m2, _m1)
-      _m3.decompose(this.position, this.quaternion, this.scale)
+      _m3.decompose(this.position, this.quaternion, _v1)
       // this.matrix.copy(_m3)
       // this.matrixWorld.copy(_m1)
     } else {

@@ -1,6 +1,10 @@
+import * as THREE from 'three'
 import { isBoolean, isNumber } from 'lodash-es'
+
 import { Node } from './Node'
+
 import { Layers } from '../extras/Layers'
+import { geometryToPxMesh } from '../extras/geometryToPxMesh'
 
 const defaults = {
   type: 'box',
@@ -9,6 +13,7 @@ const defaults = {
   depth: 1,
   radius: 0.5,
   geometry: null,
+  convex: false,
   trigger: false,
   tag: '',
   layer: 'environment',
@@ -19,9 +24,21 @@ const defaults = {
   onLeave: null,
 }
 
+const _v1 = new THREE.Vector3()
+const _v2 = new THREE.Vector3()
+const _q1 = new THREE.Quaternion()
+
 const types = ['box', 'sphere', 'custom']
 
 const reservedTags = ['player']
+
+const pxMeshes = {}
+function getPxMesh(world, geometry, convex) {
+  if (!pxMeshes[geometry.uuid]) {
+    pxMeshes[geometry.uuid] = geometryToPxMesh(world, geometry, convex)
+  }
+  return pxMeshes[geometry.uuid]
+}
 
 export class Collider extends Node {
   constructor(data = {}) {
@@ -34,6 +51,7 @@ export class Collider extends Node {
     this.depth = isNumber(data.depth) ? data.depth : defaults.depth
     this.radius = isNumber(data.radius) ? data.radius : defaults.radius
     this.geometry = data.geometry || defaults.geometry
+    this.convex = isBoolean(data.convex) ? data.convex : defaults.convex
     this.trigger = isBoolean(data.trigger) ? data.trigger : defaults.trigger
     this.tag = data.tag || defaults.tag
     this.layer = data.layer || defaults.layer
@@ -51,7 +69,15 @@ export class Collider extends Node {
     } else if (this.type === 'sphere') {
       geometry = new PHYSX.PxSphereGeometry(this.radius)
     } else if (this.type === 'custom') {
-      geometry = this.geometry
+      const mesh = getPxMesh(this.ctx.world, this.geometry, this.convex)
+      this.matrixWorld.decompose(_v1, _q1, _v2)
+      const scale = new PHYSX.PxMeshScale(new PHYSX.PxVec3(_v2.x, _v2.y, _v2.z), new PHYSX.PxQuat(0, 0, 0, 1))
+      if (this.convex) {
+        geometry = new PHYSX.PxConvexMeshGeometry(mesh, scale)
+      } else {
+        geometry = new PHYSX.PxTriangleMeshGeometry(mesh, scale)
+      }
+      PHYSX.destroy(scale)
     }
     const material = this.ctx.world.physics.physics.createMaterial(this.staticFriction, this.dynamicFriction, this.restitution) // prettier-ignore
     const flags = new PHYSX.PxShapeFlags()
@@ -70,6 +96,13 @@ export class Collider extends Node {
     } else {
       this.shape.triggerResult = { id: this.id, tag: this.tag }
     }
+    // const parentWorldScale = _v2
+    // this.parent.matrixWorld.decompose(_v1, _q1, parentWorldScale)
+    const position = _v1.copy(this.position).multiply(this.parent.scale)
+    const pose = new PHYSX.PxTransform()
+    position.toPxTransform(pose)
+    this.quaternion.toPxTransform(pose)
+    this.shape.setLocalPose(pose)
     this.parent?.addShape?.(this.shape)
     PHYSX.destroy(geometry)
     this.needsRebuild = false
@@ -102,6 +135,7 @@ export class Collider extends Node {
     this.depth = source.depth
     this.radius = source.radius
     this.geometry = source.geometry
+    this.convex = source.convex
     this.trigger = source.trigger
     this.tag = source.tag
     this.layer = source.layer
@@ -175,12 +209,18 @@ export class Collider extends Node {
             self.setDirty()
           }
         },
-        get geometry() {
-          return null // TODO: handle?
-        },
-        set geometry(value) {
-          throw new Error('[collider] cannot set geometry')
-        },
+        // get geometry() {
+        //   return null // TODO: handle?
+        // },
+        // set geometry(value) {
+        //   throw new Error('[collider] cannot set geometry')
+        // },
+        // get convex() {
+        //   return null
+        // },
+        // set convex(value) {
+        //   // ...
+        // },
         get trigger() {
           return self.trigger
         },

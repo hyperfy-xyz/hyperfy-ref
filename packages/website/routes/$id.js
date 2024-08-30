@@ -458,6 +458,7 @@ function Inspector({ entity }) {
     setSaving(false)
   }
   useEffect(() => {
+    console.log('inspect', entity)
     async function load() {
       if (entity.schema.script) {
         const raw = await entity.world.scripts.fetchRaw(entity.schema.script)
