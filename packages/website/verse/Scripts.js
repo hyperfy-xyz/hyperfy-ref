@@ -11,6 +11,8 @@ import { Vector3Enhanced } from './extras/Vector3Enhanced'
 import { clamp } from './extras/utils'
 import { Layers } from './extras/Layers'
 import { isNumber } from 'lodash-es'
+import { Curve } from './extras/Curve'
+import { Gradient } from './extras/Gradient'
 
 export class Scripts extends System {
   constructor(world) {
@@ -43,6 +45,8 @@ export class Scripts extends System {
       Vector3Lerp: Vector3Lerp,
       QuaternionLerp: QuaternionLerp,
       Material: Material,
+      Curve: Curve,
+      Gradient: Gradient,
       DEG2RAD: DEG2RAD,
       RAD2DEG: RAD2DEG,
       // pause: () => this.world.pause(),

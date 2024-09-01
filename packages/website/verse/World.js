@@ -9,6 +9,7 @@ import { Actions } from './Actions'
 import { Models } from './Models'
 import { Composites } from './Composites'
 import { LODs } from './LODs'
+import { Particles } from './Particles'
 import { Scripts } from './Scripts'
 import { Panels } from './Panels'
 import { Permissions } from './Permissions'
@@ -46,6 +47,7 @@ export class World extends EventEmitter {
     this.models = this.register(Models)
     this.composites = this.register(Composites)
     this.lods = this.register(LODs)
+    this.particles = this.register(Particles)
     this.scripts = this.register(Scripts)
     this.panels = this.register(Panels)
     this.permissions = this.register(Permissions)

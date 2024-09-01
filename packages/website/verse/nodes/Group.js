@@ -1,8 +1,8 @@
 import { Node } from './Node'
 
 export class Group extends Node {
-  constructor(entity, data) {
-    super(entity, data)
+  constructor(data) {
+    super(data)
     this.name = 'group'
     this.isGroup = true
   }

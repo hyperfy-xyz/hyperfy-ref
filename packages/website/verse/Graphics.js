@@ -43,6 +43,22 @@ THREE.InstancedMesh.prototype.resize = function (size) {
   // }
 }
 
+// add alpha to Color
+THREE.Color.prototype.setRGBAHex = function (val) {
+  if (typeof val === 'string' && val.length === 9) {
+    const r = parseInt(val.slice(1, 3), 16) / 255
+    const g = parseInt(val.slice(3, 5), 16) / 255
+    const b = parseInt(val.slice(5, 7), 16) / 255
+    const a = parseInt(val.slice(7, 9), 16) / 255
+    this.setRGB(r, g, b)
+    this.a = a
+    return this
+  }
+  this.set(val)
+  this.a = 1
+  return this
+}
+
 const v1 = new THREE.Vector3()
 const vec2 = new THREE.Vector2()
 

@@ -124,7 +124,7 @@ export class Mesh extends Node {
   getProxy() {
     if (!this.proxy) {
       const self = this
-      const proxy = {
+      let proxy = {
         get type() {
           return self.type
         },
@@ -231,8 +231,8 @@ export class Mesh extends Node {
           self.needsRebuild = true
           self.setDirty()
         },
-        ...super.getProxy(),
       }
+      proxy = Object.defineProperties(proxy, Object.getOwnPropertyDescriptors(super.getProxy())) // inherit Node properties
       this.proxy = proxy
     }
     return this.proxy
