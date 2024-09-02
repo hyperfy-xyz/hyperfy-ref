@@ -6,8 +6,13 @@ import { isNumber } from 'lodash-es'
 const _v1 = new THREE.Vector3()
 const _v2 = new THREE.Vector3()
 const _q1 = new THREE.Quaternion()
+const _m1 = new THREE.Matrix4()
+const _m2 = new THREE.Matrix4()
+const _m3 = new THREE.Matrix4()
+const _defaultScale = new THREE.Vector3(1, 1, 1)
 
 const types = ['static', 'kinematic', 'dynamic']
+const reservedTags = ['player']
 
 const defaults = {
   type: 'static',
@@ -18,8 +23,6 @@ const defaults = {
   onTriggerEnter: null,
   onTriggerLeave: null,
 }
-
-const reservedTags = ['player']
 
 export class RigidBody extends Node {
   constructor(data = {}) {
@@ -52,18 +55,19 @@ export class RigidBody extends Node {
       this.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
       // this.actor.setMass(this.mass)
       PHYSX.PxRigidBodyExt.prototype.setMassAndUpdateInertia(this.actor, this.mass)
-      this.untrack = this.ctx.world.physics.track(this.actor, this.onPhysicsMovement)
+      // this.untrack = this.ctx.world.physics.track(this.actor, this.onPhysicsMovement)
     } else if (this.type === 'dynamic') {
       this.actor = this.ctx.world.physics.physics.createRigidDynamic(this.transform)
       // this.actor.setMass(this.mass)
       PHYSX.PxRigidBodyExt.prototype.setMassAndUpdateInertia(this.actor, this.mass)
-      this.untrack = this.ctx.world.physics.track(this.actor, this.onPhysicsMovement)
+      // this.untrack = this.ctx.world.physics.track(this.actor, this.onPhysicsMovement)
     }
     for (const shape of this.shapes) {
       this.actor.attachShape(shape)
     }
     const self = this
     this.removeActor = this.ctx.world.physics.addActor(this.actor, {
+      onInterpolate: this.type === 'kinematic' || this.type === 'dynamic' ? this.onInterpolate : null,
       get tag() {
         return self.tag
       },
@@ -97,10 +101,26 @@ export class RigidBody extends Node {
     }
   }
 
+  onInterpolate = (position, quaternion) => {
+    if (this.parent) {
+      _m1.compose(position, quaternion, _defaultScale)
+      _m2.copy(this.parent.matrixWorld).invert()
+      _m3.multiplyMatrices(_m2, _m1)
+      _m3.decompose(this.position, this.quaternion, _v1)
+      // this.matrix.copy(_m3)
+      // this.matrixWorld.copy(_m1)
+    } else {
+      this.position.copy(position)
+      this.quaternion.copy(quaternion)
+      // this.matrix.compose(this.position, this.quaternion, this.scale)
+      // this.matrixWorld.copy(this.matrix)
+    }
+  }
+
   unmount() {
     if (this.actor) {
-      this.untrack?.()
-      this.untrack = null
+      // this.untrack?.()
+      // this.untrack = null
       this.removeActor?.()
       this.removeActor = null
       this.actor.release()

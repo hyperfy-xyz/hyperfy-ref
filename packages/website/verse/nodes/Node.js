@@ -220,21 +220,21 @@ export class Node {
     return this
   }
 
-  onPhysicsMovement = (position, quaternion) => {
-    if (this.parent) {
-      _m1.compose(position, quaternion, defaultScale)
-      _m2.copy(this.parent.matrixWorld).invert()
-      _m3.multiplyMatrices(_m2, _m1)
-      _m3.decompose(this.position, this.quaternion, _v1)
-      // this.matrix.copy(_m3)
-      // this.matrixWorld.copy(_m1)
-    } else {
-      this.position.copy(position)
-      this.quaternion.copy(quaternion)
-      // this.matrix.compose(this.position, this.quaternion, this.scale)
-      // this.matrixWorld.copy(this.matrix)
-    }
-  }
+  // onPhysicsMovement = (position, quaternion) => {
+  //   if (this.parent) {
+  //     _m1.compose(position, quaternion, defaultScale)
+  //     _m2.copy(this.parent.matrixWorld).invert()
+  //     _m3.multiplyMatrices(_m2, _m1)
+  //     _m3.decompose(this.position, this.quaternion, _v1)
+  //     // this.matrix.copy(_m3)
+  //     // this.matrixWorld.copy(_m1)
+  //   } else {
+  //     this.position.copy(position)
+  //     this.quaternion.copy(quaternion)
+  //     // this.matrix.compose(this.position, this.quaternion, this.scale)
+  //     // this.matrixWorld.copy(this.matrix)
+  //   }
+  // }
 
   // todo: getWorldQuaternion etc
   getWorldPosition(vec3 = _v1) {

@@ -249,6 +249,7 @@ export class Player extends Entity {
     const self = this
     this.removeActor = this.world.physics.addActor(this.actor, {
       tag: 'player',
+      onInterpolate: this.onInterpolate,
       // get onContactStart() {
       //   return self.onContactStart
       // },
@@ -256,7 +257,7 @@ export class Player extends Entity {
       //   return self.onContactEnd
       // },
     })
-    this.untrack = this.world.physics.track(this.actor, this.onPhysicsMovement)
+    // this.untrack = this.world.physics.track(this.actor, this.onPhysicsMovement)
 
     // start
     this.world.entities.setHot(this, true)
@@ -267,7 +268,7 @@ export class Player extends Entity {
     }
   }
 
-  onPhysicsMovement = position => {
+  onInterpolate = position => {
     // read back controller position and apply to ghost & vrm
     // const radius = CAPSULE_RADIUS
     // const halfHeight = (this.vrm.height - radius - radius) / 2
@@ -461,7 +462,7 @@ export class Player extends Entity {
         const hit = this.world.physics.raycast(origin, DOWN, 2, hitMask)
         let actor = hit?.actor || null
         if (actor) {
-          actor = this.world.physics.tracking.get(actor.ptr)?.actor || null
+          actor = this.world.physics.handles.get(actor.ptr)?.actor || null
         }
         // if we found a new platform, set it up for tracking
         if (this.platform.actor !== actor) {
@@ -1332,8 +1333,8 @@ export class Player extends Entity {
     //   this.world.graphics.scene.remove(this.item.model)
     // }
 
-    this.untrack?.()
-    this.untrack = null
+    // this.untrack?.()
+    // this.untrack = null
     this.removeActor?.()
     this.removeActor = null
 

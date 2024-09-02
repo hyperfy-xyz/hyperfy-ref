@@ -26,6 +26,10 @@ import { Layers } from '../extras/Layers'
 const _v1 = new THREE.Vector3()
 const _v2 = new THREE.Vector3()
 const _q1 = new THREE.Quaternion()
+const _m1 = new THREE.Matrix4()
+const _m2 = new THREE.Matrix4()
+const _m3 = new THREE.Matrix4()
+const _defaultScale = new THREE.Vector3(1, 1, 1)
 
 const defaults = {
   width: 1,
@@ -138,10 +142,14 @@ export class Box extends Node {
       }
       this.actor.setMass?.(this.mass)
       this.actor.attachShape(shape)
-      this.ctx.world.physics.scene.addActor(this.actor)
-      if (this.collision === 'kinematic' || this.collision === 'dynamic') {
-        this.untrack = this.ctx.world.physics.track(this.actor, this.onPhysicsMovement)
-      }
+      this.removeActor = this.ctx.world.physics.addActor(this.actor, {
+        onInterpolate: this.collision === 'kinematic' || this.collision === 'dynamic' ? this.onInterpolate : null,
+      })
+      // this.removeActor = this.ctx.world.physics.scene.addActor(this.actor)
+
+      // if (this.collision === 'kinematic' || this.collision === 'dynamic') {
+      //   this.untrack = this.ctx.world.physics.track(this.actor, this.onPhysicsMovement)
+      // }
     }
   }
 
@@ -170,6 +178,22 @@ export class Box extends Node {
     }
   }
 
+  onInterpolate = (position, quaternion) => {
+    if (this.parent) {
+      _m1.compose(position, quaternion, _defaultScale)
+      _m2.copy(this.parent.matrixWorld).invert()
+      _m3.multiplyMatrices(_m2, _m1)
+      _m3.decompose(this.position, this.quaternion, _v1)
+      // this.matrix.copy(_m3)
+      // this.matrixWorld.copy(_m1)
+    } else {
+      this.position.copy(position)
+      this.quaternion.copy(quaternion)
+      // this.matrix.compose(this.position, this.quaternion, this.scale)
+      // this.matrixWorld.copy(this.matrix)
+    }
+  }
+
   unmount() {
     if (this.mesh) {
       this.ctx.world.graphics.scene.remove(this.mesh)
@@ -180,8 +204,10 @@ export class Box extends Node {
       this.sItem = null
     }
     if (this.actor) {
-      this.untrack?.()
-      this.ctx.world.physics.scene.removeActor(this.actor)
+      // this.untrack?.()
+      this.removeActor?.()
+      this.removeActor = null
+      // this.ctx.world.physics.scene.removeActor(this.actor)
       // TODO: destroy physics things
     }
   }
@@ -314,25 +340,27 @@ export class Box extends Node {
           const prev = self.collision
           self.collision = value
           if (self.actor) {
-            if (value === 'dynamic') {
-              self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
-              // self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
+            // if (value === 'dynamic') {
+            //   self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, false)
+            //   // self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, true)
 
-              // for some reason we need to re-set the global pose
-              // otherwise the physics system can report an older pose from when this was dynamic before
-              self.matrixWorld.decompose(_v1, _q1, _v2)
-              _v1.toPxTransform(self.transform)
-              _q1.toPxTransform(self.transform)
-              self.actor.setGlobalPose(self.transform)
+            //   // for some reason we need to re-set the global pose
+            //   // otherwise the physics system can report an older pose from when this was dynamic before
+            //   self.matrixWorld.decompose(_v1, _q1, _v2)
+            //   _v1.toPxTransform(self.transform)
+            //   _q1.toPxTransform(self.transform)
+            //   self.actor.setGlobalPose(self.transform)
 
-              self.untrack = self.ctx.world.physics.track(self.actor, self.onPhysicsMovement)
-            }
-            if (value === 'kinematic') {
-              self.untrack?.()
-              self.untrack = null
-              // self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
-              self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
-            }
+            //   self.untrack = self.ctx.world.physics.track(self.actor, self.onPhysicsMovement)
+            // }
+            // if (value === 'kinematic') {
+            //   self.untrack?.()
+            //   self.untrack = null
+            //   // self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eENABLE_CCD, false)
+            //   self.actor.setRigidBodyFlag(PHYSX.PxRigidBodyFlagEnum.eKINEMATIC, true)
+            // }
+            self.needsRebuild = true
+            self.setDirty()
           } else {
             self.needsRebuild = true
             self.setDirty()

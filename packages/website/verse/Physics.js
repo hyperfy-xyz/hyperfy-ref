@@ -161,8 +161,7 @@ export class Physics extends System {
     this.scene = this.physics.createScene(sceneDesc)
 
     this.handles = new Map()
-
-    this.tracking = new Map()
+    // this.tracking = new Map()
     this.active = new Set()
 
     this.raycastResult = new PHYSX.PxRaycastResult()
@@ -225,39 +224,63 @@ export class Physics extends System {
     this.scene.addActor(body)
   }
 
-  track(actor, onPhysicsMovement) {
-    const item = {
-      actor,
-      onPhysicsMovement,
-      prev: {
-        position: new THREE.Vector3(),
-        quaternion: new THREE.Quaternion(),
-      },
-      next: {
-        position: new THREE.Vector3(),
-        quaternion: new THREE.Quaternion(),
-      },
-      curr: {
-        position: new THREE.Vector3(),
-        quaternion: new THREE.Quaternion(),
-      },
-    }
-    const pose = actor.getGlobalPose()
-    item.prev.position.copy(pose.p)
-    item.prev.quaternion.copy(pose.q)
-    item.next.position.copy(pose.p)
-    item.next.quaternion.copy(pose.q)
-    item.curr.position.copy(pose.p)
-    item.curr.quaternion.copy(pose.q)
-    this.tracking.set(actor.ptr, item)
-    return () => {
-      this.tracking.delete(actor.ptr)
-    }
-  }
+  // track(actor, onPhysicsMovement) {
+  //   const item = {
+  //     actor,
+  //     onPhysicsMovement,
+  //     prev: {
+  //       position: new THREE.Vector3(),
+  //       quaternion: new THREE.Quaternion(),
+  //     },
+  //     next: {
+  //       position: new THREE.Vector3(),
+  //       quaternion: new THREE.Quaternion(),
+  //     },
+  //     curr: {
+  //       position: new THREE.Vector3(),
+  //       quaternion: new THREE.Quaternion(),
+  //     },
+  //   }
+  //   const pose = actor.getGlobalPose()
+  //   item.prev.position.copy(pose.p)
+  //   item.prev.quaternion.copy(pose.q)
+  //   item.next.position.copy(pose.p)
+  //   item.next.quaternion.copy(pose.q)
+  //   item.curr.position.copy(pose.p)
+  //   item.curr.quaternion.copy(pose.q)
+  //   this.tracking.set(actor.ptr, item)
+  //   return () => {
+  //     this.tracking.delete(actor.ptr)
+  //   }
+  // }
 
   addActor(actor, handle) {
+    handle.actor = actor
     handle.contactedHandles = new Set()
     handle.triggeredHandles = new Set()
+    if (handle.onInterpolate) {
+      handle.interpolation = {
+        prev: {
+          position: new THREE.Vector3(),
+          quaternion: new THREE.Quaternion(),
+        },
+        next: {
+          position: new THREE.Vector3(),
+          quaternion: new THREE.Quaternion(),
+        },
+        curr: {
+          position: new THREE.Vector3(),
+          quaternion: new THREE.Quaternion(),
+        },
+      }
+      const pose = actor.getGlobalPose()
+      handle.interpolation.prev.position.copy(pose.p)
+      handle.interpolation.prev.quaternion.copy(pose.q)
+      handle.interpolation.next.position.copy(pose.p)
+      handle.interpolation.next.quaternion.copy(pose.q)
+      handle.interpolation.curr.position.copy(pose.p)
+      handle.interpolation.curr.quaternion.copy(pose.q)
+    }
     this.handles.set(actor.ptr, handle)
     this.scene.addActor(actor)
     return () => {
@@ -300,26 +323,28 @@ export class Physics extends System {
     const size = activeActors.size()
     for (let i = 0; i < size; i++) {
       const actorPtr = activeActors.get(i).ptr
-      const item = this.tracking.get(actorPtr)
-      if (!item) {
+      const handle = this.handles.get(actorPtr)
+      if (!handle) {
         // todo: addBot vrms do this
         // console.warn('active actor not found?', actorPtr)
         continue
       }
-      item.prev.position.copy(item.next.position)
-      item.prev.quaternion.copy(item.next.quaternion)
-      const pose = item.actor.getGlobalPose()
-      item.next.position.copy(pose.p)
-      item.next.quaternion.copy(pose.q)
-      this.active.add(item)
+      const lerp = handle.interpolation
+      lerp.prev.position.copy(lerp.next.position)
+      lerp.prev.quaternion.copy(lerp.next.quaternion)
+      const pose = handle.actor.getGlobalPose()
+      lerp.next.position.copy(pose.p)
+      lerp.next.quaternion.copy(pose.q)
+      this.active.add(handle)
     }
   }
 
   interpolate(alpha) {
-    for (const item of this.active) {
-      item.curr.position.lerpVectors(item.prev.position, item.next.position, alpha)
-      item.curr.quaternion.slerpQuaternions(item.prev.quaternion, item.next.quaternion, alpha)
-      item.onPhysicsMovement?.(item.curr.position, item.curr.quaternion)
+    for (const handle of this.active) {
+      const lerp = handle.interpolation
+      lerp.curr.position.lerpVectors(lerp.prev.position, lerp.next.position, alpha)
+      lerp.curr.quaternion.slerpQuaternions(lerp.prev.quaternion, lerp.next.quaternion, alpha)
+      handle.onInterpolate(lerp.curr.position, lerp.curr.quaternion)
     }
     // finalize any physics updates immediately
     // but don't listen to any loopback commits from those actor moves
