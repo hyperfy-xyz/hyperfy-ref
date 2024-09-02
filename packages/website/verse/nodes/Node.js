@@ -274,6 +274,12 @@ export class Node {
         set rotation(value) {
           throw new Error('Cannot modify node position')
         },
+        get scale() {
+          return self.scale
+        },
+        set scale(value) {
+          throw new Error('Cannot modify node scale')
+        },
         get parent() {
           return self.parent?.getProxy()
         },

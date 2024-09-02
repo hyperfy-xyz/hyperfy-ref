@@ -34,6 +34,10 @@ const _overlapHit = {
   actor: null,
 }
 
+const triggerResult = {
+  tag: null,
+}
+
 // const collisionMatrix = {
 //   // key = group
 //   // value = mask for what the group can hit
@@ -65,8 +69,53 @@ export class Physics extends System {
     this.physics = PHYSX.CreatePhysics(this.version, this.foundation, this.tolerances)
     this.defaultMaterial = this.physics.createMaterial(0.2, 0.2, 0.2)
 
+    this.contactsResult = new ContactsResult()
+    const contactPoints = new PHYSX.PxArray_PxContactPairPoint(64)
     const simulationEventCallback = new PHYSX.PxSimulationEventCallbackImpl()
-    simulationEventCallback.onContact = () => {} // TODO
+    simulationEventCallback.onContact = (pairHeader, pairs, count) => {
+      pairHeader = PHYSX.wrapPointer(pairHeader, PHYSX.PxContactPairHeader)
+      const handle0 = this.handles.get(pairHeader.get_actors(0)?.ptr)
+      const handle1 = this.handles.get(pairHeader.get_actors(1)?.ptr)
+      if (!handle0 || !handle1) return
+      this.contactsResult.clear()
+      for (let i = 0; i < count; i++) {
+        const pair = PHYSX.NativeArrayHelpers.prototype.getContactPairAt(pairs, i)
+        if (pair.events.isSet(PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_FOUND)) {
+          const pxContactPoints = pair.extractContacts(contactPoints.begin(), 64)
+          if (pxContactPoints > 0) {
+            for (let j = 0; j < pxContactPoints; j++) {
+              const contact = contactPoints.get(j)
+              this.contactsResult.add(contact.position, contact.normal, contact.impulse)
+            }
+          }
+          const result = this.contactsResult.get()
+          if (!handle0.contactedHandles.has(handle1)) {
+            result.entityId = handle1.entityId
+            result.tag = handle1.tag
+            handle0.onContactStart?.(result)
+            handle0.contactedHandles.add(handle1)
+          }
+          if (!handle1.contactedHandles.has(handle0)) {
+            result.entityId = handle0.entityId
+            result.tag = handle0.tag
+            handle1.onContactStart?.(result)
+            handle1.contactedHandles.add(handle0)
+          }
+        } else if (pair.events.isSet(PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_LOST)) {
+          const result = this.contactsResult.get()
+          if (handle0.contactedHandles.has(handle1)) {
+            result.tag = handle1.tag
+            handle0.onContactEnd?.(result)
+            handle0.contactedHandles.delete(handle1)
+          }
+          if (handle1.contactedHandles.has(handle0)) {
+            result.tag = handle0.tag
+            handle1.onContactEnd?.(result)
+            handle1.contactedHandles.delete(handle0)
+          }
+        }
+      }
+    }
     simulationEventCallback.onTrigger = (pairs, count) => {
       pairs = PHYSX.wrapPointer(pairs, PHYSX.PxTriggerPair)
       for (let i = 0; i < count; i++) {
@@ -74,18 +123,25 @@ export class Physics extends System {
         // ignore pairs if a shape was deleted.
         // this prevents an issue where onLeave can get called after rebuilding an object that had entered a trigger
         if (
-          pair.flags.isSet(PHYSX.PxTriggerPairFlagEnum.eREMOVED_SHAPE_TRIGGER)
-          // pair.flags.isSet(PHYSX.PxTriggerPairFlagEnum.eREMOVED_SHAPE_OTHER)
+          pair.flags.isSet(PHYSX.PxTriggerPairFlagEnum.eREMOVED_SHAPE_TRIGGER) ||
+          pair.flags.isSet(PHYSX.PxTriggerPairFlagEnum.eREMOVED_SHAPE_OTHER)
         ) {
           continue
         }
-        const node = pair.triggerShape.triggerNode
-        const result = pair.otherShape.triggerResult
-        if (!node || !node.mounted || !result) continue
+        const triggerHandle = this.handles.get(pair.triggerShape.getActor().ptr)
+        const otherHandle = this.handles.get(pair.otherShape.getActor().ptr)
+        if (!triggerHandle || !otherHandle) continue
+        triggerResult.tag = otherHandle.tag
         if (pair.status === PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_FOUND) {
-          node.onEnter?.(result)
+          if (!otherHandle.triggeredHandles.has(triggerHandle)) {
+            triggerHandle.onTriggerEnter?.(triggerResult)
+            otherHandle.triggeredHandles.add(triggerHandle)
+          }
         } else if (pair.status === PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_LOST) {
-          node.onLeave?.(result)
+          if (otherHandle.triggeredHandles.has(triggerHandle)) {
+            triggerHandle.onTriggerLeave?.(triggerResult)
+            otherHandle.triggeredHandles.delete(triggerHandle)
+          }
         }
       }
     }
@@ -103,6 +159,8 @@ export class Physics extends System {
     sceneDesc.simulationEventCallback = simulationEventCallback
     sceneDesc.broadPhaseType = PHYSX.PxBroadPhaseTypeEnum.eGPU
     this.scene = this.physics.createScene(sceneDesc)
+
+    this.handles = new Map()
 
     this.tracking = new Map()
     this.active = new Set()
@@ -194,6 +252,36 @@ export class Physics extends System {
     this.tracking.set(actor.ptr, item)
     return () => {
       this.tracking.delete(actor.ptr)
+    }
+  }
+
+  addActor(actor, handle) {
+    handle.contactedHandles = new Set()
+    handle.triggeredHandles = new Set()
+    this.handles.set(actor.ptr, handle)
+    this.scene.addActor(actor)
+    return () => {
+      // end any contacts
+      if (handle.contactedHandles.size) {
+        this.contactsResult.clear()
+        const result = this.contactsResult.get()
+        for (const otherHandle of handle.contactedHandles) {
+          result.tag = handle.tag
+          otherHandle.onContactEnd?.(result)
+          otherHandle.contactedHandles.delete(handle)
+        }
+      }
+      // end any triggers
+      if (handle.triggeredHandles.size) {
+        for (const triggerHandle of handle.triggeredHandles) {
+          triggerResult.tag = handle.tag
+          triggerHandle.onTriggerLeave?.(triggerResult)
+        }
+      }
+      // remove from scene
+      this.scene.removeActor(actor)
+      // delete data
+      this.handles.delete(actor.ptr)
     }
   }
 
@@ -365,5 +453,41 @@ const loadPhysX = async () => {
     allocator = new PHYSX.PxDefaultAllocator()
     errorCb = new PHYSX.PxDefaultErrorCallback()
     foundation = PHYSX.CreateFoundation(version, allocator, errorCb)
+  }
+}
+
+class ContactsResult {
+  constructor() {
+    this.pool = []
+    this.idx = 0
+    this.result = {
+      tag: null,
+      contacts: [],
+    }
+  }
+
+  clear() {
+    this.result.contacts.length = 0
+    this.idx = 0
+  }
+
+  add(position, normal, impulse) {
+    if (!this.pool[this.idx]) {
+      this.pool[this.idx] = {
+        position: new THREE.Vector3(),
+        normal: new THREE.Vector3(),
+        impulse: new THREE.Vector3(),
+      }
+    }
+    const item = this.pool[this.idx]
+    item.position.copy(position)
+    item.normal.copy(normal)
+    item.impulse.copy(impulse)
+    this.result.contacts.push(item)
+    this.idx++
+  }
+
+  get() {
+    return this.result
   }
 }

@@ -35,7 +35,6 @@ export class Object extends Entity {
     this.creator = props.creator
 
     this.schema = this.world.entities.getSchema(props.schemaId)
-    console.log(this.schema)
 
     this.authority = this.createNetworkProp('authority', props.authority)
     this.uploading = this.createNetworkProp('uploading', props.uploading)
@@ -492,6 +491,9 @@ export class Object extends Entity {
     const entity = this
     const world = this.world
     return {
+      get entityId() {
+        return entity.id
+      },
       on(name, callback) {
         entity.on(name, callback)
       },

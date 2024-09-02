@@ -15,13 +15,10 @@ const defaults = {
   geometry: null,
   convex: false,
   trigger: false,
-  tag: '',
   layer: 'environment',
   staticFriction: 0.6,
   dynamicFriction: 0.6,
   restitution: 0,
-  onEnter: null,
-  onLeave: null,
 }
 
 const _v1 = new THREE.Vector3()
@@ -29,8 +26,6 @@ const _v2 = new THREE.Vector3()
 const _q1 = new THREE.Quaternion()
 
 const types = ['box', 'sphere', 'custom']
-
-const reservedTags = ['player']
 
 const pxMeshes = {}
 function getPxMesh(world, geometry, convex) {
@@ -53,13 +48,10 @@ export class Collider extends Node {
     this.geometry = data.geometry || defaults.geometry
     this.convex = isBoolean(data.convex) ? data.convex : defaults.convex
     this.trigger = isBoolean(data.trigger) ? data.trigger : defaults.trigger
-    this.tag = data.tag || defaults.tag
     this.layer = data.layer || defaults.layer
     this.staticFriction = isNumber(data.staticFriction) ? data.staticFriction : defaults.staticFriction
     this.dynamicFriction = isNumber(data.dynamicFriction) ? data.dynamicFriction : defaults.dynamicFriction
     this.restitution = isNumber(data.restitution) ? data.restitution : defaults.restitution
-    this.onEnter = data.onEnter || defaults.onEnter
-    this.onLeave = data.onLeave || defaults.onLeave
   }
 
   mount() {
@@ -87,15 +79,17 @@ export class Collider extends Node {
       flags.raise(PHYSX.PxShapeFlagEnum.eSCENE_QUERY_SHAPE | PHYSX.PxShapeFlagEnum.eSIMULATION_SHAPE)
     }
     const layer = Layers[this.layer]
-    const filterData = new PHYSX.PxFilterData(layer.group, layer.mask, 0, 0)
+    const filterData = new PHYSX.PxFilterData(
+      layer.group,
+      layer.mask,
+      PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_FOUND |
+        PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_LOST |
+        PHYSX.PxPairFlagEnum.eNOTIFY_CONTACT_POINTS,
+      0
+    )
     this.shape = this.ctx.world.physics.physics.createShape(geometry, material, true, flags)
     this.shape.setQueryFilterData(filterData)
     this.shape.setSimulationFilterData(filterData)
-    if (this.trigger) {
-      this.shape.triggerNode = this
-    } else {
-      this.shape.triggerResult = { id: this.id, tag: this.tag }
-    }
     // const parentWorldScale = _v2
     // this.parent.matrixWorld.decompose(_v1, _q1, parentWorldScale)
     const position = _v1.copy(this.position).multiply(this.parent.scale)
@@ -121,8 +115,6 @@ export class Collider extends Node {
 
   unmount() {
     this.parent?.removeShape?.(this.shape)
-    // this.shape.triggerNode = null
-    // this.shape.triggerResult = null
     this.shape.release()
     this.shape = null
   }
@@ -137,13 +129,10 @@ export class Collider extends Node {
     this.geometry = source.geometry
     this.convex = source.convex
     this.trigger = source.trigger
-    this.tag = source.tag
     this.layer = source.layer
     this.staticFriction = source.staticFriction
     this.dynamicFriction = source.dynamicFriction
     this.restitution = source.restitution
-    this.onEnter = source.onEnter
-    this.onLeave = source.onLeave
     return this
   }
 
@@ -232,13 +221,6 @@ export class Collider extends Node {
             self.setDirty()
           }
         },
-        get tag() {
-          return self.tag
-        },
-        set tag(value) {
-          if (reservedTags.includes(value)) throw new Error('[collider] cannot use reserved tag:', value)
-          self.tag = value || defaults.tag
-        },
         get layer() {
           return self.layer
         },
@@ -292,12 +274,6 @@ export class Collider extends Node {
             self.needsRebuild = true
             self.setDirty()
           }
-        },
-        set onEnter(value) {
-          self.onEnter = value
-        },
-        set onLeave(value) {
-          self.onLeave = value
         },
       }
       proxy = Object.defineProperties(proxy, Object.getOwnPropertyDescriptors(super.getProxy())) // inherit Node properties

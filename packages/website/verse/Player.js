@@ -200,16 +200,18 @@ export class Player extends Entity {
     _v1.set(0, halfHeight + radius, 0)
     _v1.toPxTransform(localPose)
     shape1.setLocalPose(localPose)
-    shape1.triggerResult = { id: -1, tag: 'player' }
     const filterData = new PHYSX.PxFilterData(
       Layers.player.group,
       Layers.player.mask,
       PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_FOUND |
+        PHYSX.PxPairFlagEnum.eNOTIFY_TOUCH_LOST |
+        PHYSX.PxPairFlagEnum.eNOTIFY_CONTACT_POINTS |
         PHYSX.PxPairFlagEnum.eDETECT_CCD_CONTACT |
         PHYSX.PxPairFlagEnum.eSOLVE_CONTACT |
         PHYSX.PxPairFlagEnum.eDETECT_DISCRETE_CONTACT,
       0
     )
+    shape1.setContactOffset(0.08) // just enough to fire contacts (because we muck with velocity sometimes standing on a thing doesn't contact)
     // shape1.setFlag(PHYSX.PxShapeFlagEnum.eUSE_SWEPT_BOUNDS, true)
     shape1.setQueryFilterData(filterData)
     shape1.setSimulationFilterData(filterData)
@@ -244,7 +246,16 @@ export class Player extends Entity {
       this.actor.attachShape(shape2)
     }
 
-    this.world.physics.scene.addActor(this.actor)
+    const self = this
+    this.removeActor = this.world.physics.addActor(this.actor, {
+      tag: 'player',
+      // get onContactStart() {
+      //   return self.onContactStart
+      // },
+      // get onContactEnd() {
+      //   return self.onContactEnd
+      // },
+    })
     this.untrack = this.world.physics.track(this.actor, this.onPhysicsMovement)
 
     // start
@@ -1323,8 +1334,8 @@ export class Player extends Entity {
 
     this.untrack?.()
     this.untrack = null
-
-    this.world.physics.scene.removeActor(this.actor)
+    this.removeActor?.()
+    this.removeActor = null
 
     this.control?.release()
     this.control = null
