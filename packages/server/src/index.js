@@ -23,13 +23,13 @@ app.use(compression())
 app.use(cookieParser())
 app.use(express.json())
 
-app.use('/assets', express.static('assets'))
+app.use('/assets', express.static('assets-public'))
 
 app.use('/api', api)
 
 const instances = new Map()
 server.on('upgrade', (req, sock, head) => {
-  const url = new URL(req.url, 'http://supaverse')
+  const url = new URL(req.url, 'http://verse')
   const pathname = url.pathname
   const match = /^\/worlds\/([^\/]+)\/?$/.exec(pathname)
   let id = match?.[1] || null

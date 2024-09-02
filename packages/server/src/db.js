@@ -1,4 +1,8 @@
 import Knex from 'knex'
+import moment from 'moment'
+
+import { avatarScriptCompiled, avatarScriptRaw } from './scripts/avatar'
+import { botScriptCompiled, botScriptRaw } from './scripts/bot'
 
 export const db = Knex({
   client: 'better-sqlite3',
@@ -64,4 +68,23 @@ export async function migrate() {
       table.timestamp('updatedAt').notNullable()
     })
   }
+
+  // temp: we're just slamming these into the db here for now
+  // const now = moment().toISOString()
+  // const avatarScript = {
+  //   id: '$avatar',
+  //   raw: avatarScriptRaw,
+  //   compiled: avatarScriptCompiled,
+  //   createdAt: now,
+  //   updatedAt: now,
+  // }
+  // await db('scripts').insert(avatarScript).onConflict('id').merge(avatarScript)
+  // const botScript = {
+  //   id: '$bot',
+  //   raw: botScriptRaw,
+  //   compiled: botScriptCompiled,
+  //   createdAt: now,
+  //   updatedAt: now,
+  // }
+  // await db('scripts').insert(botScript).onConflict('id').merge(botScript)
 }

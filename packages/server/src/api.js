@@ -10,44 +10,21 @@ import { createToken, readToken } from './utils/jwt'
 import { uuid } from './utils/uuid'
 import { hashFile, hashString } from './utils/hash'
 
-import { avatarScriptCompiled, avatarScriptRaw } from './scripts/avatar'
-import { botScriptCompiled, botScriptRaw } from './scripts/bot'
-
 import { db, migrate } from './db'
 
-export const api = express.Router()
-
-const assetsDir = path.join('./assets')
-const assetsInitDir = path.join('./assets_init')
-
-const multerUpload = multer()
-
-// copy assets_initial/* to assets/*
-await fs.ensureDir(assetsDir)
-await fs.copy(assetsInitDir, assetsDir, {
+// ensure all fixture assets are in our public assets directory
+const fixedAssetsDir = path.join('./assets')
+const publicAssetsDir = path.join('./assets-public')
+fs.ensureDirSync(publicAssetsDir)
+fs.copySync(fixedAssetsDir, publicAssetsDir, {
   recursive: true,
 })
 
-await migrate()
+export const api = express.Router()
 
-// temp: we're just slamming these into the db here for now
-const now = moment().toISOString()
-const avatarScript = {
-  id: '$avatar',
-  raw: avatarScriptRaw,
-  compiled: avatarScriptCompiled,
-  createdAt: now,
-  updatedAt: now,
-}
-await db('scripts').insert(avatarScript).onConflict('id').merge(avatarScript)
-const botScript = {
-  id: '$bot',
-  raw: botScriptRaw,
-  compiled: botScriptCompiled,
-  createdAt: now,
-  updatedAt: now,
-}
-await db('scripts').insert(botScript).onConflict('id').merge(botScript)
+const multerUpload = multer()
+
+await migrate()
 
 const checkAuth = async req => {
   const token = req.headers['x-auth-token']
@@ -120,7 +97,7 @@ api.post('/connect', async (req, res) => {
   }
   address = address.toLowerCase()
   let recoveredAddress = await recoverMessageAddress({
-    message: 'Connect to XYZ!',
+    message: 'Connect to verse!',
     signature,
   })
   recoveredAddress = recoveredAddress.toLowerCase()
@@ -152,11 +129,9 @@ api.post('/assets', multerUpload.single('file'), async (req, res) => {
   const { file } = req
   // TODO: record in db
   const hash = await hashFile(file)
-  const filePath = path.join(assetsDir, hash)
+  const filePath = path.join(publicAssetsDir, hash)
   await fs.writeFile(filePath, file.buffer, 'binary')
-  console.log(
-    'TODO: POST /assets should return just the hash and store just the hash on schema'
-  )
+  console.log('TODO: POST /assets should return just the hash and store just the hash on schema')
   res.status(201).json({ hash })
 })
 

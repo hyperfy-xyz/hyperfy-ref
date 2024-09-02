@@ -6,7 +6,7 @@
 .env*
 !.env.example
 node_modules/
-assets/
+assets-public/
 dist/
 arch
 db
