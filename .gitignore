@@ -1,8 +1,9 @@
 .DS_Store
 .firebolt
 .secret
-.env*
 .yarn
+.notes
+.env*
 !.env.example
 node_modules/
 assets/
