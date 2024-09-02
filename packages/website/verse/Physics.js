@@ -90,14 +90,14 @@ export class Physics extends System {
           }
           const result = this.contactsResult.get()
           if (!handle0.contactedHandles.has(handle1)) {
-            result.entityId = handle1.entityId
             result.tag = handle1.tag
+            result.isAuthority = handle1.isAuthority
             handle0.onContactStart?.(result)
             handle0.contactedHandles.add(handle1)
           }
           if (!handle1.contactedHandles.has(handle0)) {
-            result.entityId = handle0.entityId
             result.tag = handle0.tag
+            result.isAuthority = handle0.isAuthority
             handle1.onContactStart?.(result)
             handle1.contactedHandles.add(handle0)
           }
@@ -105,11 +105,13 @@ export class Physics extends System {
           const result = this.contactsResult.get()
           if (handle0.contactedHandles.has(handle1)) {
             result.tag = handle1.tag
+            result.isAuthority = handle1.isAuthority
             handle0.onContactEnd?.(result)
             handle0.contactedHandles.delete(handle1)
           }
           if (handle1.contactedHandles.has(handle0)) {
             result.tag = handle0.tag
+            result.isAuthority = handle0.isAuthority
             handle1.onContactEnd?.(result)
             handle1.contactedHandles.delete(handle0)
           }

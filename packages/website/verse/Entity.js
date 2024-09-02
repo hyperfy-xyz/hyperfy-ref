@@ -39,6 +39,10 @@ export class Entity {
     return prop.box
   }
 
+  destroyNetworkProp(key) {
+    delete this.props[key]
+  }
+
   sendNetworkUpdate() {
     const data = {
       id: this.id,

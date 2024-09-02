@@ -211,9 +211,9 @@ export class Object extends Entity {
     this.decHot(this.hotEvents)
     this.hotEvents = 0
     // clear script vars
-    // for (let i = 0; i < this.scriptVarIds; i++) {
-    //   this.destroyVar(`$${i}`)
-    // }
+    for (let i = 0; i < this.scriptVarIds; i++) {
+      this.destroyNetworkProp(`__${i}`)
+    }
     this.scriptVarIds = 0
     // reconstruct
     if (this.isUploading()) {

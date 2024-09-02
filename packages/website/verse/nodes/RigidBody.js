@@ -68,8 +68,12 @@ export class RigidBody extends Node {
     const self = this
     this.removeActor = this.ctx.world.physics.addActor(this.actor, {
       onInterpolate: this.type === 'kinematic' || this.type === 'dynamic' ? this.onInterpolate : null,
+
       get tag() {
         return self.tag
+      },
+      get isAuthority() {
+        return self.ctx.entity.isAuthority()
       },
       get onContactStart() {
         return self.onContactStart
