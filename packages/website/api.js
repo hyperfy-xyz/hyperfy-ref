@@ -47,7 +47,7 @@ export class API {
 
   async post(path, data) {
     const url = `${this.baseUrl}${path}`
-    console.log('post', url, data)
+    // console.log('post', url, data)
     const resp = await fetch(url, {
       headers: {
         ...this.headers(),
