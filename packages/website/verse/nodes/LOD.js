@@ -2,6 +2,7 @@ import * as THREE from 'three'
 
 import { Node } from './Node'
 
+const v0 = new THREE.Vector3()
 const v1 = new THREE.Vector3()
 
 export class LOD extends Node {
@@ -25,7 +26,8 @@ export class LOD extends Node {
   }
 
   check() {
-    const cameraPos = this.ctx.world.graphics.cameraRig.position
+    const cameraPos = v0.setFromMatrixPosition(this.ctx.world.graphics.camera.matrixWorld)
+    // const cameraPos = this.ctx.world.graphics.cameraRig.position
     const itemPos = v1.set(this.matrixWorld.elements[12], this.matrixWorld.elements[13], this.matrixWorld.elements[14]) // prettier-ignore
     const distance = cameraPos.distanceTo(itemPos)
     const lod = this.lods.find(lod => distance <= lod.maxDistance)

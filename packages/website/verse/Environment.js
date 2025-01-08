@@ -66,9 +66,7 @@ export class Environment extends System {
       },
       zoom: delta => {
         if (this.moving) {
-          q1.setFromAxisAngle(UP, MOVE_ROTATE_SPEED * delta).multiply(
-            this.moving.entity.root.quaternion
-          )
+          q1.setFromAxisAngle(UP, MOVE_ROTATE_SPEED * delta).multiply(this.moving.entity.root.quaternion)
           this.moving.entity.quaternion.value = q1
           // this.moving.entity.applyLocalProps({
           //   quaternion: q1,

@@ -25,7 +25,7 @@ import { Graphics } from './Graphics'
 import { Stats } from './Stats'
 
 const MAX_DELTA_TIME = 1 / 3 // 0.33333
-const FIXED_DELTA_TIME = 1 / 50 //  0.01666
+const FIXED_DELTA_TIME = 1 / 30 //  0.01666
 
 export class World extends EventEmitter {
   constructor({ id, auth }) {

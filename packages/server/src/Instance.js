@@ -1,11 +1,6 @@
 import { Sock } from './Sock'
 import { Events } from './Events'
-import {
-  getEntitiesByWorld,
-  getOrCreatePermissions,
-  getOrCreateWorld,
-  getUserByToken,
-} from './actions'
+import { getEntitiesByWorld, getOrCreatePermissions, getOrCreateWorld, getUserByToken } from './actions'
 
 export class Instance {
   constructor({ id, onDestroy }) {

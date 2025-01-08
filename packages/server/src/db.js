@@ -69,8 +69,8 @@ export async function migrate() {
     })
   }
 
+  const now = moment().toISOString()
   // temp: we're just slamming these into the db here for now
-  // const now = moment().toISOString()
   // const avatarScript = {
   //   id: '$avatar',
   //   raw: avatarScriptRaw,
@@ -79,12 +79,12 @@ export async function migrate() {
   //   updatedAt: now,
   // }
   // await db('scripts').insert(avatarScript).onConflict('id').merge(avatarScript)
-  // const botScript = {
-  //   id: '$bot',
-  //   raw: botScriptRaw,
-  //   compiled: botScriptCompiled,
-  //   createdAt: now,
-  //   updatedAt: now,
-  // }
-  // await db('scripts').insert(botScript).onConflict('id').merge(botScript)
+  const botScript = {
+    id: '$bot',
+    raw: botScriptRaw,
+    compiled: botScriptCompiled,
+    createdAt: now,
+    updatedAt: now,
+  }
+  await db('scripts').insert(botScript).onConflict('id').merge(botScript)
 }

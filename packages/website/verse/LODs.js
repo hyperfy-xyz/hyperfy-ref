@@ -2,7 +2,7 @@ import * as THREE from 'three'
 
 import { System } from './System'
 
-const BATCH_SIZE = 1000
+const BATCH_SIZE = 10000
 
 export class LODs extends System {
   constructor(world) {

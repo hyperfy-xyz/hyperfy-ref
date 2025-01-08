@@ -93,7 +93,7 @@ export const botScriptRaw = js`
   let direction = new Vector3()
 
   const ctrl = object.create({
-    type: 'controller',
+    name: 'controller',
     radius: 0.4,
     height: 1,
   })
@@ -124,7 +124,7 @@ export const botScriptRaw = js`
     }
   }
 
-  object.on('update', delta => {
+  object.on('fixedUpdate', delta => {
     vrm.setEmote(action.emote)
     const displacement = v1.set(0, 0, 0)
     if (action.move) {
